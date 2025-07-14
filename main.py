@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 from core import WeatherAPI, StorageManager, DataProcessor
-from gui import MainWindow, WeatherDisplay
+from gui import MainWindow
 from features import load_features
 import config
 
@@ -60,7 +60,6 @@ class WeatherDashboardApp:
         raw_data = self.api.fetch_weather(city)
         if not raw_data:
             return
-        
         # Process data
         weather_data = self.processor.process_api_response(raw_data)
         
@@ -73,6 +72,16 @@ class WeatherDashboardApp:
         # Update features
         for feature in self.features.values():
             feature.update(weather_data)
+
+    def handle_refresh(self):
+        """Handle refresh action: re-fetch and update weather for the current city."""
+        # Attempt to get the last searched city from the window or storage
+        city = getattr(self.window, "current_city", None)
+        if not city:
+            # Optionally, show a message or just return
+            print("No city to refresh.")
+            return
+        self.handle_search(city)
     
     def run(self):
         """Start the application"""

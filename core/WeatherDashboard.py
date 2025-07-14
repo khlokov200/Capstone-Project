@@ -106,6 +106,12 @@ def toggle_theme():
     mascot_label.config(bg=theme["bg"])
     draw_graph()
 
+def setup_callbacks(self):
+    """Setup GUI callbacks"""
+    self.window.register_callback('search', self.handle_search)
+    self.window.register_callback('refresh', self.handle_refresh)  # <-- This line needs handle_refresh
+
+
 # GUI setup
 root = tk.Tk()
 root.title("Enhanced Weather Dashboard")

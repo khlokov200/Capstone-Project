@@ -1,18 +1,16 @@
 import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
-# config.py
-API_KEY = "c317d9e6251547094d7f3134f3a964ce"
-# Replace 'your_actual_api_key_here
+load_dotenv()  # This loads variables from .env
 
-
+# Get API key from environment variable
+API_KEY = os.getenv("WEATHER_API_KEY")
+SELECTED_FEATURES = ["feature1", "feature2"]  # Replace with your actual feature names
 
 @dataclass
 class Config:
-    """Application configuration with secure defaults.
-    This class holds all the configuration values needed by your app — 
-    things like API credentials, file paths, and retry settings.
-    """
+    """Application configuration with secure defaults."""
     api_key: str            # Required credential to authenticate with the weather API
     database_path: str      # Path to the SQLite database file for storing weather data
     log_level: str = "INFO" # Controls logging verbosity: DEBUG, INFO, WARNING, etc.
@@ -21,12 +19,10 @@ class Config:
     
     @classmethod
     def from_environment(cls):
-        """This method instantiates a Config object using environment variables, 
-        which is ideal for production deployments or CI pipelines."""
-        api_key = os.getenv('WEATHER_API_KEY') # Tries to load the WEATHER_API_KEY from the environment.
+        """Instantiate Config using environment variables."""
+        api_key = os.getenv('WEATHER_API_KEY')
         if not api_key:
             raise ValueError("WEATHER_API_KEY environment variable required")
-            
         return cls(
             api_key=api_key,
             database_path=os.getenv('DATABASE_PATH', 'weather_data.db'),
