@@ -456,12 +456,6 @@ def create_aggregated_features(self, df: pd.DataFrame) -> pd.DataFrame:
     return agg_df, daily_agg
 
 
-
-
-
-
-
-
 def prepare_analysis_datasets(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     """
     Prepare different dataset views for various types of analysis.

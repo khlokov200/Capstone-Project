@@ -76,3 +76,7 @@ pip install requests python-dotenv matplotlib
 MIT License (add if open-sourcing)
 
 ---
+<<<<<<< ours
+=======
+Enjoy your enhanced, interactive, and personalized weather dashboard! ☀️🌧️🌙
+>>>>>>> theirs

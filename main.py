@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 from core import WeatherAPI, StorageManager, DataProcessor
-from gui import MainWindow
+from gui import MainWindow, WeatherDisplay
 from features import load_features
 import config
 

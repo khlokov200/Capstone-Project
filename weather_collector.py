@@ -3,8 +3,9 @@ import threading
 from datetime import datetime, timedelta
 from typing import List
 import time
-import WeatherDataCollector
-import WeatherDatabase
+import sqlite3
+from weather_data_collector import WeatherDataCollector
+from weather_database import WeatherDatabase
 
 class WeatherCollectionOrchestrator:
     """

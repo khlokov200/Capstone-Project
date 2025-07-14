@@ -5,7 +5,24 @@
 | Preferred Feature Track | Smart               |
 | Team Interest           | Yes – Project Owner |
 
-Section 1: Week 11 Reflection
+
+Project Structure:
+WeatherDashboard/
+├── main.py            # GUI + main logic
+├── config.py          # API key config
+├── data/
+│   └── weather_log.csv  # saved weather data
+├── docs/
+│   └── README.md      # project description
+├── tests/
+│   └── test_main.py   # sample test
+└── .gitignore
+
+
+Week 11 Reflection
+
+Section 1: 
+
 Key Takeaways:
 This Capstone project will require early planning and thoughtful architecture.
 
