@@ -9,22 +9,21 @@ import random
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
+from core.processor import DataProcessor  # <-- Use your data processor
+from features.activity_suggester import ActivitySuggester  # <-- Use your activity suggester
 
 # --- Weather Service ---
 class OpenWeatherService:
     def __init__(self, api_key, log_file="data/weather_log.csv"):
+        load_dotenv()
+        api_key = os.getenv("WEATHER_API_KEY")
+        if not api_key:
+            raise ValueError("Missing WEATHER_API_KEY in environment variables.")
+        self.activity_suggester = ActivitySuggester()
         self.api_key = api_key
         self.api = WeatherAPI(api_key)  # <-- Use WeatherAPI for current weather
         self.log_file = log_file
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        self.activity_map = {
-            "clear": ["Go for a walk", "Have a picnic", "Go for a bike ride"],
-            "clouds": ["Visit a museum", "Go to a coffee shop", "Watch a movie"],
-            "rain": ["Read a book", "Do indoor yoga", "Bake something warm"],
-            "snow": ["Build a snowman", "Go sledding", "Drink hot chocolate"],
-            "default": ["Relax at home", "Do some journaling", "Organize your room"]
-        }
 
     def get_current_weather(self, city):
         data = self.api.fetch_weather(city)
@@ -34,16 +33,31 @@ class OpenWeatherService:
         temp = data["main"]["temp"]
         self.save_weather(city, temp, desc)
         return temp, desc
+    
+    def handle_activity_suggest(self, description: str):
+        """Return activity suggestion based on weather description"""
+        if not description:
+            return None
+        return self.activity_suggester.suggest(description)
 
-    def get_forecast(self, city):
-        url = f"https://api.openweathermap.org/data/2.5/forecast"
-        params = {"q": city, "appid": self.api_key, "units": "metric"}
+    def get_forecast(self, city, limit=5):
+        """Fetch 5-day forecast for a city (default 5 entries)"""
+        url = "https://api.openweathermap.org/data/2.5/forecast"
+        params = {
+            "q": city,
+            "appid": self.api_key,
+            "units": "metric"
+        }
         resp = requests.get(url, params=params)
-        data = resp.json()
         if resp.status_code != 200:
-            raise Exception(data.get("message", "Failed to fetch forecast"))
+            try:
+                message = resp.json().get("message", "Failed to fetch forecast")
+            except Exception:
+                message = "Failed to fetch forecast"
+            raise Exception(message)
+        data = resp.json()
         forecasts = []
-        for item in data["list"][:5]:
+        for item in data.get("list", [])[:limit]:
             dt_txt = item["dt_txt"]
             desc = item["weather"][0]["description"].capitalize()
             temp = item["main"]["temp"]
@@ -73,9 +87,9 @@ class OpenWeatherService:
 
     def suggest(self, city):
         temp, desc = self.get_current_weather(city)
-        key = next((k for k in self.activity_map if k in desc.lower()), "default")
-        return random.choice(self.activity_map[key])
-
+        suggestion = self.activity_suggester.suggest(desc)
+        return suggestion
+ 
     def generate_poem(self, city):
         temp, desc = self.get_current_weather(city)
         return f"{city} weather inspires:\n{desc}, {temp}°C\nNature sings in every degree."
@@ -99,13 +113,17 @@ class MainWindow(tk.Tk):
         self.geometry("900x700")
         self.configure(bg="#23272e")
 
+        # Create content_frame for buttons/labels
+        self.content_frame = ttk.Frame(self)
+        self.content_frame.pack(fill="both", expand=True)
+
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TNotebook", background="#23272e", borderwidth=0)
         style.configure("TNotebook.Tab", background="#2c313c", foreground="#fff", padding=10)
         style.map("TNotebook.Tab", background=[("selected", "#3a3f4b")])
 
-        notebook = ttk.Notebook(self)
+        notebook = ttk.Notebook(self.content_frame)
         notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.current_weather_tab(notebook, weather_service)
@@ -115,6 +133,18 @@ class MainWindow(tk.Tk):
         self.activity_tab(notebook, activity_service)
         self.poetry_tab(notebook, poetry_service)
         self.history_tab(notebook, weather_service)
+
+        # Activity Suggester Button
+        self.activity_button = tk.Button(self.content_frame, text="Suggest Activity", command=self.handle_activity_suggest)
+        self.activity_button.pack(pady=10)
+ 
+        # Activity suggestion display label
+        self.activity_label = tk.Label(self.content_frame, text="", font=("Arial", 12), fg="green", wraplength=500, justify="left")
+        self.activity_label.pack(pady=5)
+
+    def handle_activity_suggest(self):
+        # Example: update label with a suggestion (implement as needed)
+        self.activity_label.config(text="Activity suggestion goes here!")
 
     def current_weather_tab(self, notebook, weather_service):
         frame = ttk.Frame(notebook)
@@ -296,7 +326,7 @@ class MainWindow(tk.Tk):
 
 if __name__ == "__main__":
     load_dotenv()
-    API_KEY = os.getenv("OPENWEATHER_API_KEY")
+    API_KEY = os.getenv("WEATHER_API_KEY")
     live_service = OpenWeatherService(API_KEY)
     app = MainWindow(
         live_service, live_service, live_service, live_service, live_service
