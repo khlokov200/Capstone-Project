@@ -12,12 +12,13 @@ class WeatherAPI:
         self.base_url = "http://api.openweathermap.org/data/2.5/weather"
         self.timeout = 10
     
-    def fetch_weather(self, city: str) -> Optional[Dict]:
+    def fetch_weather(self, city: str, unit: str = "metric") -> Optional[Dict]:
         """
         Fetch weather data for a city
         
         Args:
             city: Name of the city
+            unit: "metric" for Celsius, "imperial" for Fahrenheit
             
         Returns:
             Dictionary with weather data or None if error
@@ -26,7 +27,7 @@ class WeatherAPI:
             params = {
                 'q': city,
                 'appid': self.api_key,
-                'units': 'imperial'
+                'units': unit  # <-- Use the unit argument here
             }
             response = requests.get(
                 self.base_url, 

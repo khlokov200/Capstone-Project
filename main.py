@@ -3,14 +3,15 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import requests
-from core.api import WeatherAPI  # <-- Use your API client
+from core.api import WeatherAPI
 import csv
 import random
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from core.processor import DataProcessor  # <-- Use your data processor
-from features.activity_suggester import ActivitySuggester  # <-- Use your activity suggester
+from core.processor import DataProcessor
+from features.activity_suggester import ActivitySuggester
+from features.five_day_forecast import FiveDayForecaster
 
 # --- Weather Service ---
 class OpenWeatherService:
@@ -21,12 +22,12 @@ class OpenWeatherService:
             raise ValueError("Missing WEATHER_API_KEY in environment variables.")
         self.activity_suggester = ActivitySuggester()
         self.api_key = api_key
-        self.api = WeatherAPI(api_key)  # <-- Use WeatherAPI for current weather
+        self.api = WeatherAPI(api_key)
         self.log_file = log_file
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
 
-    def get_current_weather(self, city):
-        data = self.api.fetch_weather(city)
+    def get_current_weather(self, city, unit="metric"):
+        data = self.api.fetch_weather(city, unit)
         if not data:
             raise Exception("Failed to fetch weather")
         desc = data["weather"][0]["description"].capitalize()
@@ -35,18 +36,16 @@ class OpenWeatherService:
         return temp, desc
     
     def handle_activity_suggest(self, description: str):
-        """Return activity suggestion based on weather description"""
         if not description:
             return None
         return self.activity_suggester.suggest(description)
 
-    def get_forecast(self, city, limit=5):
-        """Fetch 5-day forecast for a city (default 5 entries)"""
+    def get_forecast(self, city, unit="metric", limit=5):
         url = "https://api.openweathermap.org/data/2.5/forecast"
         params = {
             "q": city,
             "appid": self.api_key,
-            "units": "metric"
+            "units": unit
         }
         resp = requests.get(url, params=params)
         if resp.status_code != 200:
@@ -61,13 +60,13 @@ class OpenWeatherService:
             dt_txt = item["dt_txt"]
             desc = item["weather"][0]["description"].capitalize()
             temp = item["main"]["temp"]
-            forecasts.append(f"{dt_txt}: {desc}, {temp}°C")
+            forecasts.append(f"{dt_txt}: {desc}, {temp}°")
         return "\n".join(forecasts)
 
-    def compare_cities(self, c1, c2):
-        t1, d1 = self.get_current_weather(c1)
-        t2, d2 = self.get_current_weather(c2)
-        return f"{c1}: {t1}°C, {d1}\n{c2}: {t2}°C, {d2}"
+    def compare_cities(self, c1, c2, unit="metric"):
+        t1, d1 = self.get_current_weather(c1, unit)
+        t2, d2 = self.get_current_weather(c2, unit)
+        return f"{c1}: {t1}°, {d1}\n{c2}: {t2}°, {d2}"
 
     def save_weather(self, city, temp, desc):
         file_exists = os.path.isfile(self.log_file)
@@ -85,17 +84,16 @@ class OpenWeatherService:
             recent = reader[-limit:]
             return [row["DateTime"] for row in recent], [float(row["Temperature"]) for row in recent]
 
-    def suggest(self, city):
-        temp, desc = self.get_current_weather(city)
+    def suggest(self, city, unit="metric"):
+        temp, desc = self.get_current_weather(city, unit)
         suggestion = self.activity_suggester.suggest(desc)
         return suggestion
  
-    def generate_poem(self, city):
-        temp, desc = self.get_current_weather(city)
-        return f"{city} weather inspires:\n{desc}, {temp}°C\nNature sings in every degree."
+    def generate_poem(self, city, unit="metric"):
+        temp, desc = self.get_current_weather(city, unit)
+        return f"{city} weather inspires:\n{desc}, {temp}°\nNature sings in every degree."
 
     def save_entry(self, text, mood):
-        # Implement saving to file or database if needed
         pass
 
 # --- Main GUI ---
@@ -106,14 +104,16 @@ class MainWindow(tk.Tk):
         comparison_service,
         journal_service,
         activity_service,
-        poetry_service
+        poetry_service,
+        five_day_forecaster
     ):
         super().__init__()
         self.title("Weather Dashboard Capstone")
         self.geometry("900x700")
         self.configure(bg="#23272e")
 
-        # Create content_frame for buttons/labels
+        self.temp_unit = tk.StringVar(value="metric")  # Celsius by default
+
         self.content_frame = ttk.Frame(self)
         self.content_frame.pack(fill="both", expand=True)
 
@@ -133,17 +133,26 @@ class MainWindow(tk.Tk):
         self.activity_tab(notebook, activity_service)
         self.poetry_tab(notebook, poetry_service)
         self.history_tab(notebook, weather_service)
+        self.five_day_forecast_tab(notebook, five_day_forecaster)
 
-        # Activity Suggester Button
         self.activity_button = tk.Button(self.content_frame, text="Suggest Activity", command=self.handle_activity_suggest)
         self.activity_button.pack(pady=10)
- 
-        # Activity suggestion display label
         self.activity_label = tk.Label(self.content_frame, text="", font=("Arial", 12), fg="green", wraplength=500, justify="left")
         self.activity_label.pack(pady=5)
 
+        # Toggle button for Celsius/Fahrenheit
+        self.toggle_btn = tk.Button(self.content_frame, text="Switch to °F", command=self.toggle_unit)
+        self.toggle_btn.pack(pady=5)
+
+    def toggle_unit(self):
+        if self.temp_unit.get() == "metric":
+            self.temp_unit.set("imperial")
+            self.toggle_btn.config(text="Switch to °C")
+        else:
+            self.temp_unit.set("metric")
+            self.toggle_btn.config(text="Switch to °F")
+
     def handle_activity_suggest(self):
-        # Example: update label with a suggestion (implement as needed)
         self.activity_label.config(text="Activity suggestion goes here!")
 
     def current_weather_tab(self, notebook, weather_service):
@@ -162,11 +171,13 @@ class MainWindow(tk.Tk):
 
         def fetch_weather():
             city = city_entry.get()
+            unit = self.temp_unit.get()
             try:
-                temp, desc = weather_service.get_current_weather(city)
+                temp, desc = weather_service.get_current_weather(city, unit)
+                unit_label = "°C" if unit == "metric" else "°F"
                 result.delete(1.0, tk.END)
-                result.insert(tk.END, f"Weather in {city}:\n{temp}°C\n{desc}")
-                if temp > 35 or "storm" in desc.lower():
+                result.insert(tk.END, f"Weather in {city}:\n{temp}{unit_label}\n{desc}")
+                if temp > 35 and unit == "metric" or (unit == "imperial" and temp > 95) or "storm" in desc.lower():
                     alert_label.config(text="⚠️ Weather Alert: Stay safe!", foreground="red")
                 else:
                     alert_label.config(text="", foreground="#fff")
@@ -177,7 +188,6 @@ class MainWindow(tk.Tk):
         btn = ttk.Button(frame, text="Get Weather", command=fetch_weather)
         btn.pack(pady=5)
 
-        # Matplotlib graph
         self.fig, self.ax = plt.subplots(figsize=(5, 2))
         self.canvas = FigureCanvasTkAgg(self.fig, master=frame)
         self.canvas.get_tk_widget().pack()
@@ -188,7 +198,7 @@ class MainWindow(tk.Tk):
         self.ax.clear()
         self.ax.plot(dates, temps, marker='o', color='orange')
         self.ax.set_title("Temperature History")
-        self.ax.set_ylabel("°C")
+        self.ax.set_ylabel("°")
         self.ax.tick_params(axis='x', labelrotation=45)
         self.fig.tight_layout()
         self.canvas.draw()
@@ -205,14 +215,40 @@ class MainWindow(tk.Tk):
 
         def fetch_forecast():
             city = city_entry.get()
+            unit = self.temp_unit.get()
             try:
-                forecast = weather_service.get_forecast(city)
+                forecast = weather_service.get_forecast(city, unit)
+                unit_label = "°C" if unit == "metric" else "°F"
                 result.delete(1.0, tk.END)
-                result.insert(tk.END, f"Forecast for {city}:\n{forecast}")
+                result.insert(tk.END, f"Forecast for {city} ({unit_label}):\n{forecast}")
             except Exception as e:
                 messagebox.showerror("Error", str(e))
 
         btn = ttk.Button(frame, text="Get Forecast", command=fetch_forecast)
+        btn.pack(pady=5)
+
+    def five_day_forecast_tab(self, notebook, forecaster):
+        frame = ttk.Frame(notebook)
+        notebook.add(frame, text="5-Day Forecast")
+        label = ttk.Label(frame, text="Enter City:", background="#23272e", foreground="#fff")
+        label.pack(pady=10)
+        city_entry = ttk.Entry(frame)
+        city_entry.pack()
+        result = tk.Text(frame, height=15, width=80, bg="#2c313c", fg="#fff")
+        result.pack(pady=10)
+
+        def fetch_5day():
+            city = city_entry.get()
+            unit = self.temp_unit.get()
+            try:
+                forecast = forecaster.fetch_5day_forecast(city, unit)
+                unit_label = "°C" if unit == "metric" else "°F"
+                result.delete(1.0, tk.END)
+                result.insert(tk.END, f"5-Day Forecast for {city} ({unit_label}):\n{forecast}")
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+
+        btn = ttk.Button(frame, text="Get 5-Day Forecast", command=fetch_5day)
         btn.pack(pady=5)
 
     def comparison_tab(self, notebook, comparison_service):
@@ -232,10 +268,12 @@ class MainWindow(tk.Tk):
         def compare():
             city1 = city1_entry.get()
             city2 = city2_entry.get()
+            unit = self.temp_unit.get()
             try:
-                comparison = comparison_service.compare_cities(city1, city2)
+                comparison = comparison_service.compare_cities(city1, city2, unit)
+                unit_label = "°C" if unit == "metric" else "°F"
                 result.delete(1.0, tk.END)
-                result.insert(tk.END, f"Comparison:\n{comparison}")
+                result.insert(tk.END, f"Comparison ({unit_label}):\n{comparison}")
             except Exception as e:
                 messagebox.showerror("Error", str(e))
 
@@ -281,8 +319,9 @@ class MainWindow(tk.Tk):
 
         def suggest():
             city = city_entry.get()
+            unit = self.temp_unit.get()
             try:
-                suggestion = activity_service.suggest(city)
+                suggestion = activity_service.suggest(city, unit)
                 result.delete(1.0, tk.END)
                 result.insert(tk.END, f"Suggested Activities:\n{suggestion}")
             except Exception as e:
@@ -303,8 +342,9 @@ class MainWindow(tk.Tk):
 
         def generate_poem():
             city = city_entry.get()
+            unit = self.temp_unit.get()
             try:
-                poem = poetry_service.generate_poem(city)
+                poem = poetry_service.generate_poem(city, unit)
                 result.delete(1.0, tk.END)
                 result.insert(tk.END, f"Weather Poem:\n{poem}")
             except Exception as e:
@@ -322,13 +362,14 @@ class MainWindow(tk.Tk):
         history_box.pack(pady=10)
         dates, temps = weather_service.load_weather_history(15)
         for dt, temp in zip(dates, temps):
-            history_box.insert(tk.END, f"{dt}: {temp}°C\n")
+            history_box.insert(tk.END, f"{dt}: {temp}°\n")
 
 if __name__ == "__main__":
     load_dotenv()
     API_KEY = os.getenv("WEATHER_API_KEY")
+    five_day_forecaster = FiveDayForecaster(API_KEY)
     live_service = OpenWeatherService(API_KEY)
     app = MainWindow(
-        live_service, live_service, live_service, live_service, live_service
+        live_service, live_service, live_service, live_service, live_service, five_day_forecaster
     )
     app.mainloop()
