@@ -27,7 +27,9 @@ class WeatherAPI:
             params = {
                 'q': city,
                 'appid': self.api_key,
-                'units': unit  # <-- Use the unit argument here
+                'units': unit  # <-- Use the unit argument here,
+            
+
             }
             response = requests.get(
                 self.base_url, 

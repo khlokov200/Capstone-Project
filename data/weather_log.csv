@@ -1,14 +1,26 @@
-DateTime,City,Temperature,Description
-2025-07-14 21:38:45,baltimore,73.99,Overcast clouds
-2025-07-14 21:39:54,alaska,55.08,Light rain
-2025-07-14 21:39:54,miami,74.39,Overcast clouds
-2025-07-14 21:41:46,baltimore,73.99,Overcast clouds
-2025-07-14 21:53:05,lyon,61.79,Broken clouds
-2025-07-15 15:16:45,chicago,89.56,Broken clouds
-2025-07-15 15:17:21,baltimore,88.11,Broken clouds
-2025-07-15 15:17:21,honolulu,83.48,Scattered clouds
-2025-07-15 15:18:10,lagos,76.03,Overcast clouds
-2025-07-15 15:18:21,ontario,83.16,Clear sky
-2025-07-15 20:23:59,chicago,83.82,Scattered clouds
-2025-07-15 20:24:05,chicago,83.82,Scattered clouds
-2025-07-16 17:13:44,chicago,75.27,Broken clouds
+DateTime           , City     , Temperature, Description
+2025-07-14 21:38:45, baltimore,       73.99, Overcast clouds
+2025-07-14 21:39:54, alaska   ,       55.08, Light rain
+2025-07-14 21:39:54, miami    ,       74.39, Overcast clouds
+2025-07-14 21:41:46, baltimore,       73.99, Overcast clouds
+2025-07-14 21:53:05, lyon     ,       61.79, Broken clouds
+2025-07-15 15:16:45, chicago  ,       89.56, Broken clouds
+2025-07-15 15:17:21, baltimore,       88.11, Broken clouds
+2025-07-15 15:17:21, honolulu ,       83.48, Scattered clouds
+2025-07-15 15:18:10, lagos    ,       76.03, Overcast clouds
+2025-07-15 15:18:21, ontario  ,       83.16, Clear sky
+2025-07-15 20:23:59, chicago  ,       83.82, Scattered clouds
+2025-07-15 20:24:05, chicago  ,       83.82, Scattered clouds
+2025-07-16 17:13:44, chicago  ,       75.27, Broken clouds
+2025-07-16 18:14:03, honolulu ,       28.23, Broken clouds
+2025-07-16 18:14:31, honolulu ,       82.54, Broken clouds
+2025-07-16 18:15:26, chicago  ,       75.22, Broken clouds
+2025-07-16 18:15:27, new york ,       84.38, Broken clouds
+2025-07-16 18:19:10, van      ,       63.75, Few clouds
+2025-07-16 19:06:26, baltimore,       28.48, Overcast clouds
+2025-07-16 19:06:42, baltimore,       83.26, Overcast clouds
+2025-07-17 20:02:29,chicago,18.5,Overcast clouds,metric,76,1.34
+2025-07-17 20:02:35,chicago,18.5,Overcast clouds,metric,76,1.34
+2025-07-17 20:02:36,chicago,18.5,Overcast clouds,metric,76,1.34
+2025-07-18 08:48:32,chicago,20.43,Scattered clouds,metric,75,2.57
+2025-07-18 08:55:28,chicago,20.87,Few clouds,metric,75,1.83
