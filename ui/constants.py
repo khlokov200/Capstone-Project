@@ -17,7 +17,12 @@ COLOR_PALETTE = {
     "button_warning": "#FF5722",      # Orange-red - good contrast
     "button_info": "#00BCD4",         # Teal - good contrast
     "button_dark": "#212121",         # Dark gray - good contrast
-    "text_on_button": "#FFFFFF"       # White text for buttons
+    "text_on_button": "#FFFFFF",      # White text for buttons
+    "text_on_button_black": "#000000", # Black text for buttons
+    # New enhanced button colors for better UX
+    "button_accent": "#FFD700",       # Gold - for accent actions
+    "button_success": "#98FB98",      # Pale green - for positive actions
+    "button_warning_light": "#FFE4B5" # Moccasin - for warning actions
 }
 
 # UI Configuration

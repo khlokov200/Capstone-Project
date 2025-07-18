@@ -60,11 +60,36 @@ class StyledButton(tk.Button):
             kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
             kwargs.setdefault("activebackground", "#0097A7")  # Darker teal when pressed
             kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
-        elif style_type == "dark":
-            kwargs.setdefault("bg", COLOR_PALETTE["button_dark"])
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
-            kwargs.setdefault("activebackground", "#424242")  # Lighter gray when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
+        elif style_type == "primary_black":
+            kwargs.setdefault("bg", "#90EE90")  # Light green background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#7FDD7F")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+        elif style_type == "cool_black":
+            kwargs.setdefault("bg", "#87CEEB")  # Sky blue background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#70C1E8")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+        elif style_type == "info_black":
+            kwargs.setdefault("bg", "#40E0D0")  # Turquoise background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#32C8BC")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+        elif style_type == "accent_black":
+            kwargs.setdefault("bg", COLOR_PALETTE["button_accent"])  # Gold background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#E6C200")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+        elif style_type == "success_black":
+            kwargs.setdefault("bg", COLOR_PALETTE["button_success"])  # Pale green background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#8AE88A")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+        elif style_type == "warning_black":
+            kwargs.setdefault("bg", COLOR_PALETTE["button_warning_light"])  # Moccasin background
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activebackground", "#F0D098")  # Slightly darker when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
         else:
             kwargs.setdefault("bg", COLOR_PALETTE["neutral"])
             kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])

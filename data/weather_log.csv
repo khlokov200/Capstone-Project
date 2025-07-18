@@ -24,3 +24,20 @@ DateTime           , City     , Temperature, Description
 2025-07-17 20:02:36,chicago,18.5,Overcast clouds,metric,76,1.34
 2025-07-18 08:48:32,chicago,20.43,Scattered clouds,metric,75,2.57
 2025-07-18 08:55:28,chicago,20.87,Few clouds,metric,75,1.83
+2025-07-18 09:17:38,New York,24.28,Broken clouds,metric,58,6.26
+2025-07-18 09:19:51,Hamburg,24.33,Few clouds,metric,72,3.6
+2025-07-18 09:20:08,Hamburg,76.26,Few clouds,imperial,71,8.05
+2025-07-18 09:22:04,Hamburg,76.26,Few clouds,imperial,71,8.05
+2025-07-18 09:22:07,Hamburg,76.26,Few clouds,imperial,71,8.05
+2025-07-18 09:47:34,helsinki,23.78,Clear sky,metric,42,5.66
+2025-07-18 09:48:47,Rome,27.85,Few clouds,metric,76,1.79
+2025-07-18 09:48:52,Rome,27.85,Few clouds,metric,76,1.79
+2025-07-18 09:48:52,Rome,27.85,Few clouds,metric,76,1.79
+2025-07-18 09:49:14,Rome,27.85,Few clouds,metric,76,1.79
+2025-07-18 10:44:16,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:19,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:22,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:25,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:26,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:26,Abuja,25.67,Overcast clouds,metric,75,2.38
+2025-07-18 10:44:26,Abuja,25.67,Overcast clouds,metric,75,2.38

@@ -26,18 +26,49 @@ class WeatherService:
         if not data:
             raise Exception("Failed to fetch weather")
         
+        # Extract basic weather data
         desc = data["weather"][0]["description"].capitalize()
         temp = data["main"]["temp"]
         humidity = data["main"]["humidity"]
         wind_speed = data["wind"]["speed"]
         
+        # Extract additional weather elements
+        visibility = data.get("visibility")
+        cloudiness = data.get("clouds", {}).get("all")
+        pressure = data.get("main", {}).get("pressure")
+        feels_like = data.get("main", {}).get("feels_like")
+        wind_direction = data.get("wind", {}).get("deg")
+        
+        # Extract sunrise/sunset
+        sunrise = data.get("sys", {}).get("sunrise")
+        sunset = data.get("sys", {}).get("sunset")
+        
+        # Extract precipitation data
+        rain_1h = data.get("rain", {}).get("1h")
+        rain_3h = data.get("rain", {}).get("3h")
+        snow_1h = data.get("snow", {}).get("1h")
+        snow_3h = data.get("snow", {}).get("3h")
+        
+        # Save basic weather data (keeping existing format for CSV compatibility)
         self.save_weather(city, temp, desc, unit, humidity, wind_speed)
+        
         return {
             'temperature': temp,
             'description': desc,
             'humidity': humidity,
             'wind_speed': wind_speed,
-            'unit': unit
+            'unit': unit,
+            'visibility': visibility,
+            'cloudiness': cloudiness,
+            'pressure': pressure,
+            'feels_like': feels_like,
+            'wind_direction': wind_direction,
+            'sunrise': sunrise,
+            'sunset': sunset,
+            'rain_1h': rain_1h,
+            'rain_3h': rain_3h,
+            'snow_1h': snow_1h,
+            'snow_3h': snow_3h
         }
 
     def save_weather(self, city, temp, desc, unit=None, humidity=None, wind_speed=None):

@@ -2,14 +2,14 @@
 Main Window - Clean UI assembly with proper separation of concerns
 """
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from ui.constants import COLOR_PALETTE, UI_CONFIG
 from ui.components import StyledButton
 from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab, 
-                     JournalTab, ActivityTab, PoetryTab, HistoryTab)
+                     JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab)
 
 
 class MainWindow(tk.Tk):
@@ -62,7 +62,7 @@ class MainWindow(tk.Tk):
         """Create the temperature unit toggle button"""
         self.toggle_btn = StyledButton(
             self.content_frame,
-            style_type="cool",
+            style_type="cool_black",
             text="Switch to °F",
             command=self._toggle_unit
         )
@@ -70,6 +70,9 @@ class MainWindow(tk.Tk):
 
     def _create_tabs(self):
         """Create all dashboard tabs"""
+        # Quick Actions tab as the first tab
+        self.quick_actions_tab = QuickActionsTab(self.notebook, self.controller)
+        
         # Main weather tab with graph
         self.weather_tab = WeatherTab(self.notebook, self.controller)
         
@@ -101,9 +104,128 @@ class MainWindow(tk.Tk):
         
         if self.controller.temp_unit_value == "imperial":
             self.toggle_btn.config(text="Switch to °C", 
-                                 bg=COLOR_PALETTE["button_warning"], 
-                                 fg=COLOR_PALETTE["text_on_button"])
+                                 bg="#FFB347",  # Light orange background
+                                 fg=COLOR_PALETTE["text_on_button_black"])
         else:
             self.toggle_btn.config(text="Switch to °F", 
-                                 bg=COLOR_PALETTE["button_secondary"], 
-                                 fg=COLOR_PALETTE["text_on_button"])
+                                 bg="#87CEEB",  # Sky blue background
+                                 fg=COLOR_PALETTE["text_on_button_black"])
+
+    # Quick Action Methods
+    def _quick_weather(self):
+        """Get weather for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for quick weather:")
+        
+        if city:
+            try:
+                weather_data = self.controller.get_quick_weather(city)
+                self._show_quick_result("Quick Weather", 
+                    f"Weather in {weather_data.city}:\n"
+                    f"🌡️ {weather_data.formatted_temperature}\n"
+                    f"📋 {weather_data.description}\n"
+                    f"💧 Humidity: {weather_data.humidity}%\n"
+                    f"💨 Wind: {weather_data.formatted_wind}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to get weather: {str(e)}")
+
+    def _quick_forecast(self):
+        """Get 5-day forecast for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for 5-day forecast:")
+        
+        if city:
+            try:
+                forecast = self.controller.get_five_day_forecast(city)
+                self._show_quick_result("5-Day Forecast", forecast)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to get forecast: {str(e)}")
+
+    def _quick_activity(self):
+        """Get activity suggestion for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for activity suggestion:")
+        
+        if city:
+            try:
+                activity = self.controller.suggest_activity(city)
+                self._show_quick_result("Activity Suggestion", activity)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to get activity suggestion: {str(e)}")
+
+    def _weather_summary(self):
+        """Get comprehensive weather summary"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for weather summary:")
+        
+        if city:
+            try:
+                summary = self.controller.get_weather_summary(city)
+                self._show_quick_result("Weather Summary", summary)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to get weather summary: {str(e)}")
+
+    def _save_favorite(self):
+        """Save current or entered city as favorite"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to save as favorite:")
+        
+        if city:
+            result = self.controller.add_favorite_city(city)
+            messagebox.showinfo("Favorite Saved", result)
+
+    def _check_alerts(self):
+        """Check weather alerts for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to check weather alerts:")
+        
+        if city:
+            try:
+                alerts = self.controller.check_weather_alerts(city)
+                self._show_quick_result("Weather Alerts", alerts)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to check alerts: {str(e)}")
+
+    def _prompt_for_city(self, prompt_text):
+        """Prompt user for city name"""
+        from tkinter import simpledialog
+        return simpledialog.askstring("City Input", prompt_text)
+
+    def _show_quick_result(self, title, content):
+        """Show quick result in a popup window"""
+        popup = tk.Toplevel(self)
+        popup.title(title)
+        popup.geometry("500x400")
+        popup.configure(bg=COLOR_PALETTE["background"])
+        
+        # Make popup modal
+        popup.transient(self)
+        popup.grab_set()
+        
+        # Add scrollable text widget
+        text_frame = ttk.Frame(popup)
+        text_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        text_widget = tk.Text(text_frame, wrap="word", 
+                             bg=COLOR_PALETTE["tab_bg"], 
+                             fg=COLOR_PALETTE["tab_fg"],
+                             font=("Arial", 10))
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        text_widget.insert("1.0", content)
+        text_widget.config(state="disabled")
+        
+        # Add close button
+        close_btn = StyledButton(popup, "primary", text="Close", 
+                               command=popup.destroy)
+        close_btn.pack(pady=10)
