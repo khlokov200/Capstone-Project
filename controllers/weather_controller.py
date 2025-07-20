@@ -7,12 +7,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 
 from models.weather_models import WeatherData
+from models.ml_models import MLEnhancedWeatherData
 from services.weather_service import WeatherService
 from services.forecast_service import ForecastService
 from services.comparison_service import ComparisonService
 from services.journal_service import JournalService
 from services.activity_service import ActivityService
 from services.poetry_service import PoetryService
+from controllers.ml_controller import MLController
 from ui.constants import COLOR_PALETTE, TEMPERATURE_UNITS
 
 
@@ -37,6 +39,9 @@ class WeatherController:
         self.journal_service = JournalService()
         self.activity_service = ActivityService(self.weather_service)
         self.poetry_service = PoetryService(self.weather_service)
+        
+        # Initialize ML controller
+        self.ml_controller = MLController()
         
         # Graph components (will be set by main window)
         self.fig = None

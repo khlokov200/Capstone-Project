@@ -1402,7 +1402,7 @@ class PoetryTab:
         """Show a gallery of weather poems"""
         try:
             gallery = f"📚 WEATHER POEM GALLERY:\n"
-            gallery += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            gallery += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             gallery += "🏆 FEATURED WEATHER POEMS:\n\n"
             gallery += "🌸 'Morning Dew' (Haiku):\n"
             gallery += "   Dewdrops catch sunrise\n"
@@ -2001,7 +2001,7 @@ Results will appear in this area when you use the quick actions above."""
                     recent_avg = sum(temps[-7:]) / 7
                     older_avg = sum(temps[:7]) / 7
                     trend = "warming" if recent_avg > older_avg else "cooling"
-                    result += f"Recent Trend: {trend.upper()}\n"
+                    result += f"📈 Recent Trend: {trend.upper()}\n"
             
             self._display_result(result)
         except Exception as e:
@@ -2054,4 +2054,338 @@ Results will appear in this area when you use the quick actions above."""
         error_content += "• Check your internet connection\n"
         error_content += "• Verify the city name spelling\n"
         error_content += "• Try a different city\n"
+        self.result_text.insert("1.0", error_content)
+        
+
+class MLTab:
+    """Machine Learning insights tab component"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🤖 ML Insights")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the ML insights UI components"""
+        # Header
+        header_label = StyledLabel(self.frame, "🤖 Machine Learning Weather Analysis", 
+                                 bg=COLOR_PALETTE["background"], 
+                                 fg=COLOR_PALETTE["accent"],
+                                 font=("Arial", 16, "bold"))
+        header_label.pack(pady=10)
+
+        # City input frame
+        input_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        input_frame.pack(pady=10)
+
+        tk.Label(input_frame, text="City:", 
+                bg=COLOR_PALETTE["background"], 
+                fg=COLOR_PALETTE["tab_fg"], 
+                font=("Arial", 12)).pack(side=tk.LEFT, padx=(0, 5))
+
+        self.city_entry = tk.Entry(input_frame, width=20, font=("Arial", 12))
+        self.city_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+        # ML Analysis buttons frame
+        button_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        button_frame.pack(pady=10)
+
+        # Temperature prediction button
+        self.predict_btn = StyledButton(button_frame, "🔮 Predict Temperature", 
+                                      command=self._predict_temperature,
+                                      bg=COLOR_PALETTE["cool"])
+        self.predict_btn.pack(side=tk.LEFT, padx=5)
+
+        # Weather patterns button
+        self.patterns_btn = StyledButton(button_frame, "📊 Detect Patterns", 
+                                       command=self._detect_patterns,
+                                       bg=COLOR_PALETTE["accent"])
+        self.patterns_btn.pack(side=tk.LEFT, padx=5)
+
+        # Anomaly detection button
+        self.anomaly_btn = StyledButton(button_frame, "⚠️ Find Anomalies", 
+                                      command=self._detect_anomalies,
+                                      bg=COLOR_PALETTE["heat"])
+        self.anomaly_btn.pack(side=tk.LEFT, padx=5)
+
+        # Comprehensive analysis button
+        self.analysis_btn = StyledButton(button_frame, "🧠 Full Analysis", 
+                                       command=self._comprehensive_analysis,
+                                       bg=COLOR_PALETTE["neutral"])
+        self.analysis_btn.pack(side=tk.LEFT, padx=5)
+
+        # Results display area
+        result_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        result_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # Scrollable text area for results
+        self.result_text = StyledText(result_frame, height=20, width=80)
+        
+        # Scrollbar for text area
+        scrollbar = ttk.Scrollbar(result_frame, orient="vertical", command=self.result_text.yview)
+        self.result_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.result_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Initial help text
+        self._display_help()
+
+    def _display_help(self):
+        """Display initial help information"""
+        help_text = """🤖 ML Weather Analysis Features
+========================================
+
+Welcome to the Machine Learning Weather Analysis tab! Here you can:
+
+🔮 TEMPERATURE PREDICTION
+   • Predict future temperatures based on historical trends
+   • Get confidence scores for predictions
+   • See prediction horizons and model information
+
+📊 PATTERN DETECTION
+   • Identify recurring weather patterns
+   • Analyze temperature stability and variations
+   • Discover frequent weather conditions
+
+⚠️ ANOMALY DETECTION
+   • Find unusual weather events
+   • Detect extreme temperatures
+   • Get severity scores for anomalies
+
+🧠 COMPREHENSIVE ANALYSIS
+   • Get complete ML insights for a city
+   • Weather statistics and trends
+   • Personalized recommendations
+   • Historical data analysis
+
+📝 HOW TO USE:
+1. Enter a city name in the input field above
+2. Click any of the analysis buttons
+3. View the results in this area
+
+💡 TIP: The ML models use your historical weather data from the CSV log.
+The more data you have, the better the predictions!
+
+Get started by entering a city and clicking an analysis button! 🚀
+"""
+        self._display_result(help_text)
+
+    def _get_city(self):
+        """Get city from input field"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Required", "Please enter a city name")
+            return None
+        return city
+
+    def _predict_temperature(self):
+        """Predict temperature for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("🔮 Analyzing temperature trends...\n\nPlease wait...")
+            self.frame.update()
+
+            # Get ML controller and prediction
+            ml_controller = self.controller.ml_controller
+            prediction = ml_controller.get_temperature_prediction(city, 24)
+            
+            result = f"🔮 Temperature Prediction for {city.title()}\n"
+            result += "=" * 50 + "\n\n"
+            result += ml_controller.format_prediction_for_display(prediction)
+            result += "\n\n📋 Prediction Details:\n"
+            result += f"   • City: {prediction.city}\n"
+            result += f"   • Prediction Horizon: {prediction.prediction_horizon_hours} hours\n"
+            result += f"   • Trend Direction: {prediction.trend_direction}\n"
+            
+            if prediction.confidence_score > 0.7:
+                result += "\n✅ High confidence prediction - reliable forecast"
+            elif prediction.confidence_score > 0.5:
+                result += "\n⚠️ Moderate confidence - use with caution"
+            else:
+                result += "\n❌ Low confidence - more data needed for accurate prediction"
+
+            self._display_result(result)
+
+        except Exception as e:
+            self._display_error(f"Failed to predict temperature: {str(e)}")
+
+    def _detect_patterns(self):
+        """Detect weather patterns for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("📊 Analyzing weather patterns...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            patterns = ml_controller.get_weather_patterns(city)
+            
+            result = f"📊 Weather Patterns for {city.title()}\n"
+            result += "=" * 50 + "\n\n"
+            
+            if patterns:
+                result += ml_controller.format_patterns_for_display(patterns)
+                result += f"\n\n📈 Pattern Summary:\n"
+                result += f"   • Total patterns detected: {len(patterns)}\n"
+                
+                pattern_types = set(p.pattern_name for p in patterns)
+                result += f"   • Pattern types: {', '.join(pattern_types)}\n"
+                
+                avg_frequency = sum(p.frequency for p in patterns) / len(patterns)
+                result += f"   • Average frequency: {avg_frequency:.2f}\n"
+            else:
+                result += "No significant patterns detected.\n\n"
+                result += "💡 This could mean:\n"
+                result += "   • Not enough historical data for this city\n"
+                result += "   • Weather patterns are highly variable\n"
+                result += "   • More data collection time needed\n"
+
+            self._display_result(result)
+
+        except Exception as e:
+            self._display_error(f"Failed to detect patterns: {str(e)}")
+
+    def _detect_anomalies(self):
+        """Detect weather anomalies for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("⚠️ Scanning for weather anomalies...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            anomalies = ml_controller.get_weather_anomalies(city)
+            
+            result = f"⚠️ Weather Anomalies for {city.title()}\n"
+            result += "=" * 50 + "\n\n"
+            
+            if anomalies:
+                result += ml_controller.format_anomalies_for_display(anomalies)
+                result += f"\n\n📊 Anomaly Summary:\n"
+                result += f"   • Total anomalies detected: {len(anomalies)}\n"
+                
+                anomaly_types = set(a.anomaly_type for a in anomalies)
+                result += f"   • Anomaly types: {', '.join(anomaly_types)}\n"
+                
+                avg_severity = sum(a.severity_score for a in anomalies) / len(anomalies)
+                result += f"   • Average severity: {avg_severity:.2f}\n"
+                
+                if avg_severity > 0.7:
+                    result += "\n🚨 High severity anomalies detected!"
+                elif avg_severity > 0.4:
+                    result += "\n⚠️ Moderate anomalies present"
+                else:
+                    result += "\n✅ Minor anomalies only"
+            else:
+                result += "✅ No weather anomalies detected.\n\n"
+                result += "This indicates:\n"
+                result += "   • Weather conditions are within normal ranges\n"
+                result += "   • No extreme temperature events\n"
+                result += "   • Stable weather patterns\n"
+
+            self._display_result(result)
+
+        except Exception as e:
+            self._display_error(f"Failed to detect anomalies: {str(e)}")
+
+    def _comprehensive_analysis(self):
+        """Perform comprehensive ML analysis for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("🧠 Performing comprehensive ML analysis...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            
+            # Get all analysis components
+            prediction = ml_controller.get_temperature_prediction(city, 24)
+            patterns = ml_controller.get_weather_patterns(city)
+            anomalies = ml_controller.get_weather_anomalies(city)
+            recommendations = ml_controller.get_personalized_recommendations(city)
+            insights = ml_controller.get_weather_insights(city)
+            
+            # Build comprehensive report
+            result = f"🧠 Comprehensive ML Analysis for {city.title()}\n"
+            result += "=" * 60 + "\n\n"
+            
+            # Temperature Prediction Section
+            result += "🔮 TEMPERATURE PREDICTION\n"
+            result += "-" * 30 + "\n"
+            result += ml_controller.format_prediction_for_display(prediction) + "\n\n"
+            
+            # Weather Insights Section
+            result += "📊 WEATHER INSIGHTS\n"
+            result += "-" * 30 + "\n"
+            result += ml_controller.format_insights_for_display(insights) + "\n"
+            
+            # Patterns Section
+            if patterns:
+                result += "📈 DETECTED PATTERNS\n"
+                result += "-" * 30 + "\n"
+                result += ml_controller.format_patterns_for_display(patterns) + "\n\n"
+            
+            # Anomalies Section
+            if anomalies:
+                result += "⚠️ WEATHER ANOMALIES\n"
+                result += "-" * 30 + "\n"
+                result += ml_controller.format_anomalies_for_display(anomalies) + "\n\n"
+            
+            # Recommendations Section
+            if recommendations:
+                result += "💡 PERSONALIZED RECOMMENDATIONS\n"
+                result += "-" * 30 + "\n"
+                result += ml_controller.format_recommendations_for_display(recommendations) + "\n\n"
+            
+            # Summary Section
+            result += "📋 ANALYSIS SUMMARY\n"
+            result += "-" * 30 + "\n"
+            result += f"• Prediction Confidence: {int(prediction.confidence_score * 100)}%\n"
+            result += f"• Patterns Found: {len(patterns)}\n"
+            result += f"• Anomalies Detected: {len(anomalies)}\n"
+            result += f"• Recommendations: {len(recommendations)}\n"
+            
+            # Data quality assessment
+            if hasattr(insights, 'temperature_stats') and insights.temperature_stats:
+                result += f"• Temperature Range: {insights.temperature_stats.get('min', 0):.1f}°C to {insights.temperature_stats.get('max', 0):.1f}°C\n"
+            
+            result += f"\n🎯 Overall Analysis: "
+            if prediction.confidence_score > 0.7 and len(patterns) > 0:
+                result += "Excellent data quality with reliable predictions"
+            elif prediction.confidence_score > 0.5:
+                result += "Good analysis with moderate confidence"
+            else:
+                result += "Limited data - collect more weather data for better insights"
+
+            self._display_result(result)
+
+        except Exception as e:
+            self._display_error(f"Failed to perform comprehensive analysis: {str(e)}")
+
+    def _display_result(self, content):
+        """Display result in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert("1.0", content)
+
+    def _display_error(self, error_msg):
+        """Display error message in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        error_content = f"❌ ML ANALYSIS ERROR\n{'=' * 50}\n{error_msg}\n\n"
+        error_content += "💡 Troubleshooting Tips:\n"
+        error_content += "• Ensure you have weather data for this city\n"
+        error_content += "• Check the weather_log.csv file in the data folder\n"
+        error_content += "• Try getting current weather for the city first\n"
+        error_content += "• Verify the city name spelling\n"
+        error_content += "• Check your internet connection\n"
         self.result_text.insert("1.0", error_content)
