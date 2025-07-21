@@ -2,7 +2,12 @@
 Forecast Service - Handles weather forecast functionality
 """
 import requests
+import ssl
+import urllib3
 from features.five_day_forecast import FiveDayForecaster
+
+# Disable SSL warnings for development
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class ForecastService:
@@ -21,23 +26,37 @@ class ForecastService:
             "units": unit
         }
         
-        resp = requests.get(url, params=params)
-        if resp.status_code != 200:
+        # Try multiple methods to handle SSL issues
+        methods = [
+            lambda: requests.get(url, params=params, timeout=30),
+            lambda: requests.get(url, params=params, timeout=30, verify=False),
+            lambda: requests.get(url.replace("https://", "http://"), params=params, timeout=30)
+        ]
+        
+        for i, method in enumerate(methods):
             try:
-                message = resp.json().get("message", "Failed to fetch forecast")
-            except Exception:
-                message = "Failed to fetch forecast"
-            raise Exception(message)
-        
-        data = resp.json()
-        forecasts = []
-        for item in data.get("list", [])[:limit]:
-            dt_txt = item["dt_txt"]
-            desc = item["weather"][0]["description"].capitalize()
-            temp = item["main"]["temp"]
-            forecasts.append(f"{dt_txt}: {desc}, {temp}°")
-        
-        return "\n".join(forecasts)
+                resp = method()
+                if resp.status_code == 200:
+                    data = resp.json()
+                    forecasts = []
+                    for item in data.get("list", [])[:limit]:
+                        dt_txt = item["dt_txt"]
+                        desc = item["weather"][0]["description"].capitalize()
+                        temp = item["main"]["temp"]
+                        forecasts.append(f"{dt_txt}: {desc}, {temp}°")
+                    return "\n".join(forecasts)
+                else:
+                    try:
+                        message = resp.json().get("message", "Failed to fetch forecast")
+                    except Exception:
+                        message = f"HTTP {resp.status_code}: Failed to fetch forecast"
+                    raise Exception(message)
+            except Exception as e:
+                if i == len(methods) - 1:  # Last method
+                    raise e
+                else:
+                    print(f"Forecast method {i+1} failed: {e}, trying next method...")
+                    continue
 
     def get_five_day_forecast(self, city, unit="metric"):
         """Get detailed 5-day forecast"""
