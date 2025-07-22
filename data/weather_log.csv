@@ -57,3 +57,17 @@ DateTime           , City     , Temperature, Description
 2025-07-20 23:05:20,austin,27.76,Clear sky,metric,79,3.6
 2025-07-20 23:05:32,austin,82.18,Clear sky,imperial,78,11.5
 2025-07-21 09:13:08,brasilia,23.53,Clear sky,metric,47,4.12
+2025-07-21 17:26:23,antarctica,-54.01,Overcast clouds,metric,100,5.85
+2025-07-21 17:26:23,antarctica,-54.01,Overcast clouds,metric,100,5.85
+2025-07-21 19:16:15,dubai,35.96,Broken clouds,metric,56,3.09
+2025-07-21 19:16:16,dubai,35.96,Broken clouds,metric,56,3.09
+2025-07-21 19:18:45,Tulum,28.83,Light rain,metric,78,2.93
+2025-07-21 19:18:45,Miami,29.55,Scattered clouds,metric,78,3.09
+2025-07-21 20:12:22,bangkok,26.56,Overcast clouds,metric,82,4.37
+2025-07-21 20:12:50,seattle,24.99,Clear sky,metric,53,4.63
+2025-07-21 20:13:22,seattle,76.98,Clear sky,imperial,53,10.36
+2025-07-21 20:13:38,seattle,76.98,Clear sky,imperial,53,10.36
+2025-07-21 20:16:13,chicago,22.89,Broken clouds,metric,71,5.14
+2025-07-21 20:16:13,new york,26.22,Overcast clouds,metric,49,7.6
+2025-07-21 20:16:18,chicago,73.2,Broken clouds,imperial,71,11.5
+2025-07-21 20:16:19,new york,79.2,Overcast clouds,imperial,49,17
