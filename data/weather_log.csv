@@ -71,3 +71,6 @@ DateTime           , City     , Temperature, Description
 2025-07-21 20:16:13,new york,26.22,Overcast clouds,metric,49,7.6
 2025-07-21 20:16:18,chicago,73.2,Broken clouds,imperial,71,11.5
 2025-07-21 20:16:19,new york,79.2,Overcast clouds,imperial,49,17
+2025-07-23 13:59:53,bangkok,24.94,Overcast clouds,metric,80,3.45
+2025-07-23 13:59:59,bangkok,76.89,Overcast clouds,imperial,80,7.72
+2025-07-23 14:00:34,abuja,77.14,Light rain,imperial,98,3.02
