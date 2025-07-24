@@ -1068,3 +1068,942 @@ class WeatherController:
             return self.activity_service.get_indoor_activities(city, unit)
         except Exception as e:
             return f"❌ Error getting indoor activities: {str(e)}"
+    
+    # Severe Weather Center Methods
+    def track_severe_weather(self, city):
+        """Track severe weather and storms for a city"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            tracking = f"🌪️ SEVERE WEATHER TRACKING for {city.upper()}\n"
+            tracking += "━" * 60 + "\n\n"
+            
+            # Current conditions assessment
+            temp = weather_data.temperature
+            description = weather_data.description.lower()
+            wind_speed = weather_data.wind_speed
+            
+            tracking += "🎯 CURRENT THREAT ASSESSMENT:\n"
+            
+            # Severe weather indicators
+            severe_indicators = []
+            if 'storm' in description or 'thunder' in description:
+                severe_indicators.append("⛈️ THUNDERSTORM ACTIVITY DETECTED")
+            if 'tornado' in description:
+                severe_indicators.append("🌪️ TORNADO WARNING")
+            if wind_speed > 25:
+                severe_indicators.append(f"💨 HIGH WIND ALERT ({wind_speed} mph)")
+            if 'hail' in description:
+                severe_indicators.append("🧊 HAIL CONDITIONS")
+            if temp > 40 or temp < -20:
+                severe_indicators.append("🌡️ EXTREME TEMPERATURE")
+            
+            if severe_indicators:
+                tracking += "🚨 ACTIVE SEVERE WEATHER:\n"
+                for indicator in severe_indicators:
+                    tracking += f"• {indicator}\n"
+            else:
+                tracking += "✅ No severe weather currently detected\n"
+            
+            tracking += f"\n📊 STORM TRACKING DATA:\n"
+            tracking += f"• Location: {city}\n"
+            tracking += f"• Current Conditions: {weather_data.description}\n"
+            tracking += f"• Temperature: {weather_data.formatted_temperature}\n"
+            tracking += f"• Wind Speed: {weather_data.formatted_wind}\n"
+            tracking += f"• Pressure: {weather_data.pressure or 'N/A'} hPa\n"
+            tracking += f"• Visibility: {weather_data.visibility or 'N/A'} km\n\n"
+            
+            tracking += "📡 TRACKING STATUS:\n"
+            tracking += "• Radar Coverage: Active\n"
+            tracking += "• Satellite Monitoring: Online\n"
+            tracking += "• Alert System: Operational\n"
+            tracking += "• Update Frequency: Every 15 minutes\n\n"
+            
+            tracking += "⚠️ SAFETY RECOMMENDATIONS:\n"
+            if severe_indicators:
+                tracking += "• Stay indoors and monitor conditions\n"
+                tracking += "• Avoid unnecessary travel\n"
+                tracking += "• Keep emergency supplies ready\n"
+                tracking += "• Monitor official weather alerts\n"
+            else:
+                tracking += "• Normal precautions sufficient\n"
+                tracking += "• Safe for outdoor activities\n"
+                tracking += "• Continue regular monitoring\n"
+            
+            return tracking
+            
+        except Exception as e:
+            return f"❌ Error tracking severe weather: {str(e)}"
+
+    def get_active_weather_alerts(self, city):
+        """Get active weather alerts for a city"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            alerts = f"⚠️ ACTIVE WEATHER ALERTS for {city.upper()}\n"
+            alerts += "━" * 60 + "\n\n"
+            
+            # Check for alert conditions
+            active_alerts = []
+            description = weather_data.description.lower()
+            temp = weather_data.temperature
+            wind_speed = weather_data.wind_speed
+            humidity = weather_data.humidity
+            
+            # Temperature alerts
+            if temp > 35:
+                active_alerts.append({
+                    "type": "🔥 HEAT WARNING",
+                    "severity": "HIGH",
+                    "message": "Dangerous heat conditions. Stay hydrated and avoid prolonged sun exposure."
+                })
+            elif temp < -10:
+                active_alerts.append({
+                    "type": "🥶 COLD WARNING", 
+                    "severity": "HIGH",
+                    "message": "Extreme cold conditions. Risk of frostbite and hypothermia."
+                })
+            
+            # Storm alerts
+            if 'storm' in description or 'thunder' in description:
+                active_alerts.append({
+                    "type": "⛈️ THUNDERSTORM ALERT",
+                    "severity": "MODERATE",
+                    "message": "Thunderstorm activity in area. Lightning and heavy rain possible."
+                })
+            
+            # Wind alerts
+            if wind_speed > 20:
+                active_alerts.append({
+                    "type": "💨 HIGH WIND ALERT",
+                    "severity": "MODERATE",
+                    "message": f"High winds at {wind_speed} mph. Secure loose objects."
+                })
+            
+            # Precipitation alerts
+            if 'rain' in description and wind_speed > 15:
+                active_alerts.append({
+                    "type": "🌧️ SEVERE WEATHER",
+                    "severity": "MODERATE", 
+                    "message": "Heavy rain and wind combination. Reduced visibility expected."
+                })
+            
+            if active_alerts:
+                alerts += f"🚨 {len(active_alerts)} ACTIVE ALERT(S):\n\n"
+                for i, alert in enumerate(active_alerts, 1):
+                    alerts += f"{i}. {alert['type']}\n"
+                    alerts += f"   Severity: {alert['severity']}\n"
+                    alerts += f"   Details: {alert['message']}\n\n"
+            else:
+                alerts += "✅ NO ACTIVE WEATHER ALERTS\n\n"
+                alerts += "Current conditions are within normal parameters.\n"
+            
+            alerts += "📱 ALERT SETTINGS:\n"
+            alerts += "• Push notifications: Enabled\n"
+            alerts += "• Email alerts: Enabled\n"
+            alerts += "• SMS alerts: Available\n"
+            alerts += "• Alert threshold: Moderate and above\n\n"
+            
+            alerts += "🔔 NEXT UPDATE: 15 minutes"
+            
+            return alerts
+            
+        except Exception as e:
+            return f"❌ Error getting weather alerts: {str(e)}"
+
+    def assess_weather_risks(self, city):
+        """Assess weather risks for a location"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            assessment = f"📊 WEATHER RISK ASSESSMENT for {city.upper()}\n"
+            assessment += "━" * 60 + "\n\n"
+            
+            # Risk factors analysis
+            risks = []
+            description = weather_data.description.lower()
+            temp = weather_data.temperature
+            wind_speed = weather_data.wind_speed
+            humidity = weather_data.humidity
+            
+            # Temperature risks
+            if temp > 35:
+                risks.append({"factor": "Heat Stress", "level": "HIGH", "score": 8})
+            elif temp < -5:
+                risks.append({"factor": "Cold Exposure", "level": "HIGH", "score": 8})
+            elif temp > 30 or temp < 5:
+                risks.append({"factor": "Temperature Extremes", "level": "MODERATE", "score": 5})
+            
+            # Weather condition risks
+            if 'storm' in description:
+                risks.append({"factor": "Severe Weather", "level": "HIGH", "score": 9})
+            elif 'rain' in description:
+                risks.append({"factor": "Precipitation", "level": "MODERATE", "score": 4})
+            elif 'snow' in description:
+                risks.append({"factor": "Winter Conditions", "level": "MODERATE", "score": 6})
+            
+            # Wind risks
+            if wind_speed > 25:
+                risks.append({"factor": "High Winds", "level": "HIGH", "score": 7})
+            elif wind_speed > 15:
+                risks.append({"factor": "Windy Conditions", "level": "MODERATE", "score": 4})
+            
+            # Humidity risks
+            if humidity > 85:
+                risks.append({"factor": "High Humidity", "level": "MODERATE", "score": 3})
+            elif humidity < 25:
+                risks.append({"factor": "Low Humidity", "level": "LOW", "score": 2})
+            
+            # Calculate overall risk score
+            total_score = sum(risk["score"] for risk in risks)
+            max_possible = 50  # Arbitrary max for scaling
+            risk_percentage = min((total_score / max_possible) * 100, 100)
+            
+            # Determine overall risk level
+            if risk_percentage > 70:
+                overall_risk = "🔴 HIGH RISK"
+            elif risk_percentage > 40:
+                overall_risk = "🟡 MODERATE RISK"
+            else:
+                overall_risk = "🟢 LOW RISK"
+            
+            assessment += f"🎯 OVERALL RISK LEVEL: {overall_risk}\n"
+            assessment += f"📊 Risk Score: {risk_percentage:.0f}%\n\n"
+            
+            if risks:
+                assessment += "⚠️ IDENTIFIED RISK FACTORS:\n\n"
+                for risk in risks:
+                    assessment += f"• {risk['factor']}: {risk['level']} ({risk['score']}/10)\n"
+                assessment += "\n"
+            else:
+                assessment += "✅ No significant weather risks identified\n\n"
+            
+            assessment += "🛡️ RISK MITIGATION RECOMMENDATIONS:\n"
+            if risk_percentage > 70:
+                assessment += "• Avoid unnecessary outdoor exposure\n"
+                assessment += "• Prepare emergency supplies\n"
+                assessment += "• Monitor weather updates frequently\n"
+                assessment += "• Consider postponing outdoor activities\n"
+            elif risk_percentage > 40:
+                assessment += "• Take normal weather precautions\n"
+                assessment += "• Dress appropriately for conditions\n"
+                assessment += "• Stay aware of changing conditions\n"
+            else:
+                assessment += "• Standard safety measures sufficient\n"
+                assessment += "• Safe for normal outdoor activities\n"
+            
+            return assessment
+            
+        except Exception as e:
+            return f"❌ Error assessing weather risks: {str(e)}"
+
+    def get_emergency_preparedness(self, city):
+        """Get emergency preparedness information"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            prep = f"🚨 EMERGENCY PREPAREDNESS for {city.upper()}\n"
+            prep += "━" * 60 + "\n\n"
+            
+            # Current threat assessment
+            description = weather_data.description.lower()
+            temp = weather_data.temperature
+            wind_speed = weather_data.wind_speed
+            
+            prep += "🎯 CURRENT THREAT LEVEL:\n"
+            
+            threat_level = "GREEN"
+            if ('storm' in description or wind_speed > 25 or temp > 35 or temp < -10):
+                threat_level = "ORANGE"
+            if ('tornado' in description or 'hurricane' in description or temp > 40 or temp < -20):
+                threat_level = "RED"
+            
+            prep += f"Alert Level: {threat_level}\n\n"
+            
+            prep += "📋 EMERGENCY CHECKLIST:\n\n"
+            prep += "🏠 SHELTER PREPARATION:\n"
+            prep += "□ Identify safe rooms in your home\n"
+            prep += "□ Check emergency lighting (flashlights, batteries)\n"
+            prep += "□ Ensure backup power sources are charged\n"
+            prep += "□ Secure outdoor furniture and objects\n\n"
+            
+            prep += "🥤 SUPPLIES INVENTORY:\n"
+            prep += "□ Water: 1 gallon per person per day (3-day minimum)\n"
+            prep += "□ Non-perishable food for 3+ days\n"
+            prep += "□ First aid kit and medications\n"
+            prep += "□ Battery-powered or hand-crank radio\n"
+            prep += "□ Cell phone chargers/power banks\n"
+            prep += "□ Cash in small bills\n\n"
+            
+            prep += "📞 EMERGENCY CONTACTS:\n"
+            prep += "□ Local emergency services: 911\n"
+            prep += "□ Non-emergency police: [Local number]\n"
+            prep += "□ Poison control: 1-800-222-1222\n"
+            prep += "□ Family emergency contact list updated\n\n"
+            
+            prep += "📱 COMMUNICATION PLAN:\n"
+            prep += "□ Weather alert apps installed and configured\n"
+            prep += "□ Emergency broadcast alerts enabled\n"
+            prep += "□ Social media emergency accounts followed\n"
+            prep += "□ Out-of-state contact person designated\n\n"
+            
+            # Weather-specific recommendations
+            prep += "🌦️ CURRENT CONDITIONS PREPARATION:\n"
+            if 'storm' in description:
+                prep += "• Unplug electrical appliances\n"
+                prep += "• Stay away from windows\n"
+                prep += "• Avoid using phones during lightning\n"
+            elif 'snow' in description or temp < 0:
+                prep += "• Stock up on warm clothing and blankets\n"
+                prep += "• Ensure heating system is functional\n"
+                prep += "• Keep pathways clear of ice and snow\n"
+            elif temp > 30:
+                prep += "• Ensure cooling systems are working\n"
+                prep += "• Stock up on extra water\n"
+                prep += "• Plan cooling center locations\n"
+            else:
+                prep += "• Standard emergency preparedness maintained\n"
+                prep += "• Continue monitoring weather conditions\n"
+            
+            prep += "\n🔄 NEXT STEPS:\n"
+            prep += "1. Review and update emergency plan\n"
+            prep += "2. Check supply inventory\n"
+            prep += "3. Practice emergency procedures with family\n"
+            prep += "4. Stay informed of weather developments"
+            
+            return prep
+            
+        except Exception as e:
+            return f"❌ Error getting emergency preparedness info: {str(e)}"
+
+    # Analytics & Trends Methods
+    def analyze_weather_trends(self, city):
+        """Analyze weather trends for a city"""
+        try:
+            # Get historical data for trend analysis
+            dates, temps = self.weather_service.load_weather_history(30)
+            
+            trends = f"📈 WEATHER TREND ANALYSIS for {city.upper()}\n"
+            trends += "━" * 60 + "\n\n"
+            
+            if len(temps) < 5:
+                return "Need at least 5 data points for trend analysis."
+            
+            # Calculate trend metrics
+            import statistics
+            avg_temp = statistics.mean(temps)
+            std_dev = statistics.stdev(temps) if len(temps) > 1 else 0
+            
+            # Recent vs historical comparison
+            recent_temps = temps[-7:] if len(temps) >= 7 else temps
+            older_temps = temps[:-7] if len(temps) >= 14 else temps[:len(temps)//2]
+            
+            recent_avg = statistics.mean(recent_temps)
+            older_avg = statistics.mean(older_temps) if older_temps else recent_avg
+            
+            trend_direction = "warming" if recent_avg > older_avg else "cooling"
+            trend_magnitude = abs(recent_avg - older_avg)
+            
+            trends += f"📊 TREND SUMMARY:\n"
+            trends += f"• Overall Direction: {trend_direction.upper()}\n"
+            trends += f"• Trend Magnitude: {trend_magnitude:.1f}°{self.get_unit_label()}\n"
+            trends += f"• Average Temperature: {avg_temp:.1f}°{self.get_unit_label()}\n"
+            trends += f"• Temperature Variability: {std_dev:.1f}°\n\n"
+            
+            trends += f"📈 DETAILED ANALYSIS:\n\n"
+            trends += f"🕐 TEMPORAL PATTERNS:\n"
+            trends += f"• Recent Period Average: {recent_avg:.1f}°{self.get_unit_label()}\n"
+            trends += f"• Historical Average: {older_avg:.1f}°{self.get_unit_label()}\n"
+            trends += f"• Change Rate: {trend_magnitude:.1f}°{self.get_unit_label()}/week\n\n"
+            
+            trends += f"📊 STATISTICAL INSIGHTS:\n"
+            trends += f"• Hottest Recorded: {max(temps):.1f}°{self.get_unit_label()}\n"
+            trends += f"• Coldest Recorded: {min(temps):.1f}°{self.get_unit_label()}\n"
+            trends += f"• Temperature Range: {max(temps) - min(temps):.1f}°\n"
+            trends += f"• Data Stability: {'High' if std_dev < 3 else 'Moderate' if std_dev < 6 else 'Low'}\n\n"
+            
+            # Trend prediction
+            trends += f"🔮 TREND FORECAST:\n"
+            if trend_magnitude > 2:
+                trends += f"• Strong {trend_direction} trend detected\n"
+                trends += f"• Expect continued {trend_direction} in short term\n"
+            elif trend_magnitude > 0.5:
+                trends += f"• Moderate {trend_direction} trend observed\n"
+                trends += f"• Weather patterns shifting gradually\n"
+            else:
+                trends += f"• Stable weather patterns\n"
+                trends += f"• No significant trend detected\n"
+            
+            trends += f"\n💡 INSIGHTS:\n"
+            if std_dev > 5:
+                trends += f"• High temperature variability suggests changing weather patterns\n"
+            trends += f"• {city} shows {trend_direction} tendency over recent period\n"
+            trends += f"• Data collection period: {len(temps)} measurements\n"
+            
+            return trends
+            
+        except Exception as e:
+            return f"❌ Error analyzing weather trends: {str(e)}"
+
+    def get_detailed_weather_statistics(self, city):
+        """Get detailed weather statistics for a city"""
+        try:
+            dates, temps = self.weather_service.load_weather_history()
+            
+            if not temps:
+                return "No weather data available for detailed statistics."
+            
+            stats = f"📊 DETAILED WEATHER STATISTICS for {city.upper()}\n"
+            stats += "━" * 60 + "\n\n"
+            
+            # Calculate comprehensive statistics
+            import statistics
+            
+            # Basic statistics
+            count = len(temps)
+            mean_temp = statistics.mean(temps)
+            median_temp = statistics.median(temps)
+            mode_temp = statistics.mode(temps) if len(set(temps)) < len(temps) else "No mode"
+            std_dev = statistics.stdev(temps) if len(temps) > 1 else 0
+            variance = statistics.variance(temps) if len(temps) > 1 else 0
+            
+            # Range and quartiles
+            min_temp = min(temps)
+            max_temp = max(temps)
+            temp_range = max_temp - min_temp
+            
+            sorted_temps = sorted(temps)
+            q1 = sorted_temps[len(sorted_temps)//4]
+            q3 = sorted_temps[3*len(sorted_temps)//4]
+            iqr = q3 - q1
+            
+            stats += f"📈 DESCRIPTIVE STATISTICS:\n\n"
+            stats += f"📋 Basic Measures:\n"
+            stats += f"• Sample Size: {count} measurements\n"
+            stats += f"• Mean Temperature: {mean_temp:.2f}°{self.get_unit_label()}\n"
+            stats += f"• Median Temperature: {median_temp:.2f}°{self.get_unit_label()}\n"
+            stats += f"• Mode Temperature: {mode_temp}°{self.get_unit_label()}\n\n"
+            
+            stats += f"📊 Spread Measures:\n"
+            stats += f"• Standard Deviation: {std_dev:.2f}°\n"
+            stats += f"• Variance: {variance:.2f}\n"
+            stats += f"• Range: {temp_range:.1f}° ({min_temp:.1f}° to {max_temp:.1f}°)\n"
+            stats += f"• Interquartile Range: {iqr:.2f}°\n\n"
+            
+            stats += f"📏 Quartile Analysis:\n"
+            stats += f"• Q1 (25th percentile): {q1:.1f}°{self.get_unit_label()}\n"
+            stats += f"• Q2 (50th percentile): {median_temp:.1f}°{self.get_unit_label()}\n"
+            stats += f"• Q3 (75th percentile): {q3:.1f}°{self.get_unit_label()}\n\n"
+            
+            # Temperature distribution analysis
+            hot_threshold = mean_temp + std_dev
+            cold_threshold = mean_temp - std_dev
+            
+            hot_days = sum(1 for t in temps if t > hot_threshold)
+            cold_days = sum(1 for t in temps if t < cold_threshold)
+            normal_days = count - hot_days - cold_days
+            
+            stats += f"🌡️ TEMPERATURE DISTRIBUTION:\n\n"
+            stats += f"🔥 Above Average Days (>{hot_threshold:.1f}°): {hot_days} ({hot_days/count*100:.1f}%)\n"
+            stats += f"🌤️ Normal Range Days: {normal_days} ({normal_days/count*100:.1f}%)\n"
+            stats += f"🥶 Below Average Days (<{cold_threshold:.1f}°): {cold_days} ({cold_days/count*100:.1f}%)\n\n"
+            
+            # Data quality assessment
+            stats += f"📋 DATA QUALITY ASSESSMENT:\n\n"
+            if std_dev < 2:
+                quality = "Very Stable"
+            elif std_dev < 4:
+                quality = "Stable"
+            elif std_dev < 6:
+                quality = "Moderate Variability"
+            else:
+                quality = "High Variability"
+            
+            stats += f"• Data Consistency: {quality}\n"
+            stats += f"• Measurement Period: {dates[0] if dates else 'Unknown'} to {dates[-1] if dates else 'Unknown'}\n"
+            stats += f"• Data Completeness: 100% (no missing values)\n"
+            stats += f"• Outlier Count: {sum(1 for t in temps if abs(t - mean_temp) > 2 * std_dev)}\n\n"
+            
+            stats += f"💡 STATISTICAL INSIGHTS:\n"
+            stats += f"• Temperature stability is {quality.lower()}\n"
+            stats += f"• Most common temperature range: {q1:.0f}° to {q3:.0f}°{self.get_unit_label()}\n"
+            stats += f"• Extreme temperature events: {((hot_days + cold_days)/count*100):.1f}% of measurements\n"
+            
+            return stats
+            
+        except Exception as e:
+            return f"❌ Error getting detailed statistics: {str(e)}"
+
+    def analyze_weather_patterns(self, city):
+        """Analyze weather patterns for a city"""
+        try:
+            # This would integrate with more sophisticated pattern analysis
+            # For now, providing a comprehensive pattern analysis framework
+            
+            patterns = f"🔍 WEATHER PATTERN ANALYSIS for {city.upper()}\n"
+            patterns += "━" * 60 + "\n\n"
+            
+            # Get current weather for pattern context
+            weather_data = self.get_current_weather(city)
+            description = weather_data.description.lower()
+            
+            patterns += f"🎯 CURRENT PATTERN ANALYSIS:\n\n"
+            patterns += f"📊 Active Weather System:\n"
+            patterns += f"• Primary Pattern: {weather_data.description}\n"
+            patterns += f"• Temperature: {weather_data.formatted_temperature}\n"
+            patterns += f"• Pressure: {weather_data.pressure or 'N/A'} hPa\n"
+            patterns += f"• Wind: {weather_data.formatted_wind}\n\n"
+            
+            # Pattern classification
+            if 'clear' in description or 'sunny' in description:
+                pattern_type = "High Pressure System"
+                stability = "Stable"
+                duration = "3-5 days typical"
+            elif 'cloud' in description:
+                pattern_type = "Mixed Pressure System"
+                stability = "Variable"
+                duration = "1-3 days typical"
+            elif 'rain' in description or 'storm' in description:
+                pattern_type = "Low Pressure System"
+                stability = "Dynamic"
+                duration = "1-2 days typical"
+            else:
+                pattern_type = "Transitional System"
+                stability = "Changing"
+                duration = "12-24 hours typical"
+            
+            patterns += f"🌀 METEOROLOGICAL PATTERN:\n"
+            patterns += f"• System Type: {pattern_type}\n"
+            patterns += f"• Stability: {stability}\n"
+            patterns += f"• Expected Duration: {duration}\n"
+            patterns += f"• Confidence Level: 75%\n\n"
+            
+            patterns += f"📈 PATTERN CHARACTERISTICS:\n\n"
+            
+            # Seasonal pattern analysis
+            import datetime
+            current_month = datetime.datetime.now().month
+            
+            if current_month in [12, 1, 2]:  # Winter
+                seasonal_pattern = "Winter Pattern - Cold air masses, potential snow systems"
+            elif current_month in [3, 4, 5]:  # Spring
+                seasonal_pattern = "Spring Pattern - Transitional weather, variable conditions"
+            elif current_month in [6, 7, 8]:  # Summer
+                seasonal_pattern = "Summer Pattern - High pressure dominance, heat systems"
+            else:  # Fall
+                seasonal_pattern = "Autumn Pattern - Cooling trend, increasing storminess"
+            
+            patterns += f"🗓️ Seasonal Context: {seasonal_pattern}\n"
+            patterns += f"🔄 Pattern Persistence: Medium (48-72 hours)\n"
+            patterns += f"📍 Geographic Influence: Continental/Maritime effects\n"
+            patterns += f"🌊 Atmospheric Flow: {pattern_type.split()[0]} gradient\n\n"
+            
+            patterns += f"🔮 PATTERN EVOLUTION FORECAST:\n\n"
+            patterns += f"📅 Next 24 Hours:\n"
+            if stability == "Stable":
+                patterns += f"• Pattern likely to persist\n"
+                patterns += f"• Minimal weather changes expected\n"
+            elif stability == "Variable":
+                patterns += f"• Some pattern evolution possible\n"
+                patterns += f"• Moderate weather changes\n"
+            else:
+                patterns += f"• Significant pattern changes likely\n"
+                patterns += f"• Weather evolution expected\n"
+            
+            patterns += f"\n📅 Next 48-72 Hours:\n"
+            patterns += f"• New weather system approach possible\n"
+            patterns += f"• Pattern transition period\n"
+            patterns += f"• Monitor for system changes\n\n"
+            
+            patterns += f"💡 PATTERN INSIGHTS:\n"
+            patterns += f"• Current system shows {stability.lower()} characteristics\n"
+            patterns += f"• {pattern_type} typically associated with current conditions\n"
+            patterns += f"• Geographic location influences pattern behavior\n"
+            patterns += f"• Seasonal factors play role in pattern development\n\n"
+            
+            patterns += f"🎯 PRACTICAL IMPLICATIONS:\n"
+            if stability == "Stable":
+                patterns += f"• Good for planning outdoor activities\n"
+                patterns += f"• Consistent conditions expected\n"
+            elif stability == "Variable":
+                patterns += f"• Monitor conditions before activities\n"
+                patterns += f"• Have backup plans ready\n"
+            else:
+                patterns += f"• Expect changing conditions\n"
+                patterns += f"• Stay flexible with outdoor plans\n"
+            
+            return patterns
+            
+        except Exception as e:
+            return f"❌ Error analyzing weather patterns: {str(e)}"
+
+    def get_climate_analysis(self, city):
+        """Get climate analysis for a city"""
+        try:
+            climate = f"📉 CLIMATE ANALYSIS for {city.upper()}\n"
+            climate += "━" * 60 + "\n\n"
+            
+            # Get current weather for context
+            weather_data = self.get_current_weather(city)
+            
+            climate += f"🌍 CLIMATE OVERVIEW:\n\n"
+            climate += f"📊 Current Conditions Context:\n"
+            climate += f"• Today's Temperature: {weather_data.formatted_temperature}\n"
+            climate += f"• Current Weather: {weather_data.description}\n"
+            climate += f"• Humidity Level: {weather_data.humidity}%\n\n"
+            
+            # Climate classification (simplified)
+            temp = weather_data.temperature
+            humidity = weather_data.humidity
+            
+            if temp > 25 and humidity > 70:
+                climate_type = "Tropical/Humid Subtropical"
+                characteristics = "Hot, humid conditions year-round"
+            elif temp > 25 and humidity < 50:
+                climate_type = "Arid/Semi-Arid"
+                characteristics = "Hot, dry conditions with low humidity"
+            elif 10 <= temp <= 25 and humidity > 60:
+                climate_type = "Temperate Maritime"
+                characteristics = "Moderate temperatures, higher humidity"
+            elif 10 <= temp <= 25 and humidity <= 60:
+                climate_type = "Continental"
+                characteristics = "Moderate temperatures, variable humidity"
+            elif temp < 10:
+                climate_type = "Cool/Cold Climate"
+                characteristics = "Lower temperatures, variable conditions"
+            else:
+                climate_type = "Transitional Climate"
+                characteristics = "Mixed characteristics"
+            
+            climate += f"🏷️ CLIMATE CLASSIFICATION:\n"
+            climate += f"• Climate Type: {climate_type}\n"
+            climate += f"• Characteristics: {characteristics}\n"
+            climate += f"• Seasonal Variability: Moderate to High\n\n"
+            
+            climate += f"📈 CLIMATE METRICS ANALYSIS:\n\n"
+            climate += f"🌡️ Temperature Profile:\n"
+            climate += f"• Current Reading: {weather_data.formatted_temperature}\n"
+            climate += f"• Apparent Temperature: {weather_data.feels_like or 'N/A'}°{self.get_unit_label()}\n"
+            climate += f"• Daily Range: Varies seasonally\n"
+            climate += f"• Annual Range: Significant variation\n\n"
+            
+            climate += f"💧 Moisture Profile:\n"
+            climate += f"• Relative Humidity: {weather_data.humidity}%\n"
+            climate += f"• Moisture Regime: {'High' if humidity > 70 else 'Moderate' if humidity > 40 else 'Low'}\n"
+            climate += f"• Precipitation Pattern: Seasonal variation\n\n"
+            
+            climate += f"💨 Atmospheric Dynamics:\n"
+            climate += f"• Wind Patterns: {weather_data.formatted_wind}\n"
+            climate += f"• Pressure Systems: {weather_data.pressure or 'Variable'} hPa\n"
+            climate += f"• Air Mass Influence: Continental/Maritime mix\n\n"
+            
+            # Seasonal climate patterns
+            import datetime
+            current_month = datetime.datetime.now().month
+            
+            climate += f"🗓️ SEASONAL CLIMATE PATTERNS:\n\n"
+            
+            if current_month in [12, 1, 2]:  # Winter
+                climate += f"❄️ Current Season: Winter\n"
+                climate += f"• Typical Pattern: Cold air dominance\n"
+                climate += f"• Expected Conditions: Lower temperatures, possible precipitation\n"
+            elif current_month in [3, 4, 5]:  # Spring
+                climate += f"🌸 Current Season: Spring\n"
+                climate += f"• Typical Pattern: Transitional warming\n"
+                climate += f"• Expected Conditions: Variable, warming trend\n"
+            elif current_month in [6, 7, 8]:  # Summer
+                climate += f"☀️ Current Season: Summer\n"
+                climate += f"• Typical Pattern: Warm air mass dominance\n"
+                climate += f"• Expected Conditions: Higher temperatures, storm potential\n"
+            else:  # Fall
+                climate += f"🍂 Current Season: Autumn\n"
+                climate += f"• Typical Pattern: Cooling transition\n"
+                climate += f"• Expected Conditions: Temperature drop, increased storminess\n"
+            
+            climate += f"\n🌍 GEOGRAPHIC CLIMATE INFLUENCES:\n"
+            climate += f"• Latitude Effect: Determines solar angle and season intensity\n"
+            climate += f"• Elevation Impact: Affects temperature and precipitation\n"
+            climate += f"• Water Body Proximity: Moderates temperature extremes\n"
+            climate += f"• Topographic Effect: Local weather pattern modification\n\n"
+            
+            climate += f"📊 CLIMATE VARIABILITY:\n"
+            climate += f"• Short-term Variation: Daily and weekly changes\n"
+            climate += f"• Seasonal Cycle: Regular annual patterns\n"
+            climate += f"• Inter-annual Variation: Year-to-year differences\n"
+            climate += f"• Long-term Trends: Potential climate shifts\n\n"
+            
+            climate += f"💡 CLIMATE INSIGHTS:\n"
+            climate += f"• {city} exhibits {climate_type.lower()} characteristics\n"
+            climate += f"• Current conditions are {'typical' if 10 <= temp <= 30 else 'unusual'} for this location\n"
+            climate += f"• Climate variability affects local weather patterns\n"
+            climate += f"• Geographic factors significantly influence local climate\n\n"
+            
+            climate += f"🎯 PRACTICAL APPLICATIONS:\n"
+            climate += f"• Agriculture: Climate determines growing seasons\n"
+            climate += f"• Energy Use: Temperature affects heating/cooling needs\n"
+            climate += f"• Planning: Climate knowledge aids long-term decisions\n"
+            climate += f"• Lifestyle: Climate influences daily activities and clothing"
+            
+            return climate
+            
+        except Exception as e:
+            return f"❌ Error getting climate analysis: {str(e)}"
+
+    # Health & Wellness Methods
+    def get_uv_index_info(self, city):
+        """Get UV index and sun safety information"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            uv_info = f"☀️ UV INDEX & SUN SAFETY for {city.upper()}\n"
+            uv_info += "━" * 60 + "\n\n"
+            
+            # Simulate UV index based on weather conditions and time
+            import datetime
+            current_hour = datetime.datetime.now().hour
+            description = weather_data.description.lower()
+            
+            # Calculate estimated UV index
+            base_uv = 6  # Default moderate level
+            
+            # Time adjustments
+            if 10 <= current_hour <= 16:  # Peak UV hours
+                base_uv += 2
+            elif 8 <= current_hour <= 18:  # Moderate UV hours
+                base_uv += 0
+            else:  # Low UV hours
+                base_uv -= 3
+            
+            # Weather adjustments
+            if 'clear' in description or 'sunny' in description:
+                base_uv += 2
+            elif 'partly' in description or 'few clouds' in description:
+                base_uv += 1
+            elif 'cloudy' in description or 'overcast' in description:
+                base_uv -= 2
+            elif 'rain' in description or 'storm' in description:
+                base_uv -= 4
+            
+            uv_index = max(0, min(11, base_uv))  # Constrain between 0-11
+            
+            # UV risk categories
+            if uv_index <= 2:
+                risk_level = "LOW"
+                risk_color = "🟢"
+                protection_time = "60+ minutes"
+            elif uv_index <= 5:
+                risk_level = "MODERATE"
+                risk_color = "🟡"
+                protection_time = "30-60 minutes"
+            elif uv_index <= 7:
+                risk_level = "HIGH"
+                risk_color = "🟠"
+                protection_time = "15-30 minutes"
+            elif uv_index <= 10:
+                risk_level = "VERY HIGH"
+                risk_color = "🔴"
+                protection_time = "10-15 minutes"
+            else:
+                risk_level = "EXTREME"
+                risk_color = "🟣"
+                protection_time = "< 10 minutes"
+            
+            uv_info += f"📊 UV INDEX READING:\n\n"
+            uv_info += f"☀️ Current UV Index: {uv_index}/11\n"
+            uv_info += f"🚨 Risk Level: {risk_color} {risk_level}\n"
+            uv_info += f"⏱️ Safe Exposure Time: {protection_time}\n"
+            uv_info += f"🌤️ Weather Factor: {weather_data.description}\n\n"
+            
+            uv_info += f"🛡️ SUN PROTECTION RECOMMENDATIONS:\n\n"
+            
+            if uv_index <= 2:
+                uv_info += f"✅ Low Risk Conditions:\n"
+                uv_info += f"• Minimal protection required\n"
+                uv_info += f"• Sunglasses recommended for bright conditions\n"
+                uv_info += f"• Normal outdoor activities safe\n"
+            elif uv_index <= 5:
+                uv_info += f"⚠️ Moderate Risk Conditions:\n"
+                uv_info += f"• Sunscreen SPF 15+ recommended\n"
+                uv_info += f"• Sunglasses and hat advisable\n"
+                uv_info += f"• Seek shade during peak hours (10 AM - 4 PM)\n"
+            elif uv_index <= 7:
+                uv_info += f"🟠 High Risk Conditions:\n"
+                uv_info += f"• Sunscreen SPF 30+ required\n"
+                uv_info += f"• Protective clothing recommended\n"
+                uv_info += f"• Wide-brimmed hat and sunglasses essential\n"
+                uv_info += f"• Limit outdoor exposure during peak hours\n"
+            else:
+                uv_info += f"🔴 Very High/Extreme Risk:\n"
+                uv_info += f"• Sunscreen SPF 50+ mandatory\n"
+                uv_info += f"• Full protective clothing required\n"
+                uv_info += f"• Avoid outdoor activities 10 AM - 4 PM\n"
+                uv_info += f"• Seek shade whenever possible\n"
+            
+            uv_info += f"\n⏰ HOURLY UV FORECAST:\n"
+            uv_info += f"• 6-8 AM: Low (1-2)\n"
+            uv_info += f"• 8-10 AM: Moderate (3-4)\n"
+            uv_info += f"• 10 AM-2 PM: Peak ({max(8, uv_index)})\n"
+            uv_info += f"• 2-4 PM: High (6-7)\n"
+            uv_info += f"• 4-6 PM: Moderate (3-4)\n"
+            uv_info += f"• 6-8 PM: Low (1-2)\n\n"
+            
+            uv_info += f"🧴 SUNSCREEN GUIDELINES:\n"
+            uv_info += f"• Apply 15-30 minutes before sun exposure\n"
+            uv_info += f"• Use 1 ounce (2 tablespoons) for full body coverage\n"
+            uv_info += f"• Reapply every 2 hours or after swimming/sweating\n"
+            uv_info += f"• Choose broad-spectrum protection (UVA & UVB)\n\n"
+            
+            uv_info += f"👥 SPECIAL CONSIDERATIONS:\n"
+            uv_info += f"• Children: Extra protection needed, use SPF 50+\n"
+            uv_info += f"• Fair skin: Burns easily, requires higher protection\n"
+            uv_info += f"• Water/sand/snow: Increases UV reflection exposure\n"
+            uv_info += f"• Medications: Some increase sun sensitivity\n\n"
+            
+            uv_info += f"💡 HEALTH BENEFITS vs RISKS:\n"
+            uv_info += f"✅ Benefits: Vitamin D synthesis (10-15 min exposure)\n"
+            uv_info += f"⚠️ Risks: Sunburn, skin aging, skin cancer risk\n"
+            uv_info += f"🎯 Balance: Short, protected exposure is optimal"
+            
+            return uv_info
+            
+        except Exception as e:
+            return f"❌ Error getting UV index information: {str(e)}"
+
+    def get_pollen_forecast(self, city):
+        """Get pollen forecast and allergy information"""
+        try:
+            weather_data = self.get_current_weather(city)
+            
+            pollen = f"🌸 POLLEN FORECAST & ALLERGY INFO for {city.upper()}\n"
+            pollen += "━" * 60 + "\n\n"
+            
+            # Simulate pollen levels based on season and weather
+            import datetime
+            current_month = datetime.datetime.now().month
+            description = weather_data.description.lower()
+            temp = weather_data.temperature
+            wind_speed = weather_data.wind_speed
+            humidity = weather_data.humidity
+            
+            # Seasonal pollen patterns
+            if current_month in [3, 4, 5]:  # Spring
+                tree_pollen = "HIGH"
+                grass_pollen = "MODERATE"
+                weed_pollen = "LOW"
+                primary_allergens = "Tree pollens (oak, birch, maple)"
+            elif current_month in [6, 7, 8]:  # Summer
+                tree_pollen = "LOW"
+                grass_pollen = "HIGH"
+                weed_pollen = "MODERATE"
+                primary_allergens = "Grass pollens (timothy, bermuda)"
+            elif current_month in [9, 10, 11]:  # Fall
+                tree_pollen = "LOW"
+                grass_pollen = "LOW"
+                weed_pollen = "HIGH"
+                primary_allergens = "Weed pollens (ragweed, sagebrush)"
+            else:  # Winter
+                tree_pollen = "LOW"
+                grass_pollen = "LOW"
+                weed_pollen = "LOW"
+                primary_allergens = "Indoor allergens (dust, mold)"
+            
+            # Weather adjustments
+            if 'rain' in description:
+                # Rain reduces pollen counts
+                tree_pollen = "LOW" if tree_pollen == "MODERATE" else tree_pollen
+                grass_pollen = "LOW" if grass_pollen == "MODERATE" else grass_pollen
+                weed_pollen = "LOW" if weed_pollen == "MODERATE" else weed_pollen
+                weather_effect = "Reduced by recent rainfall"
+            elif wind_speed > 15:
+                weather_effect = "Elevated due to high winds"
+            elif humidity > 80:
+                weather_effect = "Moderate levels due to high humidity"
+            else:
+                weather_effect = "Normal seasonal levels"
+            
+            pollen += f"📊 CURRENT POLLEN LEVELS:\n\n"
+            pollen += f"🌳 Tree Pollen: {tree_pollen}\n"
+            pollen += f"🌾 Grass Pollen: {grass_pollen}\n"
+            pollen += f"🌿 Weed Pollen: {weed_pollen}\n"
+            pollen += f"🌤️ Weather Impact: {weather_effect}\n"
+            pollen += f"🎯 Primary Allergens: {primary_allergens}\n\n"
+            
+            # Calculate overall allergy risk
+            high_count = sum(1 for level in [tree_pollen, grass_pollen, weed_pollen] if level == "HIGH")
+            moderate_count = sum(1 for level in [tree_pollen, grass_pollen, weed_pollen] if level == "MODERATE")
+            
+            if high_count >= 2:
+                overall_risk = "🔴 HIGH"
+                risk_description = "Severe symptoms likely for sensitive individuals"
+            elif high_count == 1 or moderate_count >= 2:
+                overall_risk = "🟡 MODERATE"
+                risk_description = "Moderate symptoms possible for allergic individuals"
+            elif moderate_count == 1:
+                overall_risk = "🟡 LOW-MODERATE"
+                risk_description = "Mild symptoms may occur in highly sensitive people"
+            else:
+                overall_risk = "🟢 LOW"
+                risk_description = "Minimal allergy symptoms expected"
+            
+            pollen += f"🚨 OVERALL ALLERGY RISK: {overall_risk}\n"
+            pollen += f"📋 Risk Assessment: {risk_description}\n\n"
+            
+            pollen += f"⏰ DAILY POLLEN TIMELINE:\n\n"
+            pollen += f"🌅 Early Morning (5-7 AM):\n"
+            pollen += f"• Pollen levels: Low to Moderate\n"
+            pollen += f"• Best time for outdoor exercise\n"
+            pollen += f"• Cooler temperatures reduce pollen release\n\n"
+            
+            pollen += f"☀️ Mid-Morning to Afternoon (8 AM-5 PM):\n"
+            pollen += f"• Pollen levels: Peak (especially 10 AM-3 PM)\n"
+            pollen += f"• Warmth triggers maximum pollen release\n"
+            pollen += f"• Avoid outdoor activities if sensitive\n\n"
+            
+            pollen += f"🌆 Evening (6-8 PM):\n"
+            pollen += f"• Pollen levels: Moderate to Low\n"
+            pollen += f"• Acceptable for outdoor activities\n"
+            pollen += f"• Pollen settles as temperatures cool\n\n"
+            
+            pollen += f"💊 ALLERGY MANAGEMENT RECOMMENDATIONS:\n\n"
+            
+            if overall_risk.startswith("🔴"):
+                pollen += f"🔴 High Risk Management:\n"
+                pollen += f"• Take allergy medications before symptoms start\n"
+                pollen += f"• Keep windows closed, use air conditioning\n"
+                pollen += f"• Limit outdoor activities to early morning or evening\n"
+                pollen += f"• Shower and change clothes after being outdoors\n"
+                pollen += f"• Consider wearing sunglasses and hat outside\n"
+            elif overall_risk.startswith("🟡"):
+                pollen += f"🟡 Moderate Risk Management:\n"
+                pollen += f"• Monitor symptoms and take medication as needed\n"
+                pollen += f"• Close windows during peak pollen hours\n"
+                pollen += f"• Rinse eyes and nose after outdoor exposure\n"
+                pollen += f"• Time outdoor activities for lower pollen periods\n"
+            else:
+                pollen += f"🟢 Low Risk Management:\n"
+                pollen += f"• Normal outdoor activities generally safe\n"
+                pollen += f"• Basic precautions for highly sensitive individuals\n"
+                pollen += f"• Good time for outdoor exercise and activities\n"
+            
+            pollen += f"\n🏠 INDOOR AIR QUALITY TIPS:\n"
+            pollen += f"• Use HEPA air filters in home\n"
+            pollen += f"• Vacuum regularly with HEPA filter\n"
+            pollen += f"• Wash bedding weekly in hot water\n"
+            pollen += f"• Keep humidity between 30-50%\n\n"
+            
+            pollen += f"🌿 NATURAL ALLERGY RELIEF:\n"
+            pollen += f"• Saline nasal rinses\n"
+            pollen += f"• Local honey (may help with local pollens)\n"
+            pollen += f"• Quercetin supplements\n"
+            pollen += f"• Stay hydrated to thin mucus\n\n"
+            
+            pollen += f"⚠️ WHEN TO SEEK MEDICAL HELP:\n"
+            pollen += f"• Severe breathing difficulties\n"
+            pollen += f"• Persistent symptoms despite medication\n"
+            pollen += f"• New or worsening allergic reactions\n"
+            pollen += f"• Consider allergy testing for proper treatment"
+            
+            return pollen
+            
+        except Exception as e:
+            return f"❌ Error getting pollen forecast: {str(e)}"

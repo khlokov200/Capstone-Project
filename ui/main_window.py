@@ -9,7 +9,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ui.constants import COLOR_PALETTE, UI_CONFIG
 from ui.components import StyledButton
 from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab, 
-                     JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab, LiveWeatherTab)
+                     JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab, LiveWeatherTab,
+                     SevereWeatherTab, AnalyticsTrendsTab, HealthWellnessTab, SmartAlertsTab, WeatherCameraTab)
 
 
 class MainWindow(tk.Tk):
@@ -79,8 +80,17 @@ class MainWindow(tk.Tk):
         # Live Weather tab with animations and radar
         self.live_weather_tab = LiveWeatherTab(self.notebook, self.controller)
         
-        # Other tabs
+        # Forecast tabs
         self.forecast_tab = ForecastTab(self.notebook, self.controller)
+        
+        # New tabs positioned after forecast tab
+        self.severe_weather_tab = SevereWeatherTab(self.notebook, self.controller)
+        self.analytics_trends_tab = AnalyticsTrendsTab(self.notebook, self.controller)
+        self.health_wellness_tab = HealthWellnessTab(self.notebook, self.controller)
+        self.smart_alerts_tab = SmartAlertsTab(self.notebook, self.controller)
+        self.weather_camera_tab = WeatherCameraTab(self.notebook, self.controller)
+        
+        # Remaining tabs
         self.five_day_tab = FiveDayForecastTab(self.notebook, self.controller)
         self.comparison_tab = ComparisonTab(self.notebook, self.controller)
         self.journal_tab = JournalTab(self.notebook, self.controller)

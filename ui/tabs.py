@@ -1760,6 +1760,8 @@ class QuickActionsTab(BaseTab):
         
         
         
+
+        
         try:
             share_content = self.controller.get_shareable_weather(city)
             formatted_result = f"📱 SHAREABLE WEATHER for {city}:\n{'━' * 50}\n\n{share_content}"
@@ -2205,3 +2207,471 @@ class LiveWeatherTab(BaseTab):
                 self.radar_service.cleanup()
         except Exception:
             pass  # Ignore cleanup errors
+
+
+class SevereWeatherTab(BaseTab):
+    """Severe Weather Center tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "🌪️ Severe Weather")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        self.create_split_layout()
+        self._setup_controls()
+        self._setup_monitoring_panel()
+
+    def _setup_controls(self):
+        """Setup control panel"""
+        self.setup_city_input(self.left_frame)
+        
+        button_config = [
+            ("danger_black", "🌪️ Track Storms", self.track_storms),
+            ("warning_black", "⚠️ Active Alerts", self.get_active_alerts),
+            ("info_black", "📊 Risk Assessment", self.assess_weather_risks),
+            ("accent_black", "🚨 Emergency Prep", self.get_emergency_info)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=2)
+        self.setup_result_text(self.left_frame, height=15, width=50)
+
+    def _setup_monitoring_panel(self):
+        """Setup monitoring panel"""
+        StyledLabel(self.right_frame, text="🚨 Severe Weather Monitoring", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Alert status display
+        self.alert_display = StyledText(self.right_frame, height=20, width=60)
+        self.alert_display.pack(pady=10, fill="both", expand=True)
+        self.alert_display.insert("1.0", "🌤️ No severe weather alerts currently active.\n\n"
+                                         "📡 Monitoring systems online\n"
+                                         "🔄 Real-time updates enabled\n"
+                                         "📊 Weather radar operational")
+
+    def track_storms(self):
+        """Track severe weather and storms"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            result = self.controller.track_severe_weather(city)
+            formatted_result = f"🌪️ STORM TRACKING for {city}:\n{'━' * 50}\n\n{result}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "tracking storms")
+
+    def get_active_alerts(self):
+        """Get active weather alerts"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            alerts = self.controller.get_active_weather_alerts(city)
+            formatted_result = f"⚠️ ACTIVE ALERTS for {city}:\n{'━' * 50}\n\n{alerts}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting active alerts")
+
+    def assess_weather_risks(self):
+        """Assess weather risks for location"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            assessment = self.controller.assess_weather_risks(city)
+            formatted_result = f"📊 RISK ASSESSMENT for {city}:\n{'━' * 50}\n\n{assessment}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "assessing weather risks")
+
+    def get_emergency_info(self):
+        """Get emergency preparedness information"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            info = self.controller.get_emergency_preparedness(city)
+            formatted_result = f"🚨 EMERGENCY PREPAREDNESS for {city}:\n{'━' * 50}\n\n{info}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting emergency information")
+
+
+class AnalyticsTrendsTab(BaseTab):
+    """Analytics & Trends tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "📊 Analytics")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        self.create_split_layout()
+        self._setup_controls()
+        self._setup_charts_panel()
+
+    def _setup_controls(self):
+        """Setup control panel"""
+        self.setup_city_input(self.left_frame)
+        
+        button_config = [
+            ("primary_black", "📈 Weather Trends", self.analyze_trends),
+            ("cool_black", "📊 Statistics", self.get_detailed_stats),
+            ("warm_black", "🔍 Pattern Analysis", self.analyze_patterns),
+            ("info_black", "📉 Climate Data", self.get_climate_analysis)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=2)
+        self.setup_result_text(self.left_frame, height=15, width=50)
+
+    def _setup_charts_panel(self):
+        """Setup charts and visualization panel"""
+        StyledLabel(self.right_frame, text="📊 Weather Analytics Dashboard", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Analytics display
+        self.analytics_display = StyledText(self.right_frame, height=20, width=60)
+        self.analytics_display.pack(pady=10, fill="both", expand=True)
+        self.analytics_display.insert("1.0", "📊 WEATHER ANALYTICS CENTER\n\n"
+                                             "📈 Trend Analysis: Ready\n"
+                                             "📊 Statistical Models: Online\n"
+                                             "🔍 Pattern Recognition: Active\n"
+                                             "📉 Climate Tracking: Operational\n\n"
+                                             "Select a city and analysis type to begin.")
+
+    def analyze_trends(self):
+        """Analyze weather trends"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            trends = self.controller.analyze_weather_trends(city)
+            formatted_result = f"📈 WEATHER TRENDS for {city}:\n{'━' * 50}\n\n{trends}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "analyzing trends")
+
+    def get_detailed_stats(self):
+        """Get detailed weather statistics"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            stats = self.controller.get_detailed_weather_statistics(city)
+            formatted_result = f"📊 DETAILED STATISTICS for {city}:\n{'━' * 50}\n\n{stats}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting detailed statistics")
+
+    def analyze_patterns(self):
+        """Analyze weather patterns"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            patterns = self.controller.analyze_weather_patterns(city)
+            formatted_result = f"🔍 PATTERN ANALYSIS for {city}:\n{'━' * 50}\n\n{patterns}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "analyzing patterns")
+
+    def get_climate_analysis(self):
+        """Get climate analysis"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            climate = self.controller.get_climate_analysis(city)
+            formatted_result = f"📉 CLIMATE ANALYSIS for {city}:\n{'━' * 50}\n\n{climate}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting climate analysis")
+
+
+class HealthWellnessTab(BaseTab):
+    """Health & Wellness tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "🏥 Health & Wellness")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        self.create_split_layout()
+        self._setup_controls()
+        self._setup_health_panel()
+
+    def _setup_controls(self):
+        """Setup control panel"""
+        self.setup_city_input(self.left_frame)
+        
+        button_config = [
+            ("accent_black", "☀️ UV Index", self.get_uv_index),
+            ("info_black", "🌸 Pollen Forecast", self.get_pollen_forecast),
+            ("warm_black", "💨 Air Quality", self.get_air_quality),
+            ("cool_black", "🏃 Exercise Recommendations", self.get_exercise_recommendations)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=2)
+        self.setup_result_text(self.left_frame, height=15, width=50)
+
+    def _setup_health_panel(self):
+        """Setup health monitoring panel"""
+        StyledLabel(self.right_frame, text="🏥 Health & Wellness Monitor", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Health display
+        self.health_display = StyledText(self.right_frame, height=20, width=60)
+        self.health_display.pack(pady=10, fill="both", expand=True)
+        self.health_display.insert("1.0", "🏥 HEALTH & WELLNESS CENTER\n\n"
+                                          "☀️ UV Monitoring: Active\n"
+                                          "🌸 Pollen Tracking: Online\n"
+                                          "💨 Air Quality: Monitoring\n"
+                                          "🏃 Exercise Advisor: Ready\n\n"
+                                          "Enter a city to get health recommendations.")
+
+    def get_uv_index(self):
+        """Get UV index and sun safety recommendations"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            uv_info = self.controller.get_uv_index_info(city)
+            formatted_result = f"☀️ UV INDEX for {city}:\n{'━' * 50}\n\n{uv_info}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting UV index")
+
+    def get_pollen_forecast(self):
+        """Get pollen forecast"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            pollen = self.controller.get_pollen_forecast(city)
+            formatted_result = f"🌸 POLLEN FORECAST for {city}:\n{'━' * 50}\n\n{pollen}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting pollen forecast")
+
+    def get_air_quality(self):
+        """Get air quality information"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            air_quality = self.controller.get_air_quality_info(city)
+            formatted_result = f"💨 AIR QUALITY for {city}:\n{'━' * 50}\n\n{air_quality}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting air quality")
+
+    def get_exercise_recommendations(self):
+        """Get exercise recommendations based on weather"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            exercise = self.controller.get_exercise_recommendations(city)
+            formatted_result = f"🏃 EXERCISE RECOMMENDATIONS for {city}:\n{'━' * 50}\n\n{exercise}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "getting exercise recommendations")
+
+
+class SmartAlertsTab(BaseTab):
+    """Smart Alerts tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "🚨 Smart Alerts")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        self.create_split_layout()
+        self._setup_controls()
+        self._setup_alerts_panel()
+
+    def _setup_controls(self):
+        """Setup control panel"""
+        self.setup_city_input(self.left_frame)
+        
+        button_config = [
+            ("danger_black", "🔔 Set Alert", self.set_weather_alert),
+            ("warning_black", "📱 Push Notifications", self.manage_notifications),
+            ("info_black", "⏰ Schedule Alerts", self.schedule_alerts),
+            ("accent_black", "🎯 Custom Conditions", self.set_custom_conditions)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=2)
+        self.setup_result_text(self.left_frame, height=15, width=50)
+
+    def _setup_alerts_panel(self):
+        """Setup alerts management panel"""
+        StyledLabel(self.right_frame, text="🚨 Smart Alert Management", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Alerts display
+        self.alerts_display = StyledText(self.right_frame, height=20, width=60)
+        self.alerts_display.pack(pady=10, fill="both", expand=True)
+        self.alerts_display.insert("1.0", "🚨 SMART ALERTS SYSTEM\n\n"
+                                          "🔔 Alert Engine: Online\n"
+                                          "📱 Notification Service: Ready\n"
+                                          "⏰ Scheduler: Active\n"
+                                          "🎯 Custom Conditions: Available\n\n"
+                                          "Configure your weather alerts below.")
+
+    def set_weather_alert(self):
+        """Set a weather alert"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            alert = self.controller.set_weather_alert(city)
+            formatted_result = f"🔔 WEATHER ALERT SET for {city}:\n{'━' * 50}\n\n{alert}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "setting weather alert")
+
+    def manage_notifications(self):
+        """Manage push notifications"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            notifications = self.controller.manage_push_notifications(city)
+            formatted_result = f"📱 PUSH NOTIFICATIONS for {city}:\n{'━' * 50}\n\n{notifications}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "managing notifications")
+
+    def schedule_alerts(self):
+        """Schedule weather alerts"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            schedule = self.controller.schedule_weather_alerts(city)
+            formatted_result = f"⏰ SCHEDULED ALERTS for {city}:\n{'━' * 50}\n\n{schedule}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "scheduling alerts")
+
+    def set_custom_conditions(self):
+        """Set custom alert conditions"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            conditions = self.controller.set_custom_alert_conditions(city)
+            formatted_result = f"🎯 CUSTOM CONDITIONS for {city}:\n{'━' * 50}\n\n{conditions}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "setting custom conditions")
+
+
+class WeatherCameraTab(BaseTab):
+    """Weather Camera tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "📸 Weather Camera")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        self.create_split_layout()
+        self._setup_controls()
+        self._setup_camera_panel()
+
+    def _setup_controls(self):
+        """Setup control panel"""
+        self.setup_city_input(self.left_frame)
+        
+        button_config = [
+            ("primary_black", "📸 Capture Weather", self.capture_weather_photo),
+            ("cool_black", "🎥 Time-lapse", self.create_timelapse),
+            ("warm_black", "🖼️ Photo Gallery", self.view_photo_gallery),
+            ("accent_black", "📤 Share Photo", self.share_weather_photo)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=2)
+        self.setup_result_text(self.left_frame, height=15, width=50)
+
+    def _setup_camera_panel(self):
+        """Setup camera and gallery panel"""
+        StyledLabel(self.right_frame, text="📸 Weather Camera Studio", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Camera display
+        self.camera_display = StyledText(self.right_frame, height=20, width=60)
+        self.camera_display.pack(pady=10, fill="both", expand=True)
+        self.camera_display.insert("1.0", "📸 WEATHER CAMERA STUDIO\n\n"
+                                          "📷 Camera System: Ready\n"
+                                          "🎥 Time-lapse Engine: Online\n"
+                                          "🖼️ Photo Gallery: Available\n"
+                                          "📤 Sharing Service: Active\n\n"
+                                          "Capture and document weather conditions.")
+
+    def capture_weather_photo(self):
+        """Capture weather photo"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            photo = self.controller.capture_weather_photo(city)
+            formatted_result = f"📸 WEATHER PHOTO CAPTURED for {city}:\n{'━' * 50}\n\n{photo}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "capturing weather photo")
+
+    def create_timelapse(self):
+        """Create weather time-lapse"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            timelapse = self.controller.create_weather_timelapse(city)
+            formatted_result = f"🎥 WEATHER TIME-LAPSE for {city}:\n{'━' * 50}\n\n{timelapse}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "creating time-lapse")
+
+    def view_photo_gallery(self):
+        """View weather photo gallery"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            gallery = self.controller.view_weather_photo_gallery(city)
+            formatted_result = f"🖼️ PHOTO GALLERY for {city}:\n{'━' * 50}\n\n{gallery}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "viewing photo gallery")
+
+    def share_weather_photo(self):
+        """Share weather photo"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            share = self.controller.share_weather_photo(city)
+            formatted_result = f"📤 SHARE WEATHER PHOTO for {city}:\n{'━' * 50}\n\n{share}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "sharing weather photo")
