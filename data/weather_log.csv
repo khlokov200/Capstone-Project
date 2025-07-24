@@ -74,3 +74,94 @@ DateTime           , City     , Temperature, Description
 2025-07-23 13:59:53,bangkok,24.94,Overcast clouds,metric,80,3.45
 2025-07-23 13:59:59,bangkok,76.89,Overcast clouds,imperial,80,7.72
 2025-07-23 14:00:34,abuja,77.14,Light rain,imperial,98,3.02
+2025-07-23 14:42:43,Abidjan,75.16,Broken clouds,imperial,94,10.36
+2025-07-23 14:42:43,Maputo,66.22,Light rain,imperial,87,4.61
+2025-07-23 15:27:21,lagos,24.47,Overcast clouds,metric,84,3.62
+2025-07-23 15:27:41,lagos,24.47,Overcast clouds,metric,84,3.62
+2025-07-23 15:32:55,Cairo,32.42,Clear sky,metric,40,5.66
+2025-07-23 15:38:59,Cairo,32.42,Clear sky,metric,40,5.66
+2025-07-23 15:40:18,cairo,32.42,Clear sky,metric,40,5.66
+2025-07-23 16:05:24,soweto,8.95,Overcast clouds,metric,76,0
+2025-07-23 16:05:27,soweto,8.95,Overcast clouds,metric,76,0
+2025-07-23 16:06:34,soweto,8.95,Overcast clouds,metric,76,0
+2025-07-23 16:07:04,soweto,8.95,Overcast clouds,metric,76,0
+2025-07-23 16:53:06,Kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 16:53:09,Kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 16:53:36,Kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 16:59:36,Kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 17:00:26,kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 17:00:33,kaduna,21.58,Moderate rain,metric,96,1.75
+2025-07-23 17:01:36,Delta,22.85,Overcast clouds,metric,94,1.51
+2025-07-23 17:08:56,New York,26.93,Clear sky,metric,51,7.2
+2025-07-23 17:08:56,New York,26.93,Clear sky,metric,51,7.2
+2025-07-23 17:08:56,New York,26.93,Clear sky,metric,51,7.2
+2025-07-23 17:08:56,New York,26.93,Clear sky,metric,51,7.2
+2025-07-23 17:08:57,New York,26.93,Clear sky,metric,51,7.2
+2025-07-23 17:08:57,London,17.99,Overcast clouds,metric,71,3.09
+2025-07-23 17:08:57,Tokyo,29.1,Few clouds,metric,73,2.57
+2025-07-23 17:08:57,Sydney,8.66,Clear sky,metric,68,7.2
+2025-07-23 17:08:57,Paris,16.95,Overcast clouds,metric,91,2.57
+2025-07-23 17:08:57,Dubai,33.96,Scattered clouds,metric,70,1.54
+2025-07-23 17:55:13,abuja,24.08,Overcast clouds,metric,96,2.21
+2025-07-23 17:55:15,abuja,24.08,Overcast clouds,metric,96,2.21
+2025-07-23 17:55:20,abuja,24.08,Overcast clouds,metric,96,2.21
+2025-07-23 17:55:23,abuja,24.08,Overcast clouds,metric,96,2.21
+2025-07-23 17:55:29,abuja,24.08,Overcast clouds,metric,96,2.21
+2025-07-23 17:55:36,New York,25.97,Clear sky,metric,55,7.2
+2025-07-23 17:55:37,London,17.94,Overcast clouds,metric,72,2.57
+2025-07-23 17:55:37,Tokyo,31.06,Few clouds,metric,67,4.63
+2025-07-23 17:55:38,Sydney,10.01,Clear sky,metric,63,7.72
+2025-07-23 17:55:38,Paris,16.48,Clear sky,metric,94,2.06
+2025-07-23 17:55:38,Dubai,32.96,Scattered clouds,metric,75,1.03
+2025-07-23 18:12:40,Makurdi,22.92,Overcast clouds,metric,97,3.56
+2025-07-23 19:21:56,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:21:59,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:02,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:04,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:05,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:08,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:11,lagos,24.01,Overcast clouds,metric,87,4.02
+2025-07-23 19:22:13,New York,24.41,Clear sky,metric,59,6.69
+2025-07-23 19:22:13,London,17.03,Overcast clouds,metric,77,2.57
+2025-07-23 19:22:13,Tokyo,32,Few clouds,metric,66,4.63
+2025-07-23 19:22:14,Sydney,12.57,Clear sky,metric,56,7.72
+2025-07-23 19:22:14,Paris,16.86,Overcast clouds,metric,92,3.09
+2025-07-23 19:22:14,Dubai,32.96,Few clouds,metric,75,3.6
+2025-07-23 19:22:23,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:25,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:26,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:28,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:29,New York,24.41,Clear sky,metric,59,6.69
+2025-07-23 19:22:30,London,17.03,Overcast clouds,metric,77,2.57
+2025-07-23 19:22:30,Tokyo,32.44,Few clouds,metric,64,5.14
+2025-07-23 19:22:30,Sydney,12.57,Clear sky,metric,56,7.72
+2025-07-23 19:22:31,Paris,16.86,Overcast clouds,metric,92,3.09
+2025-07-23 19:22:31,Dubai,32.96,Few clouds,metric,75,3.6
+2025-07-23 19:22:32,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:43,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:22:55,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:23:15,malaga,24.94,Clear sky,metric,61,3.09
+2025-07-23 19:23:16,malaga,24.94,Clear sky,metric,61,3.09
+2025-07-23 19:23:22,malaga,24.94,Clear sky,metric,61,3.09
+2025-07-23 19:23:24,malaga,24.94,Clear sky,metric,61,3.09
+2025-07-23 19:23:36,malaga,24.94,Clear sky,metric,61,3.09
+2025-07-23 19:25:14,lome,25.09,Broken clouds,metric,83,5.66
+2025-07-23 19:25:15,montenegro,21.86,Clear sky,metric,69,1.54
+2025-07-23 19:25:32,lome,77.16,Broken clouds,imperial,83,12.66
+2025-07-23 19:25:32,montenegro,71.35,Clear sky,imperial,69,3.44
+2025-07-23 19:33:27,johannesburg,48.58,Scattered clouds,imperial,67,5.32
+2025-07-23 19:33:29,johannesburg,48.58,Scattered clouds,imperial,67,5.32
+2025-07-23 19:33:32,johannesburg,48.58,Scattered clouds,imperial,67,5.32
+2025-07-23 19:33:38,johannesburg,48.58,Scattered clouds,imperial,67,5.32
+2025-07-23 19:33:41,johannesburg,48.58,Scattered clouds,imperial,67,5.32
+2025-07-23 19:35:50,montenegro,68.23,Clear sky,imperial,59,6.17
+2025-07-23 19:35:54,montenegro,68.23,Clear sky,imperial,59,6.17
+2025-07-23 19:35:56,montenegro,68.23,Clear sky,imperial,59,6.17
+2025-07-23 19:36:01,montenegro,68.23,Clear sky,imperial,59,6.17
+2025-07-23 19:36:04,montenegro,68.23,Clear sky,imperial,59,6.17
+2025-07-23 19:36:10,New York,77,Scattered clouds,imperial,61,14.23
+2025-07-23 19:36:11,London,62.35,Overcast clouds,imperial,82,6.82
+2025-07-23 19:36:11,Tokyo,90.05,Few clouds,imperial,53,4.09
+2025-07-23 19:36:11,Sydney,56.16,Clear sky,imperial,51,9.35
+2025-07-23 19:36:12,Paris,60.19,Overcast clouds,imperial,91,3.24
+2025-07-23 19:36:12,Dubai,90.3,Clear sky,imperial,78,7.2

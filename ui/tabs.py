@@ -16,6 +16,13 @@ try:
 except ImportError:
     np = None
 
+# Import live weather services
+try:
+    from services.live_weather_service import LiveAnimationService, WeatherRadarService, AnimatedWeatherWidget, WeatherRadarWidget
+    LIVE_WEATHER_AVAILABLE = True
+except ImportError:
+    LIVE_WEATHER_AVAILABLE = False
+
 
 class WeatherTab(BaseTab):
     """Current weather tab component"""
@@ -1751,6 +1758,8 @@ class QuickActionsTab(BaseTab):
         if not city:
             return
         
+        
+        
         try:
             share_content = self.controller.get_shareable_weather(city)
             formatted_result = f"📱 SHAREABLE WEATHER for {city}:\n{'━' * 50}\n\n{share_content}"
@@ -1797,3 +1806,402 @@ class QuickActionsTab(BaseTab):
             self.display_result(formatted_result)
         except Exception as e:
             self.handle_error(e, "checking multiple cities")
+
+
+class LiveWeatherTab(BaseTab):
+    """Live weather tab with animations and doppler radar"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "Live Weather")
+        self.live_service = None
+        self.radar_service = None
+        self.animation_widget = None
+        self.radar_widget = None
+        self._setup_ui()
+        self._initialize_services()
+
+    def _setup_ui(self):
+        """Setup the UI components with split layout for animations and radar"""
+        if LIVE_WEATHER_AVAILABLE:
+            # Create split layout using helper
+            self.create_split_layout()
+            self._setup_animation_interface()
+            self._setup_radar_interface()
+        else:
+            # Show unavailable message
+            self._show_unavailable_message()
+
+    def _show_unavailable_message(self):
+        """Show message when live weather services are unavailable"""
+        from .components import StyledLabel
+        message_frame = ttk.Frame(self.frame)
+        message_frame.pack(fill="both", expand=True)
+        
+        StyledLabel(message_frame, 
+                   text="⚠️ Live Weather Features Unavailable\n\n" +
+                        "Missing required packages:\n" +
+                        "• matplotlib (for radar display)\n" +
+                        "• tkinter (for animations)\n" +
+                        "• threading support\n\n" +
+                        "Please install missing packages to enable live features.",
+                   font=("Arial", 12),
+                   foreground="red").pack(expand=True)
+
+    def _setup_animation_interface(self):
+        """Setup the live animation interface in the left panel"""
+        # Animation title
+        from .components import StyledLabel
+        StyledLabel(self.left_frame, text="🚶 Live People Animations", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # City input for animation weather sync
+        self.setup_city_input(self.left_frame)
+        
+        # Animation controls
+        animation_controls = ttk.Frame(self.left_frame)
+        animation_controls.pack(pady=10)
+        
+        # Animation control buttons
+        button_config = [
+            ("success_black", "▶️ Start Animations", self.start_animations),
+            ("warning_black", "⏸️ Stop Animations", self.stop_animations),
+            ("info_black", "🌤️ Sync Weather", self.sync_weather),
+            ("accent_black", "⚙️ Settings", self.animation_settings)
+        ]
+        ButtonHelper.create_button_grid(animation_controls, button_config, columns=2)
+        
+        # Animation canvas frame
+        self.animation_canvas_frame = ttk.LabelFrame(self.left_frame, text="Live Animation")
+        self.animation_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+    def _setup_radar_interface(self):
+        """Setup the weather radar interface in the right panel"""
+        # Radar title
+        from .components import StyledLabel
+        StyledLabel(self.right_frame, text="🌪️ Live Doppler Radar", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Radar coordinates input
+        coord_frame = ttk.Frame(self.right_frame)
+        coord_frame.pack(pady=5)
+        
+        ttk.Label(coord_frame, text="Latitude:").grid(row=0, column=0, padx=2)
+        self.lat_entry = ttk.Entry(coord_frame, width=10)
+        self.lat_entry.grid(row=0, column=1, padx=2)
+        self.lat_entry.insert(0, "40.7128")  # Default to NYC
+        
+        ttk.Label(coord_frame, text="Longitude:").grid(row=0, column=2, padx=2)
+        self.lon_entry = ttk.Entry(coord_frame, width=10)
+        self.lon_entry.grid(row=0, column=3, padx=2)
+        self.lon_entry.insert(0, "-74.0060")  # Default to NYC
+        
+        # Radar controls
+        radar_controls = ttk.Frame(self.right_frame)
+        radar_controls.pack(pady=10)
+        
+        # Radar control buttons
+        radar_button_config = [
+            ("primary_black", "🌍 Update Radar", self.update_radar),
+            ("accent_black", "🌪️ Track Storms", self.track_severe_weather),
+            ("warning_black", "⚠️ Alerts", self.check_weather_alerts),
+            ("info_black", "📊 Radar Stats", self.show_radar_stats)
+        ]
+        ButtonHelper.create_button_grid(radar_controls, radar_button_config, columns=2)
+        
+        # Radar display frame
+        self.radar_canvas_frame = ttk.LabelFrame(self.right_frame, text="Doppler Radar Display")
+        self.radar_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+    def _initialize_services(self):
+        """Initialize live weather services"""
+        if not LIVE_WEATHER_AVAILABLE:
+            return
+        
+        try:
+            # Initialize live animation service
+            self.live_service = LiveAnimationService()
+            
+            # Initialize weather radar service (with API key from controller)
+            api_key = getattr(self.controller, 'api_key', None)
+            self.radar_service = WeatherRadarService(api_key)
+            
+            # Create animation widget
+            self.animation_widget = AnimatedWeatherWidget(
+                parent=self.animation_canvas_frame,
+                width=400,
+                height=300
+            )
+            
+            # Create radar widget
+            self.radar_widget = WeatherRadarWidget(
+                parent=self.radar_canvas_frame,
+                radar_service=self.radar_service
+            )
+            
+        except Exception as e:
+            self.handle_error(e, "initializing live weather services")
+
+    def start_animations(self):
+        """Start live people animations"""
+        if not self.animation_widget:
+            self.display_result("❌ Animation widget not available. Please check system requirements.")
+            return
+        
+        try:
+            # Get current weather for animation synchronization
+            city = self.get_city_input()
+            weather_type = 'clear'  # Default weather type
+            
+            if city:
+                try:
+                    weather_data = self.controller.get_current_weather(city)
+                    # Convert weather description to simple weather type
+                    description = weather_data.description.lower()
+                    if 'rain' in description or 'drizzle' in description:
+                        weather_type = 'rain'
+                    elif 'snow' in description or 'blizzard' in description:
+                        weather_type = 'snow'
+                    elif 'storm' in description or 'thunder' in description:
+                        weather_type = 'storm'
+                    elif 'cloud' in description or 'overcast' in description:
+                        weather_type = 'cloudy'
+                except:
+                    pass  # Use default weather type
+            
+            # Update animation weather and start
+            self.animation_widget.update_weather(weather_type)
+            self.animation_widget.start_animation(weather_type)
+            
+            # Start live service if available
+            if self.live_service:
+                self.live_service.start_animations()
+            
+            # Update status
+            self.display_result("🎬 Live animations started! People are now moving across the screen.\n\n" +
+                              "🌦️ Weather effects are synchronized with current conditions.\n" +
+                              "👥 Watch for walkers, joggers, cyclists, and weather-specific behaviors.")
+            
+        except Exception as e:
+            self.handle_error(e, "starting animations")
+
+    def stop_animations(self):
+        """Stop live people animations"""
+        if not self.animation_widget:
+            return
+        
+        try:
+            if self.live_service:
+                self.live_service.stop_animations()
+            self.animation_widget.stop_animation()
+            self.display_result("⏹️ Live animations stopped.\n\n" +
+                              "All animated elements have been paused.")
+        except Exception as e:
+            self.handle_error(e, "stopping animations")
+
+    def sync_weather(self):
+        """Synchronize animations with current weather"""
+        city = self.get_city_input()
+        if not city or not self.animation_widget:
+            return
+        
+        try:
+            # Get current weather
+            weather_data = self.controller.get_current_weather(city)
+            
+            # Convert weather description to simple weather type
+            description = weather_data.description.lower()
+            weather_type = 'clear'  # Default
+            
+            if 'rain' in description or 'drizzle' in description:
+                weather_type = 'rain'
+            elif 'snow' in description or 'blizzard' in description:
+                weather_type = 'snow'
+            elif 'storm' in description or 'thunder' in description:
+                weather_type = 'storm'
+            elif 'cloud' in description or 'overcast' in description:
+                weather_type = 'cloudy'
+            elif 'mist' in description or 'fog' in description:
+                weather_type = 'cloudy'
+            
+            # Update animation effects
+            self.animation_widget.update_weather(weather_type)
+            
+            self.display_result(f"🌤️ Weather synchronization complete for {city}!\n\n" +
+                              f"Current weather: {weather_data.description}\n" +
+                              f"Temperature: {weather_data.formatted_temperature}\n" +
+                              f"Animation weather type: {weather_type}\n\n" +
+                              f"Animations now reflect current weather conditions:\n" +
+                              f"• Movement speed adjusted for weather\n" +
+                              f"• Weather effects (rain, snow, etc.) updated\n" +
+                              f"• Background ambiance synchronized")
+            
+        except Exception as e:
+            self.handle_error(e, "synchronizing weather")
+
+    def animation_settings(self):
+        """Show animation settings dialog"""
+        try:
+            settings_text = "⚙️ ANIMATION SETTINGS:\n" + "━" * 50 + "\n\n"
+            settings_text += "Current Configuration:\n"
+            settings_text += "• Animation Speed: 10 FPS\n"
+            settings_text += "• People Count: 5-15 (dynamic)\n"
+            settings_text += "• Weather Effects: Enabled\n"
+            settings_text += "• Movement Types: Walking, Jogging, Cycling\n"
+            settings_text += "• Background Effects: Enabled\n\n"
+            settings_text += "Available People Types:\n"
+            settings_text += "👤 Walker - Slow, steady movement\n"
+            settings_text += "🏃 Jogger - Medium speed movement\n"
+            settings_text += "👴 Elderly - Slower, careful movement\n"
+            settings_text += "🚴 Cyclist - Fast movement\n\n"
+            settings_text += "Weather Effects:\n"
+            settings_text += "🌧️ Rain - Droplets and slower movement\n"
+            settings_text += "❄️ Snow - Snowflakes and very slow movement\n"
+            settings_text += "⛈️ Storm - Lightning and indoor sheltering\n"
+            settings_text += "☀️ Sunny - Normal speed and bright colors"
+            
+            self.display_result(settings_text)
+            
+        except Exception as e:
+            self.handle_error(e, "showing animation settings")
+
+    def update_radar(self):
+        """Update doppler radar display"""
+        if not self.radar_widget:
+            return
+        
+        try:
+            # Get coordinates
+            lat = float(self.lat_entry.get())
+            lon = float(self.lon_entry.get())
+            
+            # Update radar location
+            self.radar_widget.update_location(lat, lon)
+            
+            self.display_result(f"🌍 Radar updated for coordinates: {lat:.4f}, {lon:.4f}\n\n" +
+                              f"🔄 Scanning for weather patterns...\n" +
+                              f"📡 Doppler radar data refreshed\n" +
+                              f"⏱️ Next update in 2 minutes")
+            
+        except ValueError:
+            self.display_result("❌ Invalid coordinates! Please enter valid latitude and longitude.")
+        except Exception as e:
+            self.handle_error(e, "updating radar")
+
+    def track_severe_weather(self):
+        """Track severe weather events"""
+        if not self.radar_service:
+            return
+        
+        try:
+            # Get coordinates
+            lat = float(self.lat_entry.get())
+            lon = float(self.lon_entry.get())
+            
+            # Get severe weather data
+            severe_events = self.radar_service.get_severe_weather_events(lat, lon)
+            
+            if severe_events:
+                result = "🌪️ SEVERE WEATHER TRACKING:\n" + "━" * 50 + "\n\n"
+                for event in severe_events:
+                    result += f"⚠️ {event['type'].upper()}\n"
+                    result += f"   Location: {event['distance']:.1f} km away\n"
+                    result += f"   Intensity: {event['intensity']}\n"
+                    result += f"   ETA: {event.get('eta', 'Unknown')}\n"
+                    result += f"   Warning: {event['description']}\n\n"
+                
+                result += "🛡️ SAFETY RECOMMENDATIONS:\n"
+                result += "• Monitor weather alerts regularly\n"
+                result += "• Prepare emergency supplies\n"
+                result += "• Stay indoors during severe weather\n"
+                result += "• Follow local evacuation orders if issued"
+            else:
+                result = "✅ No severe weather events detected in your area.\n\n"
+                result += "🌤️ Current conditions appear stable.\n"
+                result += "📡 Continuing to monitor for changes..."
+            
+            self.display_result(result)
+            
+        except ValueError:
+            self.display_result("❌ Invalid coordinates! Please enter valid latitude and longitude.")
+        except Exception as e:
+            self.handle_error(e, "tracking severe weather")
+
+    def check_weather_alerts(self):
+        """Check for weather alerts and warnings"""
+        if not self.radar_service:
+            return
+        
+        try:
+            # Get coordinates
+            lat = float(self.lat_entry.get())
+            lon = float(self.lon_entry.get())
+            
+            # Get weather alerts
+            alerts = self.radar_service.get_weather_alerts(lat, lon)
+            
+            if alerts:
+                result = "⚠️ WEATHER ALERTS:\n" + "━" * 50 + "\n\n"
+                for alert in alerts:
+                    result += f"🚨 {alert['title']}\n"
+                    result += f"   Severity: {alert['severity']}\n"
+                    result += f"   Areas: {alert['areas']}\n"
+                    result += f"   Details: {alert['description']}\n\n"
+            else:
+                result = "✅ No active weather alerts for your area.\n\n"
+                result += "🌤️ Weather conditions are normal.\n"
+                result += "📱 Alerts will appear here when issued."
+            
+            self.display_result(result)
+            
+        except ValueError:
+            self.display_result("❌ Invalid coordinates! Please enter valid latitude and longitude.")
+        except Exception as e:
+            self.handle_error(e, "checking weather alerts")
+
+    def show_radar_stats(self):
+        """Show radar statistics and information"""
+        try:
+            stats = "📊 RADAR STATISTICS:\n" + "━" * 50 + "\n\n"
+            stats += "📡 Radar Coverage:\n"
+            stats += "• Range: 200 km radius\n"
+            stats += "• Resolution: 1 km grid\n"
+            stats += "• Update Frequency: 2 minutes\n"
+            stats += "• Data Sources: National Weather Service\n\n"
+            
+            stats += "🌦️ Detectable Weather Events:\n"
+            stats += "🌪️ Tornadoes - F0 to F5 scale tracking\n"
+            stats += "🌀 Hurricanes - Category 1-5 monitoring\n"
+            stats += "❄️ Blizzards - Snow intensity mapping\n"
+            stats += "🌧️ Thunderstorms - Precipitation rates\n"
+            stats += "🌊 Flooding - Ground saturation levels\n"
+            stats += "🔥 Wildfires - Smoke and heat detection\n"
+            stats += "⚡ Lightning - Strike frequency mapping\n\n"
+            
+            stats += "📈 Current Session:\n"
+            if self.radar_service:
+                stats += f"• Radar Updates: {getattr(self.radar_service, 'update_count', 0)}\n"
+                stats += f"• Alerts Checked: {getattr(self.radar_service, 'alert_count', 0)}\n"
+                stats += f"• Severe Events: {getattr(self.radar_service, 'severe_count', 0)}\n"
+            else:
+                stats += "• Service not initialized\n"
+            
+            stats += "\n💡 Tips:\n"
+            stats += "• Green areas: Light precipitation\n"
+            stats += "• Yellow areas: Moderate weather\n"
+            stats += "• Red areas: Heavy/severe weather\n"
+            stats += "• Purple areas: Extreme conditions"
+            
+            self.display_result(stats)
+            
+        except Exception as e:
+            self.handle_error(e, "showing radar statistics")
+
+    def cleanup(self):
+        """Cleanup live weather services when tab is closed"""
+        try:
+            if self.live_service:
+                self.live_service.stop_animation()
+            if self.radar_service:
+                self.radar_service.cleanup()
+        except Exception:
+            pass  # Ignore cleanup errors
