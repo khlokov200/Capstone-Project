@@ -597,12 +597,45 @@ class WeatherRadarWidget:
                     line += symbol
                 self.text_area.insert(tk.END, line + "\n")
         
-        # Legend
-        self.text_area.insert(tk.END, "\n📋 LEGEND:\n")
-        self.text_area.insert(tk.END, "🔴 Severe Weather  🟠 Heavy Precipitation\n")
-        self.text_area.insert(tk.END, "🟡 Moderate Rain   🟢 Light Precipitation\n")
-        self.text_area.insert(tk.END, "⚪ Clear/Dry      🌀 Hurricane\n")
-        self.text_area.insert(tk.END, "🌪️ Tornado        ❄️ Blizzard\n\n")
+        # Comprehensive Legend
+        self.text_area.insert(tk.END, "\n📋 DOPPLER RADAR ICON LEGEND:\n")
+        self.text_area.insert(tk.END, "━" * 45 + "\n\n")
+        
+        # Precipitation Intensity Icons
+        self.text_area.insert(tk.END, "🌦️ PRECIPITATION INTENSITY:\n")
+        self.text_area.insert(tk.END, "🔴 Severe Weather    - Heavy storms, dangerous conditions\n")
+        self.text_area.insert(tk.END, "🟠 Heavy Precipitation - Strong rain/snow, reduced visibility\n")
+        self.text_area.insert(tk.END, "🟡 Moderate Rain     - Steady rainfall, use caution\n")
+        self.text_area.insert(tk.END, "🟢 Light Precipitation - Light rain/drizzle, minimal impact\n")
+        self.text_area.insert(tk.END, "⚪ Clear/Dry        - No precipitation, good visibility\n\n")
+        
+        # Severe Weather Event Icons
+        self.text_area.insert(tk.END, "⚠️ SEVERE WEATHER EVENTS:\n")
+        self.text_area.insert(tk.END, "🌀 Hurricane        - Category 1-5 tropical cyclone\n")
+        self.text_area.insert(tk.END, "🌪️ Tornado         - F0-F5 scale rotating windstorm\n")
+        self.text_area.insert(tk.END, "❄️ Blizzard        - Heavy snow with strong winds\n")
+        self.text_area.insert(tk.END, "⛈️ Thunderstorm    - Lightning and heavy rain\n")
+        self.text_area.insert(tk.END, "🌊 Flash Flood     - Rapid water rise, immediate danger\n")
+        self.text_area.insert(tk.END, "🔥 Wildfire        - Active fire with smoke detection\n")
+        self.text_area.insert(tk.END, "⚡ Lightning       - High electrical activity\n")
+        self.text_area.insert(tk.END, "💨 High Winds      - Sustained winds >35 mph\n\n")
+        
+        # System Status Icons
+        self.text_area.insert(tk.END, "📡 RADAR SYSTEM STATUS:\n")
+        self.text_area.insert(tk.END, "✅ Online          - System operational, data current\n")
+        self.text_area.insert(tk.END, "🔄 Updating        - Refreshing radar data\n")
+        self.text_area.insert(tk.END, "⚠️ Warning         - System alert or maintenance\n")
+        self.text_area.insert(tk.END, "❌ Offline         - System unavailable\n")
+        self.text_area.insert(tk.END, "📍 Location        - Current radar coverage area\n\n")
+        
+        # Safety and Alert Icons
+        self.text_area.insert(tk.END, "🚨 SAFETY INDICATORS:\n")
+        self.text_area.insert(tk.END, "🟢 Safe           - Normal conditions, outdoor activities OK\n")
+        self.text_area.insert(tk.END, "🟡 Caution        - Monitor conditions, be prepared\n")
+        self.text_area.insert(tk.END, "🟠 Warning         - Dangerous conditions, take shelter\n")
+        self.text_area.insert(tk.END, "🔴 Emergency       - Life-threatening, immediate action\n")
+        self.text_area.insert(tk.END, "🏠 Shelter         - Stay indoors, avoid travel\n")
+        self.text_area.insert(tk.END, "🚗 Travel Alert    - Road conditions hazardous\n\n")
         
         # Update info
         self.text_area.insert(tk.END, f"🔄 Last Updated: {timestamp}\n")
