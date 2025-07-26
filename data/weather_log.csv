@@ -218,3 +218,29 @@ DateTime           , City     , Temperature, Description
 2025-07-24 21:49:05,los angeles,70.02,Clear sky,imperial,68,18.41
 2025-07-24 21:49:13,denver,23.03,Overcast clouds,metric,48,1.34
 2025-07-24 21:49:13,los angeles,21.02,Clear sky,metric,68,8.23
+2025-07-25 18:57:47,boston,28.25,Broken clouds,metric,67,4.02
+2025-07-25 18:57:55,boston,28.25,Broken clouds,metric,67,4.02
+2025-07-25 18:58:05,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:08,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:21,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:34,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:35,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:42,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:47,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:58:48,New York,82.94,Few clouds,imperial,74,10.36
+2025-07-25 18:58:48,London,67.73,Scattered clouds,imperial,65,5.99
+2025-07-25 18:58:48,Tokyo,90.39,Few clouds,imperial,60,14.97
+2025-07-25 18:58:48,Sydney,54,Moderate rain,imperial,82,5.99
+2025-07-25 18:58:49,Paris,67.1,Clear sky,imperial,81,6.91
+2025-07-25 18:58:49,Dubai,94.93,Clear sky,imperial,66,10.36
+2025-07-25 18:58:59,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 18:59:31,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 19:00:08,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 19:00:16,boston,82.85,Broken clouds,imperial,67,8.99
+2025-07-25 19:03:28,berlin,66.54,Moderate rain,imperial,94,5.75
+2025-07-25 19:03:28,new york,82.94,Few clouds,imperial,74,10.36
+2025-07-25 19:04:51,bismarck,89.04,Clear sky,imperial,53,13.8
+2025-07-25 19:04:52,bismarck,89.04,Clear sky,imperial,53,13.8
+2025-07-25 19:05:01,bismarck,89.04,Clear sky,imperial,53,13.8
+2025-07-25 19:05:03,bismarck,89.04,Clear sky,imperial,53,13.8
+2025-07-25 19:05:07,bismarck,89.04,Clear sky,imperial,53,13.8

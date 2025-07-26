@@ -62,11 +62,17 @@ class BaseTab:
         self.right_frame = ttk.Frame(self.main_paned)
         self.main_paned.add(self.right_frame, weight=1)
 
-    def setup_city_input(self, parent_frame):
+    def setup_city_input(self, parent_frame, label_text="Enter City:"):
         """Setup standardized city input"""
-        StyledLabel(parent_frame, text="Enter City:").pack(pady=10)
-        self.city_entry = ttk.Entry(parent_frame)
-        self.city_entry.pack()
+        StyledLabel(parent_frame, text=label_text).pack(pady=10)
+        entry = ttk.Entry(parent_frame)
+        entry.pack()
+        
+        # If it's the primary city entry, assign it to self.city_entry
+        if "city 1" in label_text.lower() or not hasattr(self, 'city_entry'):
+            self.city_entry = entry
+            
+        return entry
 
     def setup_result_text(self, parent_frame, height=12, width=60):
         """Setup standardized result text widget"""

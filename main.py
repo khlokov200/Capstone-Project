@@ -5,7 +5,12 @@ Clean separation of concerns implementation
 import os
 from dotenv import load_dotenv
 from controllers.weather_controller import WeatherController
-from ui.main_window import MainWindow
+# from ui.main_window import MainWindow
+try:
+    from ui.main_window import MainWindow
+except ModuleNotFoundError:
+    # Fallback: try importing from current directory if 'ui' package is missing
+    from ui.main_window import MainWindow
 
 
 def main():
