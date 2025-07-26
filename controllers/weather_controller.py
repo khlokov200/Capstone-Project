@@ -69,27 +69,27 @@ class WeatherController:
         self.update_graph()
         
         # Ensure unit is always set, fallback to controller's unit setting
-        weather_unit = weather_data.get('unit', unit)
+        weather_unit = weather_data.unit if hasattr(weather_data, 'unit') else unit
         
         return WeatherData(
-            temperature=weather_data['temperature'],
-            description=weather_data['description'],
-            humidity=weather_data['humidity'],
-            wind_speed=weather_data['wind_speed'],
+            temperature=weather_data.temperature,
+            description=weather_data.description,
+            humidity=weather_data.humidity,
+            wind_speed=weather_data.wind_speed,
             unit=weather_unit,
             city=city,
             # Add new weather elements
-            visibility=weather_data.get('visibility'),
-            cloudiness=weather_data.get('cloudiness'),
-            pressure=weather_data.get('pressure'),
-            feels_like=weather_data.get('feels_like'),
-            wind_direction=weather_data.get('wind_direction'),
-            sunrise=weather_data.get('sunrise'),
-            sunset=weather_data.get('sunset'),
-            rain_1h=weather_data.get('rain_1h'),
-            rain_3h=weather_data.get('rain_3h'),
-            snow_1h=weather_data.get('snow_1h'),
-            snow_3h=weather_data.get('snow_3h')
+            visibility=weather_data.visibility,
+            cloudiness=weather_data.cloudiness,
+            pressure=weather_data.pressure,
+            feels_like=weather_data.feels_like,
+            wind_direction=weather_data.wind_direction,
+            sunrise=weather_data.sunrise,
+            sunset=weather_data.sunset,
+            rain_1h=weather_data.rain_1h,
+            rain_3h=weather_data.rain_3h,
+            snow_1h=weather_data.snow_1h,
+            snow_3h=weather_data.snow_3h
         )
 
     def get_forecast(self, city):
@@ -1628,7 +1628,7 @@ class WeatherController:
             elif stability == "Variable":
                 patterns += f"• Monitor conditions before activities\n"
                 patterns += f"• Have backup plans ready\n"
-            else:
+                       else:
                 patterns += f"• Expect changing conditions\n"
                 patterns += f"• Stay flexible with outdoor plans\n"
             

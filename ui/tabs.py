@@ -23,6 +23,13 @@ try:
 except ImportError:
     LIVE_WEATHER_AVAILABLE = False
 
+try:
+    import cv2
+    from PIL import Image, ImageTk
+    CAMERA_AVAILABLE = True
+except ImportError:
+    CAMERA_AVAILABLE = False
+
 
 class WeatherTab(BaseTab):
     """Current weather tab component"""
@@ -1032,11 +1039,15 @@ class ActivityTab(BaseTab):
     def _setup_ui(self):
         """Setup the UI components"""
         StyledLabel(self.frame, text="Activity Suggestions", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(self.frame)
         self.setup_result_text(self.frame, height=15, width=80)
         ButtonHelper.create_main_button(self.frame, "primary_black", "Get Suggestions", self.get_activity_suggestions)
 
     def get_activity_suggestions(self):
-        self.display_result("Fetching activity suggestions...")
+        city = self.get_city_input()
+        if not city:
+            return
+        self.display_result(f"Fetching activity suggestions for {city}...")
 
 class PoetryTab(BaseTab):
     """Weather poetry tab component"""
@@ -1048,11 +1059,15 @@ class PoetryTab(BaseTab):
     def _setup_ui(self):
         """Setup the UI components"""
         StyledLabel(self.frame, text="Weather Poetry", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(self.frame)
         self.setup_result_text(self.frame, height=15, width=80)
         ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Poem", self.generate_poem)
 
     def generate_poem(self):
-        self.display_result("Generating a weather-themed poem...")
+        city = self.get_city_input()
+        if not city:
+            return
+        self.display_result(f"Generating a weather-themed poem for {city}...")
 
 class QuickActionsTab(BaseTab):
     """Quick actions tab component"""
@@ -1081,16 +1096,57 @@ class SevereWeatherTab(BaseTab):
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Severe Weather Alerts", font=("Arial", 14, "bold")).pack(pady=10)
-        self.setup_city_input(self.frame)
-        self.setup_result_text(self.frame, height=15, width=80)
-        ButtonHelper.create_main_button(self.frame, "warning_black", "Check for Severe Alerts", self.check_severe_alerts)
+        self.create_split_layout()
+        self._setup_alert_interface(self.left_frame)
+        self._setup_chart_interface(self.right_frame)
+
+    def _setup_alert_interface(self, parent_frame):
+        """Setup the alert interface in the left panel"""
+        StyledLabel(parent_frame, text="Severe Weather Alerts", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(parent_frame)
+        self.setup_result_text(parent_frame, height=15, width=50)
+        ButtonHelper.create_main_button(parent_frame, "warning_black", "Check for Severe Alerts", self.check_severe_alerts)
+
+    def _setup_chart_interface(self, parent_frame):
+        """Setup the chart interface in the right panel"""
+        StyledLabel(parent_frame, text="Severe Weather Charts", font=("Arial", 14, "bold")).pack(pady=5)
+        
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("warning_black", "🌪️ Alert Types", self.show_alert_types_chart),
+                ("accent_black", "📈 Alert Frequency", self.show_alert_frequency_chart),
+                ("info_black", "📊 Intensity Map", self.show_intensity_map),
+                ("success_black", "📋 Historical Data", self.show_historical_alerts_chart)
+            ]
+            ButtonHelper.create_button_grid(parent_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(parent_frame, text="Charts unavailable", foreground="red").pack()
+            
+        self.chart_frame = ChartHelper.create_chart_frame(parent_frame)
+        self._show_chart_placeholder()
+
+    def _show_chart_placeholder(self):
+        """Show placeholder for chart area"""
+        placeholder_text = "Select a chart to visualize severe weather data."
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Severe Weather Charts", placeholder_text)
 
     def check_severe_alerts(self):
         city = self.get_city_input()
         if not city:
             return
         self.display_result(f"Checking for severe weather alerts in {city}...")
+
+    def show_alert_types_chart(self):
+        self.display_result("Showing alert types chart...")
+
+    def show_alert_frequency_chart(self):
+        self.display_result("Showing alert frequency chart...")
+
+    def show_intensity_map(self):
+        self.display_result("Showing intensity map...")
+
+    def show_historical_alerts_chart(self):
+        self.display_result("Showing historical alerts chart...")
 
 
 class AnalyticsTrendsTab(BaseTab):
@@ -1102,12 +1158,58 @@ class AnalyticsTrendsTab(BaseTab):
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Weather Analytics & Trends", font=("Arial", 14, "bold")).pack(pady=10)
-        self.setup_result_text(self.frame, height=15, width=80)
-        ButtonHelper.create_main_button(self.frame, "info_black", "Analyze Trends", self.analyze_trends)
+        self.create_split_layout()
+        self._setup_analytics_interface(self.left_frame)
+        self._setup_chart_interface(self.right_frame)
+
+    def _setup_analytics_interface(self, parent_frame):
+        """Setup the analytics interface in the left panel"""
+        StyledLabel(parent_frame, text="Weather Analytics & Trends", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(parent_frame)
+        self.setup_result_text(parent_frame, height=15, width=50)
+        ButtonHelper.create_main_button(parent_frame, "info_black", "Analyze Trends", self.analyze_trends)
+
+    def _setup_chart_interface(self, parent_frame):
+        """Setup the chart interface in the right panel"""
+        StyledLabel(parent_frame, text="Analytics Charts", font=("Arial", 14, "bold")).pack(pady=5)
+        
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("info_black", "📈 Temp vs. Time", self.show_temp_time_chart),
+                ("success_black", "📊 Monthly Avg", self.show_monthly_avg_chart),
+                ("accent_black", "📋 Data Correlation", self.show_correlation_heatmap),
+                ("warning_black", "☀️ UV Index Trend", self.show_uv_index_chart)
+            ]
+            ButtonHelper.create_button_grid(parent_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(parent_frame, text="Charts unavailable", foreground="red").pack()
+            
+        self.chart_frame = ChartHelper.create_chart_frame(parent_frame)
+        self._show_chart_placeholder()
+
+    def _show_chart_placeholder(self):
+        """Show placeholder for chart area"""
+        placeholder_text = "Select a chart to visualize weather analytics."
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Analytics Charts", placeholder_text)
 
     def analyze_trends(self):
-        self.display_result("Analyzing weather trends...")
+        city = self.get_city_input()
+        if not city:
+            return
+        self.display_result(f"Analyzing weather trends for {city}...")
+
+    def show_temp_time_chart(self):
+        self.display_result("Showing temperature vs. time chart...")
+
+    def show_monthly_avg_chart(self):
+        self.display_result("Showing monthly average chart...")
+
+    def show_correlation_heatmap(self):
+        self.display_result("Showing data correlation heatmap...")
+
+    def show_uv_index_chart(self):
+        self.display_result("Showing UV index trend chart...")
+
 
 class HealthWellnessTab(BaseTab):
     """Health and wellness tab component"""
@@ -1118,12 +1220,58 @@ class HealthWellnessTab(BaseTab):
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Health & Wellness", font=("Arial", 14, "bold")).pack(pady=10)
-        self.setup_result_text(self.frame, height=15, width=80)
-        ButtonHelper.create_main_button(self.frame, "success_black", "Get Health Tips", self.get_health_tips)
+        self.create_split_layout()
+        self._setup_health_interface(self.left_frame)
+        self._setup_chart_interface(self.right_frame)
+
+    def _setup_health_interface(self, parent_frame):
+        """Setup the health interface in the left panel"""
+        StyledLabel(parent_frame, text="Health & Wellness", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(parent_frame)
+        self.setup_result_text(parent_frame, height=15, width=50)
+        ButtonHelper.create_main_button(parent_frame, "success_black", "Get Health Tips", self.get_health_tips)
+
+    def _setup_chart_interface(self, parent_frame):
+        """Setup the chart interface in the right panel"""
+        StyledLabel(parent_frame, text="Health Charts", font=("Arial", 14, "bold")).pack(pady=5)
+        
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("success_black", "🏃 Activity Index", self.show_activity_index_chart),
+                ("info_black", "🌬️ Air Quality", self.show_air_quality_chart),
+                ("accent_black", "🤧 Allergy Forecast", self.show_allergy_forecast_chart),
+                ("warning_black", "☀️ UV Exposure", self.show_uv_exposure_chart)
+            ]
+            ButtonHelper.create_button_grid(parent_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(parent_frame, text="Charts unavailable", foreground="red").pack()
+            
+        self.chart_frame = ChartHelper.create_chart_frame(parent_frame)
+        self._show_chart_placeholder()
+
+    def _show_chart_placeholder(self):
+        """Show placeholder for chart area"""
+        placeholder_text = "Select a chart to visualize health-related weather data."
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Health Charts", placeholder_text)
 
     def get_health_tips(self):
-        self.display_result("Fetching health and wellness tips...")
+        city = self.get_city_input()
+        if not city:
+            return
+        self.display_result(f"Fetching health and wellness tips for {city}...")
+
+    def show_activity_index_chart(self):
+        self.display_result("Showing activity index chart...")
+
+    def show_air_quality_chart(self):
+        self.display_result("Showing air quality chart...")
+
+    def show_allergy_forecast_chart(self):
+        self.display_result("Showing allergy forecast chart...")
+
+    def show_uv_exposure_chart(self):
+        self.display_result("Showing UV exposure chart...")
+
 
 class SmartAlertsTab(BaseTab):
     """Smart alerts tab component"""
@@ -1134,25 +1282,161 @@ class SmartAlertsTab(BaseTab):
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Smart Alerts Configuration", font=("Arial", 14, "bold")).pack(pady=10)
-        self.setup_result_text(self.frame, height=15, width=80)
-        ButtonHelper.create_main_button(self.frame, "primary_black", "Configure Alerts", self.configure_alerts)
+        self.create_split_layout()
+        self._setup_alerts_interface(self.left_frame)
+        self._setup_chart_interface(self.right_frame)
+
+    def _setup_alerts_interface(self, parent_frame):
+        """Setup the alerts interface in the left panel"""
+        StyledLabel(parent_frame, text="Smart Alerts Configuration", font=("Arial", 14, "bold")).pack(pady=10)
+        self.setup_city_input(parent_frame)
+        self.setup_result_text(parent_frame, height=15, width=50)
+        ButtonHelper.create_main_button(parent_frame, "primary_black", "Configure Alerts", self.configure_alerts)
+
+    def _setup_chart_interface(self, parent_frame):
+        """Setup the chart interface in the right panel"""
+        StyledLabel(parent_frame, text="Alerts Overview", font=("Arial", 14, "bold")).pack(pady=5)
+        
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("primary_black", "📊 Alert Stats", self.show_alert_stats_chart),
+                ("info_black", "📈 Trigger History", self.show_trigger_history_chart),
+                ("success_black", "📋 Active Rules", self.show_active_rules_chart),
+                ("warning_black", "⚙️ Thresholds", self.show_thresholds_chart)
+            ]
+            ButtonHelper.create_button_grid(parent_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(parent_frame, text="Charts unavailable", foreground="red").pack()
+            
+        self.chart_frame = ChartHelper.create_chart_frame(parent_frame)
+        self._show_chart_placeholder()
+
+    def _show_chart_placeholder(self):
+        """Show placeholder for chart area"""
+        placeholder_text = "Select a chart to visualize smart alerts data."
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Alerts Overview", placeholder_text)
 
     def configure_alerts(self):
-        self.display_result("Configuring smart alerts...")
+        city = self.get_city_input()
+        if not city:
+            return
+        self.display_result(f"Configuring smart alerts for {city}...")
+
+    def show_alert_stats_chart(self):
+        self.display_result("Showing alert statistics chart...")
+
+    def show_trigger_history_chart(self):
+        self.display_result("Showing trigger history chart...")
+
+    def show_active_rules_chart(self):
+        self.display_result("Showing active rules chart...")
+
+    def show_thresholds_chart(self):
+        self.display_result("Showing thresholds chart...")
+
 
 class WeatherCameraTab(BaseTab):
     """Weather camera tab component"""
     
     def __init__(self, notebook, controller):
         super().__init__(notebook, controller, "Cameras")
+        self.video_capture = None
+        self.is_camera_running = False
+        self.weather_info = None  # To store weather data
         self._setup_ui()
 
     def _setup_ui(self):
         """Setup the UI components"""
         StyledLabel(self.frame, text="Live Weather Cameras", font=("Arial", 14, "bold")).pack(pady=10)
-        self.setup_result_text(self.frame, height=15, width=80)
-        ButtonHelper.create_main_button(self.frame, "info_black", "View Cameras", self.view_cameras)
+        self.setup_city_input(self.frame)
+
+        self.camera_label = StyledLabel(self.frame, text="Camera feed will appear here.")
+        self.camera_label.pack(pady=10)
+
+        button_frame = ttk.Frame(self.frame)
+        button_frame.pack(pady=5)
+
+        ButtonHelper.create_main_button(button_frame, "info_black", "Start Camera", self.start_camera_feed)
+        ButtonHelper.create_main_button(button_frame, "warning_black", "Stop Camera", self.stop_camera_feed)
+
+    def start_camera_feed(self):
+        """Start the live camera feed and fetch weather data."""
+        if not CAMERA_AVAILABLE:
+            self.camera_label.config(text="Camera functionality is not available (opencv-python or Pillow not installed).")
+            return
+
+        if self.is_camera_running:
+            return
+
+        city = self.get_city_input()
+        if city:
+            try:
+                # Fetch weather data to overlay on the feed
+                self.weather_info = self.controller.get_current_weather(city)
+            except Exception as e:
+                self.handle_error(e, "fetching weather for camera overlay")
+                self.weather_info = None  # Reset on error
+        else:
+            # Prompt user to enter a city if they haven't
+            CommonActions.show_warning_message("Input Required", "Please enter a city to see weather overlays.")
+            self.weather_info = None
+
+        # Use 0 for the default webcam.
+        self.video_capture = cv2.VideoCapture(0)
+        if not self.video_capture.isOpened():
+            self.camera_label.config(text="Error: Could not open video stream.")
+            return
+
+        self.is_camera_running = True
+        self._update_camera_feed()
+
+    def _update_camera_feed(self):
+        """Continuously update the camera feed label with weather overlay."""
+        if not self.is_camera_running:
+            return
+
+        ret, frame = self.video_capture.read()
+        if ret:
+            # Overlay weather information if available
+            if self.weather_info:
+                try:
+                    # Get weather data from the controller
+                    weather_data = self.controller.get_current_weather(self.controller.last_city or "New York")
+                    
+                    if weather_data:
+                        # Extract weather info from WeatherData object
+                        city = weather_data.city
+                        temp = weather_data.temperature
+                        condition = weather_data.description
+                        
+                        # Format the text to display
+                        info_text = f"{city}: {weather_data.formatted_temperature}, {condition}"
+                        
+                        # Add text to the frame
+                        cv2.putText(frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
+                                    1, (255, 255, 255), 2, cv2.LINE_AA)
+
+                except Exception as e:
+                    # In case of unexpected errors with weather data
+                    print(f"Could not overlay weather info: {e}")
+
+            # Convert the image from BGR (OpenCV format) to RGB
+            cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(cv2image)
+            imgtk = ImageTk.PhotoImage(image=img)
+            self.camera_label.imgtk = imgtk
+            self.camera_label.config(image=imgtk)
+        
+        self.frame.after(10, self._update_camera_feed)
+
+    def stop_camera_feed(self):
+        """Stop the live camera feed."""
+        if self.is_camera_running and self.video_capture:
+            self.is_camera_running = False
+            self.video_capture.release()
+            self.camera_label.config(image='', text="Camera feed stopped.")
+            self.weather_info = None  # Clear weather info
 
     def view_cameras(self):
-        self.display_result("Loading live weather cameras...")
+        """This method is kept for compatibility but start_camera_feed is used directly."""
+        self.start_camera_feed()
