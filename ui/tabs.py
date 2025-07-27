@@ -1438,9 +1438,9 @@ Available Charts:
                 f"5-Day Precipitation Probability for {city}",
                 days,
                 precipitation,
-                '#3498db',
-                "Day",
-                "Probability (%)"
+                colors=['#3498db'],
+                x_label="Day",
+                y_label="Probability (%)"
             )
         except Exception as e:
             self.handle_error(e, "generating precipitation chart")
@@ -2091,22 +2091,239 @@ class PoetryTab(BaseTab):
             self.handle_error(e, "generating a weather-themed poem")
 
 class QuickActionsTab(BaseTab):
-    """Quick actions tab component"""
+    """Quick actions tab component for instant access to all major features"""
     
     def __init__(self, notebook, controller):
-        super().__init__(notebook, controller, "Quick Actions")
+        super().__init__(notebook, controller, "🚀 Quick Actions")
         self._setup_ui()
 
     def _setup_ui(self):
-        """Setup the UI components"""
-        StyledLabel(self.frame, text="Quick Actions", font=("Arial", 14, "bold")).pack(pady=10)
-        button_config = [
-            ("primary_black", "Current Weather", lambda: self.controller.get_current_weather("London")),
-            ("info_black", "5-Day Forecast", lambda: self.controller.get_five_day_forecast("Paris")),
-            ("success_black", "Save Favorite", lambda: self.controller.add_favorite_city("New York")),
-            ("warning_black", "Check Alerts", lambda: self.controller.check_weather_alerts("Tokyo"))
-        ]
-        ButtonHelper.create_button_grid(self.frame, button_config, columns=2)
+        """Setup the quick actions UI components"""
+        # Title
+        title_label = StyledLabel(self.frame, text="🚀 Quick Actions Dashboard")
+        title_label.configure(font=("Arial", 16, "bold"))
+        title_label.pack(pady=20)
+        
+        # Description
+        desc_label = StyledLabel(self.frame, 
+                                text="Instant access to all major weather dashboard features")
+        desc_label.pack(pady=5)
+        
+        # Main actions container
+        main_container = ttk.Frame(self.frame)
+        main_container.pack(pady=20, padx=20, fill="both", expand=True)
+        
+        # Essential Weather Actions Section
+        weather_frame = ttk.LabelFrame(main_container, text="🌤️ Weather Actions", padding=15)
+        weather_frame.pack(fill="x", pady=10)
+        
+        weather_row1 = ttk.Frame(weather_frame)
+        weather_row1.pack(pady=5)
+        
+        StyledButton(weather_row1, "primary_black", text="🌡️ Quick Weather",
+                    command=self._quick_weather, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(weather_row1, "info_black", text="📅 Today's Plan", 
+                    command=self._todays_plan, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(weather_row1, "cool_black", text="🎯 Best Times",
+                    command=self._best_times, width=15).grid(row=0, column=2, padx=5)
+        
+        # Utility Actions Section
+        utility_frame = ttk.LabelFrame(main_container, text="🔧 Utility Actions", padding=15)
+        utility_frame.pack(fill="x", pady=10)
+        
+        utility_row1 = ttk.Frame(utility_frame)
+        utility_row1.pack(pady=5)
+        
+        StyledButton(utility_row1, "accent_black", text="📱 Share Weather",
+                    command=self._share_weather, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(utility_row1, "success_black", text="⭐ Save Favorite",
+                    command=self._save_favorite, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(utility_row1, "warning_black", text="⚠️ Weather Alerts",
+                    command=self._check_alerts, width=15).grid(row=0, column=2, padx=5)
+        
+        # Smart Features Section
+        smart_frame = ttk.LabelFrame(main_container, text="🧠 Smart Features", padding=15)
+        smart_frame.pack(fill="x", pady=10)
+        
+        smart_row1 = ttk.Frame(smart_frame)
+        smart_row1.pack(pady=5)
+        
+        StyledButton(smart_row1, "accent_black", text="🔄 Refresh All",
+                    command=self._refresh_all, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(smart_row1, "info_black", text="📊 Quick Stats",
+                    command=self._quick_stats, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(smart_row1, "success_black", text="🌍 Multi-City",
+                    command=self._multi_city, width=15).grid(row=0, column=2, padx=5)
+        
+        # Results display area
+        self.result_frame = ttk.LabelFrame(main_container, text="📄 Results", padding=10)
+        self.result_frame.pack(fill="both", expand=True, pady=10)
+        
+        self.result_text = StyledText(self.result_frame, height=12, width=80)
+        self.result_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Initial welcome message
+        welcome_msg = """🌟 Welcome to Quick Actions Dashboard!
+
+Select any action above to get started:
+
+🌤️ Weather Actions:
+• Quick Weather - Get current conditions instantly
+• Today's Plan - Comprehensive daily weather planning  
+• Best Times - Optimal timing for activities
+
+🔧 Utility Actions:
+• Share Weather - Social media ready content
+• Save Favorite - Bookmark your cities
+• Weather Alerts - Check for weather warnings
+
+🧠 Smart Features:
+• Refresh All - System optimization and refresh
+• Quick Stats - Usage and performance statistics
+• Multi-City - Global weather overview
+
+Results will appear in this area when you use the quick actions above."""
+        
+        self.result_text.insert("1.0", welcome_msg)
+
+    # Quick Action Methods (delegated to controller with result display)
+    def _quick_weather(self):
+        """Get weather for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for quick weather:")
+        
+        if city:
+            try:
+                weather_data = self.controller.get_quick_weather(city)
+                result = f"🌡️ QUICK WEATHER for {weather_data.city}:\n"
+                result += "=" * 50 + "\n"
+                result += f"Temperature: {weather_data.formatted_temperature}\n"
+                result += f"Description: {weather_data.description}\n"
+                result += f"Humidity: {weather_data.humidity}%\n"
+                result += f"Wind: {weather_data.formatted_wind}\n"
+                result += f"Visibility: {weather_data.formatted_visibility}\n"
+                result += f"Pressure: {weather_data.pressure} hPa\n"
+                self._display_result(result)
+            except Exception as e:
+                self._display_error(f"Failed to get weather: {str(e)}")
+
+    def _todays_plan(self):
+        """Get comprehensive today's weather plan"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for today's plan:")
+        
+        if city:
+            try:
+                plan = self.controller.get_todays_plan(city)
+                self._display_result(plan)
+            except Exception as e:
+                self._display_error(f"Failed to get today's plan: {str(e)}")
+
+    def _best_times(self):
+        """Get best times for activities"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for best times:")
+        
+        if city:
+            try:
+                times = self.controller.find_best_times(city)
+                self._display_result(times)
+            except Exception as e:
+                self._display_error(f"Failed to get best times: {str(e)}")
+
+    def _share_weather(self):
+        """Get shareable weather content"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for shareable weather:")
+        
+        if city:
+            try:
+                content = self.controller.get_shareable_weather(city)
+                self._display_result(content)
+            except Exception as e:
+                self._display_error(f"Failed to generate shareable content: {str(e)}")
+
+    def _save_favorite(self):
+        """Save current or entered city as favorite"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to save as favorite:")
+        
+        if city:
+            result = self.controller.add_favorite_city(city)
+            fav_cities = self.controller.get_favorite_cities()
+            
+            display_result = f"⭐ FAVORITE CITIES MANAGER:\n{'=' * 50}\n"
+            display_result += f"Status: {result}\n\n"
+            display_result += "Your Favorite Cities:\n"
+            if fav_cities:
+                for i, fav_city in enumerate(fav_cities, 1):
+                    display_result += f"• {fav_city}\n"
+            else:
+                display_result += "No favorite cities saved yet.\n"
+            
+            self._display_result(display_result)
+
+    def _check_alerts(self):
+        """Check comprehensive weather alerts"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to check alerts:")
+        
+        if city:
+            try:
+                alerts = self.controller.get_quick_alerts(city)
+                self._display_result(alerts)
+            except Exception as e:
+                self._display_error(f"Failed to check alerts: {str(e)}")
+
+    def _refresh_all(self):
+        """Refresh all system data"""
+        try:
+            refresh_report = self.controller.refresh_all_data()
+            self._display_result(refresh_report)
+        except Exception as e:
+            self._display_error(f"Failed to refresh data: {str(e)}")
+
+    def _quick_stats(self):
+        """Get quick statistics"""
+        try:
+            stats = self.controller.get_quick_statistics()
+            self._display_result(stats)
+        except Exception as e:
+            self._display_error(f"Failed to get statistics: {str(e)}")
+
+    def _multi_city(self):
+        """Get multi-city weather overview"""
+        try:
+            overview = self.controller.get_multi_city_quick_check()
+            self._display_result(overview)
+        except Exception as e:
+            self._display_error(f"Failed to get multi-city overview: {str(e)}")
+
+    def _prompt_for_city(self, prompt_text):
+        """Prompt user for city name"""
+        import tkinter.simpledialog as simpledialog
+        return simpledialog.askstring("City Input", prompt_text)
+
+    def _display_result(self, content):
+        """Display result in the text area"""
+        self.result_text.delete("1.0", "end")
+        self.result_text.insert("1.0", content)
+
+    def _display_error(self, error_msg):
+        """Display error message in the text area"""
+        self.result_text.delete("1.0", "end")
+        error_content = f"❌ ERROR:\n{'=' * 50}\n{error_msg}\n\n"
+        error_content += "💡 Tips:\n"
+        error_content += "• Check your internet connection\n"
+        error_content += "• Verify the city name spelling\n"
+        error_content += "• Try a different city\n"
+        self.result_text.insert("1.0", error_content)
 
 class SevereWeatherTab(BaseTab):
     """Severe weather alerts tab component"""
@@ -2193,9 +2410,9 @@ class SevereWeatherTab(BaseTab):
                 "Severe Alert Frequency by Month",
                 months,
                 counts,
-                '#F44336',
-                "Month",
-                "Number of Alerts"
+                colors=['#F44336'],
+                x_label="Month",
+                y_label="Number of Alerts"
             )
         except Exception as e:
             self.handle_error(e, "generating alert frequency chart")
@@ -2326,9 +2543,9 @@ class AnalyticsTrendsTab(BaseTab):
                 "Monthly Average Temperature",
                 months,
                 avg_temps,
-                '#8e44ad',
-                "Month",
-                f"Average Temperature ({self.controller.get_unit_label()})"
+                colors=['#8e44ad'],
+                x_label="Month",
+                y_label=f"Average Temperature ({self.controller.get_unit_label()})"
             )
         except Exception as e:
             self.handle_error(e, "generating monthly average chart")
@@ -2441,9 +2658,9 @@ class HealthWellnessTab(BaseTab):
                 "Outdoor Activity Index",
                 activities,
                 scores,
-                '#27ae60',
-                "Activity",
-                "Suitability Score (1-10)"
+                colors=['#27ae60'],
+                x_label="Activity",
+                y_label="Suitability Score (1-10)"
             )
         except Exception as e:
             self.handle_error(e, "generating activity index chart")
@@ -2481,9 +2698,9 @@ class HealthWellnessTab(BaseTab):
                 "Allergy Forecast",
                 allergens,
                 levels,
-                '#d35400',
-                "Allergen",
-                "Pollen Level (1-10)"
+                colors=['#d35400'],
+                x_label="Allergen",
+                y_label="Pollen Level (1-10)"
             )
         except Exception as e:
             self.handle_error(e, "generating allergy forecast chart")
