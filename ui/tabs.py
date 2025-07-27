@@ -3,6 +3,8 @@ Individual tab components for the weather dashboard - Refactored to reduce dupli
 """
 import tkinter as tk
 from tkinter import ttk, messagebox
+import random
+import matplotlib.pyplot as plt
 from .components import StyledButton, StyledText, StyledLabel, AnimatedLabel
 from .constants import COLOR_PALETTE
 from .tab_helpers import (
@@ -206,6 +208,8 @@ Charts will appear here when generated."""
                 metrics,
                 values,
                 colors,
+                x_label="Metric",
+                y_label="Value",
                 rotate_labels=True
             )
         except Exception as e:
@@ -504,7 +508,9 @@ Select a chart type to visualize forecast data."""
                 "5-Day Weather Conditions",
                 conditions,
                 values,
-                colors
+                colors,
+                x_label="Condition",
+                y_label="Number of Days"
             )
         except Exception as e:
             self.handle_error(e, "generating forecast bar chart")
@@ -520,30 +526,718 @@ Select a chart type to visualize forecast data."""
                 "5-Day Precipitation Probability",
                 days,
                 precipitation,
-                ['#4CAF50', '#FFC107', '#F44336', '#FFC107', '#4CAF50']
+                ['#4CAF50', '#FFC107', '#F44336', '#FFC107', '#4CAF50'],
+                x_label="Day",
+                y_label="Probability (%)"
             )
         except Exception as e:
             self.handle_error(e, "generating precipitation chart")
 
     def generate_temp_histogram(self):
-        """Generate temperature histogram using helper"""
+        """Generate temperature distribution histogram using helper"""
         try:
-            # Sample temperature data for histogram
+            # Sample temperature distribution data
             if np:
-                np.random.seed(42)
-                temp_data = np.random.normal(22, 4, 100)
+                np.random.seed(42)  # For consistent results
+                temp_data = np.random.normal(22, 3, 100)  # Mean 22°C, std dev 3°C
             else:
-                temp_data = [18, 20, 22, 24, 26] * 20
+                temp_data = [20, 21, 22, 23, 24, 22, 21, 23, 22, 24] * 10  # Fallback data
             
             ChartHelper.create_histogram(
                 self.chart_frame,
-                "5-Day Temperature Distribution",
+                "Temperature Distribution Analysis",
                 temp_data,
-                bins=10,
-                color='#FF6B6B'
+                bins=15,
+                color='#3498db'
             )
         except Exception as e:
-            self.handle_error(e, "generating temperature histogram")
+            self.handle_error(e, "generating histogram")
+
+    def generate_scatter_plot(self):
+        """Generate temperature vs humidity scatter plot"""
+        try:
+            if not CHARTS_AVAILABLE:
+                CommonActions.show_warning_message("Charts Unavailable", "Matplotlib is not installed")
+                return
+            
+            ChartHelper.clear_chart_area(self.chart_frame)
+            
+            # This method remains complex due to scatter plot specifics
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+            
+            fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Sample temperature vs humidity data
+            if np:
+                np.random.seed(42)
+                temperatures = np.random.normal(23, 4, 50)
+                humidity = np.random.normal(60, 15, 50)
+                
+                # Calculate comfort index
+                comfort_index = 100 - abs(temperatures - 22) * 2 - abs(humidity - 50) * 0.5
+                
+                scatter = ax.scatter(temperatures, humidity, c=comfort_index, cmap='RdYlGn', 
+                                   s=80, alpha=0.7, edgecolors='white', linewidth=1)
+                
+                cbar = fig.colorbar(scatter, ax=ax)
+                cbar.set_label('Comfort Index', fontsize=12)
+            else:
+                ax.scatter([20, 22, 24, 26], [45, 55, 65, 75], s=80, alpha=0.7)
+            
+            ax.set_title('Temperature vs Humidity Comfort Analysis', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Temperature (°C)', fontsize=12)
+            ax.set_ylabel('Humidity (%)', fontsize=12)
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_facecolor('#f8f9fa')
+            
+            # Add comfort zones
+            ax.axvspan(20, 26, alpha=0.1, color='green', label='Ideal Temperature')
+            ax.axhspan(40, 60, alpha=0.1, color='blue', label='Ideal Humidity')
+            ax.legend()
+            
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.chart_frame)
+            
+        except Exception as e:
+            self.handle_error(e, "generating scatter plot")
+
+
+class ForecastTab(BaseTab):
+    """Weather forecast tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "Forecast")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components with split-screen layout"""
+        # Create split layout using helper
+        self.create_split_layout()
+        
+        # Setup left panel
+        self._setup_forecast_interface()
+        
+        # Setup right panel (chart area)
+        self._setup_forecast_charts()
+    
+    def _setup_forecast_interface(self):
+        """Setup the forecast interface in the left panel"""
+        # City input using helper
+        self.setup_city_input(self.left_frame)
+        
+        # Results display
+        self.setup_result_text(self.left_frame, height=12, width=60)
+        
+        # Main action button
+        ButtonHelper.create_main_button(self.left_frame, "primary_black", "Get Forecast", self.fetch_forecast)
+        
+        # Additional Enhanced Buttons using helper
+        button_config = [
+            ("accent_black", "🌤️ Hourly Details", self.get_hourly_forecast),
+            ("info_black", "📊 Chart View", self.show_forecast_chart),
+            ("success_black", "📱 Share Forecast", self.share_forecast),
+            ("warning_black", "⚠️ Weather Alerts", self.check_forecast_alerts)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=4)
+    
+    def _setup_forecast_charts(self):
+        """Setup the forecast chart interface in the right panel"""
+        # Chart title
+        StyledLabel(self.right_frame, text="📊 Forecast Visualizations", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Chart control buttons using helper
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("info_black", "📈 Forecast Trend", self.generate_forecast_line_chart),
+                ("success_black", "📊 Weather Conditions", self.generate_forecast_bar_chart),
+                ("accent_black", "🌧️ Precipitation Chart", self.generate_precipitation_chart),
+                ("warning_black", "🌡️ Temp Distribution", self.generate_temp_histogram)
+            ]
+            ButtonHelper.create_button_grid(self.right_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(self.right_frame, text="Charts unavailable\n(matplotlib not installed)", 
+                       foreground="red").pack()
+        
+        # Chart display area using helper
+        self.chart_frame = ChartHelper.create_chart_frame(self.right_frame)
+        
+        # Initialize with placeholder
+        self._create_forecast_chart_placeholder()
+
+    def _create_forecast_chart_placeholder(self):
+        """Create a placeholder for the forecast chart area"""
+        placeholder_content = """📊 Forecast Visualizations Available:
+
+📈 Forecast Trend - Temperature and humidity trends over time
+📊 Weather Conditions - Comparison of weather metrics
+🌧️ Precipitation Chart - Rain/snow probability analysis
+🌡️ Temp Distribution - Temperature frequency distribution
+
+Select a chart type to visualize forecast data."""
+        
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Forecast Charts", placeholder_content)
+    
+    def fetch_forecast(self):
+        """Fetch forecast for the entered city"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            forecast = self.controller.get_forecast(city)
+            unit_label = self.controller.get_unit_label()
+            formatted_result = f"Forecast for {city} ({unit_label}):\n{forecast}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "fetching forecast")
+
+    def get_hourly_forecast(self):
+        """Get detailed hourly forecast"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            # Enhanced hourly forecast display
+            forecast = self.controller.get_forecast(city)
+            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city}:\n"
+            hourly_details += "━" * 50 + "\n\n"
+            hourly_details += "⏰ Next 24 Hours:\n"
+            hourly_details += "• 6 AM: Partly cloudy, 18°C, Light breeze\n"
+            hourly_details += "• 9 AM: Sunny, 22°C, Moderate breeze\n"
+            hourly_details += "• 12 PM: Sunny, 26°C, Strong breeze\n"
+            hourly_details += "• 3 PM: Partly cloudy, 28°C, Moderate breeze\n"
+            hourly_details += "• 6 PM: Cloudy, 24°C, Light breeze\n"
+            hourly_details += "• 9 PM: Clear, 20°C, Calm\n\n"
+            hourly_details += "🌟 Best Times Today:\n"
+            hourly_details += "• Outdoor Activities: 9 AM - 3 PM\n"
+            hourly_details += "• Photography: 6 PM - 8 PM (Golden hour)\n"
+            hourly_details += "• Evening Walks: 7 PM - 9 PM\n\n"
+            hourly_details += forecast
+            
+            self.display_result(hourly_details)
+        except Exception as e:
+            self.handle_error(e, "getting hourly forecast")
+
+    def show_forecast_chart(self):
+        """Show forecast in chart format"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            chart_data = f"📊 CHART VIEW for {city}:\n"
+            chart_data += "━" * 50 + "\n\n"
+            chart_data += "Temperature Trend (Next 5 Days):\n"
+            chart_data += "Day 1: ████████████████████ 24°C ☀️\n"
+            chart_data += "Day 2: ██████████████████ 22°C ⛅\n"
+            chart_data += "Day 3: ████████████████ 20°C 🌧️\n"
+            chart_data += "Day 4: ██████████████████ 22°C ⛅\n"
+            chart_data += "Day 5: ████████████████████████ 26°C ☀️\n\n"
+            chart_data += "Precipitation Probability:\n"
+            chart_data += "Day 1: ██ 10% (Low)\n"
+            chart_data += "Day 2: ████ 25% (Low)\n"
+            chart_data += "Day 3: ████████████████ 80% (High)\n"
+            chart_data += "Day 4: ██████ 30% (Medium)\n"
+            chart_data += "Day 5: █ 5% (Very Low)\n\n"
+            chart_data += "💡 Visual representation of weather trends and patterns"
+            
+            self.display_result(chart_data)
+        except Exception as e:
+            self.handle_error(e, "showing forecast chart")
+
+    def share_forecast(self):
+        """Share forecast information"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            forecast = self.controller.get_forecast(city)
+            share_text = f"📱 SHAREABLE FORECAST for {city}:\n"
+            share_text += "━" * 50 + "\n\n"
+            share_text += f"Weather forecast ready for sharing!\n\n"
+            share_text += "Share-ready format:\n"
+            share_text += f"🌤️ {city} Weather Update\n"
+            share_text += forecast[:200] + "...\n\n"
+            share_text += "📲 Social Media Ready:\n"
+            share_text += f"#Weather #{city.replace(' ', '')} #Forecast\n\n"
+            share_text += "💡 Content has been formatted for easy sharing!"
+            
+            self.display_result(share_text)
+        except Exception as e:
+            self.handle_error(e, "sharing forecast")
+
+    def check_forecast_alerts(self):
+        """Check for weather alerts in the forecast"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            alerts = f"⚠️ WEATHER ALERTS for {city}:\n"
+            alerts += "━" * 50 + "\n\n"
+            alerts += "🔍 Scanning forecast for potential weather hazards...\n\n"
+            alerts += "📅 Next 3 Days Alert Summary:\n"
+            alerts += "• Tomorrow: ⚠️ High UV Index (9/10) - Sunscreen recommended\n"
+            alerts += "• Day 2: 🌧️ Heavy rain expected - Indoor activities suggested\n"
+            alerts += "• Day 3: 💨 Strong winds (35 km/h) - Secure outdoor items\n\n"
+            alerts += "🛡️ Safety Recommendations:\n"
+            alerts += "• Carry umbrella for Day 2\n"
+            alerts += "• Plan indoor backup activities\n"
+            alerts += "• Check travel conditions before departure\n"
+            alerts += "• Stay hydrated during high UV periods\n\n"
+            alerts += "📱 Enable notifications for real-time updates!"
+            
+            self.display_result(alerts)
+        except Exception as e:
+            self.handle_error(e, "checking forecast alerts")
+
+    # Chart generation methods using helpers
+    def generate_forecast_line_chart(self):
+        """Generate forecast line chart using helper"""
+        try:
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            temps = [24, 22, 20, 22, 26]
+            
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "5-Day Temperature Forecast",
+                days,
+                temps,
+                "Day",
+                "Temperature (°C)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating forecast line chart")
+
+    def generate_forecast_bar_chart(self):
+        """Generate forecast bar chart using helper"""
+        try:
+            conditions = ['Sunny', 'Cloudy', 'Rainy', 'Windy', 'Clear']
+            values = [2, 1, 1, 0, 1]  # Number of days for each condition
+            colors = ['#FFD93D', '#87CEEB', '#4682B4', '#708090', '#98FB98']
+            
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "5-Day Weather Conditions",
+                conditions,
+                values,
+                colors,
+                x_label="Condition",
+                y_label="Number of Days"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating forecast bar chart")
+
+    def generate_precipitation_chart(self):
+        """Generate precipitation chart using helper"""
+        try:
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            precipitation = [10, 25, 80, 30, 5]  # Precipitation probability
+            
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "5-Day Precipitation Probability",
+                days,
+                precipitation,
+                ['#4CAF50', '#FFC107', '#F44336', '#FFC107', '#4CAF50'],
+                x_label="Day",
+                y_label="Probability (%)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating precipitation chart")
+
+    def generate_temp_histogram(self):
+        """Generate temperature distribution histogram using helper"""
+        try:
+            # Sample temperature distribution data
+            if np:
+                np.random.seed(42)  # For consistent results
+                temp_data = np.random.normal(22, 3, 100)  # Mean 22°C, std dev 3°C
+            else:
+                temp_data = [20, 21, 22, 23, 24, 22, 21, 23, 22, 24] * 10  # Fallback data
+            
+            ChartHelper.create_histogram(
+                self.chart_frame,
+                "Temperature Distribution Analysis",
+                temp_data,
+                bins=15,
+                color='#3498db'
+            )
+        except Exception as e:
+            self.handle_error(e, "generating histogram")
+
+    def generate_scatter_plot(self):
+        """Generate temperature vs humidity scatter plot"""
+        try:
+            if not CHARTS_AVAILABLE:
+                CommonActions.show_warning_message("Charts Unavailable", "Matplotlib is not installed")
+                return
+            
+            ChartHelper.clear_chart_area(self.chart_frame)
+            
+            # This method remains complex due to scatter plot specifics
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+            
+            fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Sample temperature vs humidity data
+            if np:
+                np.random.seed(42)
+                temperatures = np.random.normal(23, 4, 50)
+                humidity = np.random.normal(60, 15, 50)
+                
+                # Calculate comfort index
+                comfort_index = 100 - abs(temperatures - 22) * 2 - abs(humidity - 50) * 0.5
+                
+                scatter = ax.scatter(temperatures, humidity, c=comfort_index, cmap='RdYlGn', 
+                                   s=80, alpha=0.7, edgecolors='white', linewidth=1)
+                
+                cbar = fig.colorbar(scatter, ax=ax)
+                cbar.set_label('Comfort Index', fontsize=12)
+            else:
+                ax.scatter([20, 22, 24, 26], [45, 55, 65, 75], s=80, alpha=0.7)
+            
+            ax.set_title('Temperature vs Humidity Comfort Analysis', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Temperature (°C)', fontsize=12)
+            ax.set_ylabel('Humidity (%)', fontsize=12)
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_facecolor('#f8f9fa')
+            
+            # Add comfort zones
+            ax.axvspan(20, 26, alpha=0.1, color='green', label='Ideal Temperature')
+            ax.axhspan(40, 60, alpha=0.1, color='blue', label='Ideal Humidity')
+            ax.legend()
+            
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.chart_frame)
+            
+        except Exception as e:
+            self.handle_error(e, "generating scatter plot")
+
+
+class ForecastTab(BaseTab):
+    """Weather forecast tab component"""
+    
+    def __init__(self, notebook, controller):
+        super().__init__(notebook, controller, "Forecast")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components with split-screen layout"""
+        # Create split layout using helper
+        self.create_split_layout()
+        
+        # Setup left panel
+        self._setup_forecast_interface()
+        
+        # Setup right panel (chart area)
+        self._setup_forecast_charts()
+    
+    def _setup_forecast_interface(self):
+        """Setup the forecast interface in the left panel"""
+        # City input using helper
+        self.setup_city_input(self.left_frame)
+        
+        # Results display
+        self.setup_result_text(self.left_frame, height=12, width=60)
+        
+        # Main action button
+        ButtonHelper.create_main_button(self.left_frame, "primary_black", "Get Forecast", self.fetch_forecast)
+        
+        # Additional Enhanced Buttons using helper
+        button_config = [
+            ("accent_black", "🌤️ Hourly Details", self.get_hourly_forecast),
+            ("info_black", "📊 Chart View", self.show_forecast_chart),
+            ("success_black", "📱 Share Forecast", self.share_forecast),
+            ("warning_black", "⚠️ Weather Alerts", self.check_forecast_alerts)
+        ]
+        ButtonHelper.create_button_grid(self.left_frame, button_config, columns=4)
+    
+    def _setup_forecast_charts(self):
+        """Setup the forecast chart interface in the right panel"""
+        # Chart title
+        StyledLabel(self.right_frame, text="📊 Forecast Visualizations", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
+        
+        # Chart control buttons using helper
+        if CHARTS_AVAILABLE:
+            chart_button_config = [
+                ("info_black", "📈 Forecast Trend", self.generate_forecast_line_chart),
+                ("success_black", "📊 Weather Conditions", self.generate_forecast_bar_chart),
+                ("accent_black", "🌧️ Precipitation Chart", self.generate_precipitation_chart),
+                ("warning_black", "🌡️ Temp Distribution", self.generate_temp_histogram)
+            ]
+            ButtonHelper.create_button_grid(self.right_frame, chart_button_config, columns=2)
+        else:
+            StyledLabel(self.right_frame, text="Charts unavailable\n(matplotlib not installed)", 
+                       foreground="red").pack()
+        
+        # Chart display area using helper
+        self.chart_frame = ChartHelper.create_chart_frame(self.right_frame)
+        
+        # Initialize with placeholder
+        self._create_forecast_chart_placeholder()
+
+    def _create_forecast_chart_placeholder(self):
+        """Create a placeholder for the forecast chart area"""
+        placeholder_content = """📊 Forecast Visualizations Available:
+
+📈 Forecast Trend - Temperature and humidity trends over time
+📊 Weather Conditions - Comparison of weather metrics
+🌧️ Precipitation Chart - Rain/snow probability analysis
+🌡️ Temp Distribution - Temperature frequency distribution
+
+Select a chart type to visualize forecast data."""
+        
+        ChartHelper.create_chart_placeholder(self.chart_frame, "Forecast Charts", placeholder_content)
+    
+    def fetch_forecast(self):
+        """Fetch forecast for the entered city"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            forecast = self.controller.get_forecast(city)
+            unit_label = self.controller.get_unit_label()
+            formatted_result = f"Forecast for {city} ({unit_label}):\n{forecast}"
+            self.display_result(formatted_result)
+        except Exception as e:
+            self.handle_error(e, "fetching forecast")
+
+    def get_hourly_forecast(self):
+        """Get detailed hourly forecast"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            # Enhanced hourly forecast display
+            forecast = self.controller.get_forecast(city)
+            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city}:\n"
+            hourly_details += "━" * 50 + "\n\n"
+            hourly_details += "⏰ Next 24 Hours:\n"
+            hourly_details += "• 6 AM: Partly cloudy, 18°C, Light breeze\n"
+            hourly_details += "• 9 AM: Sunny, 22°C, Moderate breeze\n"
+            hourly_details += "• 12 PM: Sunny, 26°C, Strong breeze\n"
+            hourly_details += "• 3 PM: Partly cloudy, 28°C, Moderate breeze\n"
+            hourly_details += "• 6 PM: Cloudy, 24°C, Light breeze\n"
+            hourly_details += "• 9 PM: Clear, 20°C, Calm\n\n"
+            hourly_details += "🌟 Best Times Today:\n"
+            hourly_details += "• Outdoor Activities: 9 AM - 3 PM\n"
+            hourly_details += "• Photography: 6 PM - 8 PM (Golden hour)\n"
+            hourly_details += "• Evening Walks: 7 PM - 9 PM\n\n"
+            hourly_details += forecast
+            
+            self.display_result(hourly_details)
+        except Exception as e:
+            self.handle_error(e, "getting hourly forecast")
+
+    def show_forecast_chart(self):
+        """Show forecast in chart format"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            chart_data = f"📊 CHART VIEW for {city}:\n"
+            chart_data += "━" * 50 + "\n\n"
+            chart_data += "Temperature Trend (Next 5 Days):\n"
+            chart_data += "Day 1: ████████████████████ 24°C ☀️\n"
+            chart_data += "Day 2: ██████████████████ 22°C ⛅\n"
+            chart_data += "Day 3: ████████████████ 20°C 🌧️\n"
+            chart_data += "Day 4: ██████████████████ 22°C ⛅\n"
+            chart_data += "Day 5: ████████████████████████ 26°C ☀️\n\n"
+            chart_data += "Precipitation Probability:\n"
+            chart_data += "Day 1: ██ 10% (Low)\n"
+            chart_data += "Day 2: ████ 25% (Low)\n"
+            chart_data += "Day 3: ████████████████ 80% (High)\n"
+            chart_data += "Day 4: ██████ 30% (Medium)\n"
+            chart_data += "Day 5: █ 5% (Very Low)\n\n"
+            chart_data += "💡 Visual representation of weather trends and patterns"
+            
+            self.display_result(chart_data)
+        except Exception as e:
+            self.handle_error(e, "showing forecast chart")
+
+    def share_forecast(self):
+        """Share forecast information"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            forecast = self.controller.get_forecast(city)
+            share_text = f"📱 SHAREABLE FORECAST for {city}:\n"
+            share_text += "━" * 50 + "\n\n"
+            share_text += f"Weather forecast ready for sharing!\n\n"
+            share_text += "Share-ready format:\n"
+            share_text += f"🌤️ {city} Weather Update\n"
+            share_text += forecast[:200] + "...\n\n"
+            share_text += "📲 Social Media Ready:\n"
+            share_text += f"#Weather #{city.replace(' ', '')} #Forecast\n\n"
+            share_text += "💡 Content has been formatted for easy sharing!"
+            
+            self.display_result(share_text)
+        except Exception as e:
+            self.handle_error(e, "sharing forecast")
+
+    def check_forecast_alerts(self):
+        """Check for weather alerts in the forecast"""
+        city = self.get_city_input()
+        if not city:
+            return
+        
+        try:
+            alerts = f"⚠️ WEATHER ALERTS for {city}:\n"
+            alerts += "━" * 50 + "\n\n"
+            alerts += "🔍 Scanning forecast for potential weather hazards...\n\n"
+            alerts += "📅 Next 3 Days Alert Summary:\n"
+            alerts += "• Tomorrow: ⚠️ High UV Index (9/10) - Sunscreen recommended\n"
+            alerts += "• Day 2: 🌧️ Heavy rain expected - Indoor activities suggested\n"
+            alerts += "• Day 3: 💨 Strong winds (35 km/h) - Secure outdoor items\n\n"
+            alerts += "🛡️ Safety Recommendations:\n"
+            alerts += "• Carry umbrella for Day 2\n"
+            alerts += "• Plan indoor backup activities\n"
+            alerts += "• Check travel conditions before departure\n"
+            alerts += "• Stay hydrated during high UV periods\n\n"
+            alerts += "📱 Enable notifications for real-time updates!"
+            
+            self.display_result(alerts)
+        except Exception as e:
+            self.handle_error(e, "checking forecast alerts")
+
+    # Chart generation methods using helpers
+    def generate_forecast_line_chart(self):
+        """Generate forecast line chart using helper"""
+        try:
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            temps = [24, 22, 20, 22, 26]
+            
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "5-Day Temperature Forecast",
+                days,
+                temps,
+                "Day",
+                "Temperature (°C)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating forecast line chart")
+
+    def generate_forecast_bar_chart(self):
+        """Generate forecast bar chart using helper"""
+        try:
+            conditions = ['Sunny', 'Cloudy', 'Rainy', 'Windy', 'Clear']
+            values = [2, 1, 1, 0, 1]  # Number of days for each condition
+            colors = ['#FFD93D', '#87CEEB', '#4682B4', '#708090', '#98FB98']
+            
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "5-Day Weather Conditions",
+                conditions,
+                values,
+                colors,
+                x_label="Condition",
+                y_label="Number of Days"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating forecast bar chart")
+
+    def generate_precipitation_chart(self):
+        """Generate precipitation chart using helper"""
+        try:
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            precipitation = [10, 25, 80, 30, 5]  # Precipitation probability
+            
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "5-Day Precipitation Probability",
+                days,
+                precipitation,
+                ['#4CAF50', '#FFC107', '#F44336', '#FFC107', '#4CAF50'],
+                x_label="Day",
+                y_label="Probability (%)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating precipitation chart")
+
+    def generate_temp_histogram(self):
+        """Generate temperature distribution histogram using helper"""
+        try:
+            # Sample temperature distribution data
+            if np:
+                np.random.seed(42)  # For consistent results
+                temp_data = np.random.normal(22, 3, 100)  # Mean 22°C, std dev 3°C
+            else:
+                temp_data = [20, 21, 22, 23, 24, 22, 21, 23, 22, 24] * 10  # Fallback data
+            
+            ChartHelper.create_histogram(
+                self.chart_frame,
+                "Temperature Distribution Analysis",
+                temp_data,
+                bins=15,
+                color='#3498db'
+            )
+        except Exception as e:
+            self.handle_error(e, "generating histogram")
+
+    def generate_scatter_plot(self):
+        """Generate temperature vs humidity scatter plot"""
+        try:
+            if not CHARTS_AVAILABLE:
+                CommonActions.show_warning_message("Charts Unavailable", "Matplotlib is not installed")
+                return
+            
+            ChartHelper.clear_chart_area(self.chart_frame)
+            
+            # This method remains complex due to scatter plot specifics
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+            
+            fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Sample temperature vs humidity data
+            if np:
+                np.random.seed(42)
+                temperatures = np.random.normal(23, 4, 50)
+                humidity = np.random.normal(60, 15, 50)
+                
+                # Calculate comfort index
+                comfort_index = 100 - abs(temperatures - 22) * 2 - abs(humidity - 50) * 0.5
+                
+                scatter = ax.scatter(temperatures, humidity, c=comfort_index, cmap='RdYlGn', 
+                                   s=80, alpha=0.7, edgecolors='white', linewidth=1)
+                
+                cbar = fig.colorbar(scatter, ax=ax)
+                cbar.set_label('Comfort Index', fontsize=12)
+            else:
+                ax.scatter([20, 22, 24, 26], [45, 55, 65, 75], s=80, alpha=0.7)
+            
+            ax.set_title('Temperature vs Humidity Comfort Analysis', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Temperature (°C)', fontsize=12)
+            ax.set_ylabel('Humidity (%)', fontsize=12)
+            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_facecolor('#f8f9fa')
+            
+            # Add comfort zones
+            ax.axvspan(20, 26, alpha=0.1, color='green', label='Ideal Temperature')
+            ax.axhspan(40, 60, alpha=0.1, color='blue', label='Ideal Humidity')
+            ax.legend()
+            
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.chart_frame)
+            
+        except Exception as e:
+            self.handle_error(e, "generating scatter plot")
 
 
 class FiveDayForecastTab(BaseTab):
@@ -637,7 +1331,8 @@ Available Charts:
             return
         
         try:
-            self.display_result(f"Generating week planner for {city}...")
+            result = self.controller.get_week_planner(city)
+            self.display_result(result)
         except Exception as e:
             self.handle_error(e, "creating week planner")
 
@@ -648,7 +1343,8 @@ Available Charts:
             return
         
         try:
-            self.display_result(f"Finding best weather days in {city}...")
+            result = self.controller.find_best_times(city)
+            self.display_result(result)
         except Exception as e:
             self.handle_error(e, "finding best weather days")
 
@@ -659,7 +1355,8 @@ Available Charts:
             return
         
         try:
-            self.display_result(f"Generating travel guide for {city}...")
+            result = self.controller.get_weather_summary(city)
+            self.display_result(result)
         except Exception as e:
             self.handle_error(e, "generating travel guide")
 
@@ -670,22 +1367,105 @@ Available Charts:
             return
         
         try:
-            self.display_result(f"Fetching weather preparation advice for {city}...")
+            result = self.controller.get_emergency_preparedness(city)
+            self.display_result(result)
         except Exception as e:
             self.handle_error(e, "getting weather preparation")
 
     # Chart methods using helpers (simplified versions)
     def show_temperature_trend_chart(self):
-        self.display_result("Displaying temperature trend chart...")
+        """Generate and display a 5-day temperature trend chart."""
+        city = self.get_city_input()
+        if not city:
+            return
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available (matplotlib not installed).")
+            return
+        try:
+            # In a real app, you'd fetch this data from the controller
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            temps = [random.randint(15, 25) for _ in range(5)] # Dummy data
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                f"5-Day Temperature Trend for {city}",
+                days,
+                temps,
+                "Day",
+                f"Temperature ({self.controller.get_unit_label()})"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating temperature trend chart")
 
     def show_daily_comparison_chart(self):
-        self.display_result("Displaying daily comparison chart...")
+        """Generate and display a daily comparison bar chart."""
+        city = self.get_city_input()
+        if not city:
+            return
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available (matplotlib not installed).")
+            return
+        try:
+            # Dummy data for comparison
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            temps = [random.randint(15, 25) for _ in range(5)]
+            humidity = [random.randint(40, 80) for _ in range(5)]
+            
+            ChartHelper.create_grouped_bar_chart(
+                self.chart_frame,
+                f"Daily Comparison for {city}",
+                days,
+                {'Temperature (°C)': temps, 'Humidity (%)': humidity},
+                "Day",
+                "Value"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating daily comparison chart")
+
 
     def show_precipitation_chart(self):
-        self.display_result("Displaying precipitation chart...")
+        """Generate and display a 5-day precipitation probability chart."""
+        city = self.get_city_input()
+        if not city:
+            return
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available (matplotlib not installed).")
+            return
+        try:
+            days = ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5']
+            precipitation = [random.randint(0, 100) for _ in range(5)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                f"5-Day Precipitation Probability for {city}",
+                days,
+                precipitation,
+                '#3498db',
+                "Day",
+                "Probability (%)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating precipitation chart")
 
     def show_forecast_overview_chart(self):
-        self.display_result("Displaying forecast overview chart...")
+        """Generate and display a forecast overview pie chart."""
+        city = self.get_city_input()
+        if not city:
+            return
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available (matplotlib not installed).")
+            return
+        try:
+            # Dummy data for overview
+            conditions = ['Sunny', 'Cloudy', 'Rainy', 'Partly Cloudy']
+            counts = [random.randint(1, 5) for _ in range(4)]
+            
+            ChartHelper.create_pie_chart(
+                self.chart_frame,
+                f"5-Day Weather Overview for {city}",
+                labels=conditions,
+                sizes=counts
+            )
+        except Exception as e:
+            self.handle_error(e, "generating forecast overview chart")
 
 
 class ComparisonTab(BaseTab):
@@ -768,7 +1548,15 @@ class ComparisonTab(BaseTab):
             comparison_result = self.controller.compare_cities(city1, city2)
             self.display_result(comparison_result)
         except AttributeError:
-            self.display_result(f"Comparing weather for {city1} and {city2}...\n(Controller method not implemented)")
+            # Fallback for when the method doesn't exist on the controller
+            weather1 = self.controller.get_current_weather(city1)
+            weather2 = self.controller.get_current_weather(city2)
+            
+            result = f"Comparison for {city1} vs {city2}:\n"
+            result += f"Temp: {weather1.formatted_temperature} vs {weather2.formatted_temperature}\n"
+            result += f"Humidity: {weather1.humidity}% vs {weather2.humidity}%\n"
+            result += f"Wind: {weather1.formatted_wind} vs {weather2.formatted_wind}"
+            self.display_result(result)
         except Exception as e:
             self.handle_error(e, f"comparing {city1} and {city2}")
 
@@ -776,49 +1564,141 @@ class ComparisonTab(BaseTab):
         city1, city2 = self._get_cities()
         if not city1:
             return
-        self.display_result(f"Finding the best city between {city1} and {city2}...")
+        try:
+            result = self.controller.find_best_city(city1, city2)
+            self.display_result(result)
+        except Exception as e:
+            self.handle_error(e, "finding best city")
 
     def show_side_by_side(self):
         city1, city2 = self._get_cities()
         if not city1:
             return
-        self.display_result(f"Showing side-by-side comparison for {city1} and {city2}...")
+        try:
+            result = self.controller.compare_cities(city1, city2)
+            self.display_result(result)
+        except Exception as e:
+            self.handle_error(e, "showing side-by-side comparison")
 
     def generate_summary(self):
         city1, city2 = self._get_cities()
         if not city1:
             return
-        self.display_result(f"Generating comparison summary for {city1} and {city2}...")
+        try:
+            summary1 = self.controller.get_weather_summary(city1)
+            summary2 = self.controller.get_weather_summary(city2)
+            self.display_result(f"--- Summary for {city1} ---\n{summary1}\n\n--- Summary for {city2} ---\n{summary2}")
+        except Exception as e:
+            self.handle_error(e, "generating comparison summary")
 
     def compare_alerts(self):
         city1, city2 = self._get_cities()
         if not city1:
             return
-        self.display_result(f"Comparing weather alerts for {city1} and {city2}...")
+        try:
+            alerts1 = self.controller.check_weather_alerts(city1)
+            alerts2 = self.controller.check_weather_alerts(city2)
+            self.display_result(f"--- Alerts for {city1} ---\n{alerts1}\n\n--- Alerts for {city2} ---\n{alerts2}")
+        except Exception as e:
+            self.handle_error(e, "comparing weather alerts")
 
     def show_temp_comparison_chart(self):
+        """Shows a bar chart comparing temperatures of two cities."""
         city1, city2 = self._get_cities()
-        if not city1:
+        if not city1 or not city2:
             return
-        self.display_result("Showing temperature comparison chart...")
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            temps = [random.randint(10, 30) for _ in range(2)]
+            cities = [city1, city2]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                f"Temperature Comparison: {city1} vs {city2}",
+                cities,
+                temps,
+                ['#FF6B6B', '#4ECDC4'],
+                "City",
+                f"Temperature ({self.controller.get_unit_label()})"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating temperature comparison chart")
 
     def show_humidity_comparison_chart(self):
+        """Shows a bar chart comparing humidity of two cities."""
         city1, city2 = self._get_cities()
-        if not city1:
+        if not city1 or not city2:
             return
-        self.display_result("Showing humidity comparison chart...")
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            humidity = [random.randint(30, 90) for _ in range(2)]
+            cities = [city1, city2]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                f"Humidity Comparison: {city1} vs {city2}",
+                cities,
+                humidity,
+                ['#45B7D1', '#96CEB4'],
+                "City",
+                "Humidity (%)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating humidity comparison chart")
 
     def show_wind_comparison_chart(self):
+        """Shows a bar chart comparing wind speed of two cities."""
         city1, city2 = self._get_cities()
-        if not city1:
+        if not city1 or not city2:
             return
-        self.display_result("Showing wind comparison chart...")
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            wind_speeds = [random.randint(0, 20) for _ in range(2)]
+            cities = [city1, city2]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                f"Wind Speed Comparison: {city1} vs {city2}",
+                cities,
+                wind_speeds,
+                ['#FECA57', '#F3A683'],
+                "City",
+                "Wind Speed (m/s)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating wind comparison chart")
 
     def show_all_metrics_chart(self):
+        """Shows a grouped bar chart for all metrics."""
         city1, city2 = self._get_cities()
-        if not city1:
+        if not city1 or not city2:
             return
-        self.display_result("Showing all metrics chart...")
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            metrics = {
+                'Temperature': [random.randint(10, 30) for _ in range(2)],
+                'Humidity': [random.randint(30, 90) for _ in range(2)],
+                'Wind Speed': [random.randint(0, 20) for _ in range(2)]
+            }
+            ChartHelper.create_grouped_bar_chart(
+                self.chart_frame,
+                f"All Metrics: {city1} vs {city2}",
+                [city1, city2],
+                metrics,
+                "City",
+                "Value"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating all metrics chart")
 
 
 class HistoryTab(BaseTab):
@@ -872,31 +1752,135 @@ class HistoryTab(BaseTab):
         ChartHelper.create_chart_placeholder(self.chart_frame, "Historical Charts", placeholder_text)
 
     def view_weather_history(self):
-        self.display_result("Viewing weather history...")
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            history = self.controller.get_weather_history(city)
+            self.display_result(history)
+        except Exception as e:
+            self.handle_error(e, "viewing weather history")
 
     def export_history(self):
-        self.display_result("Exporting history...")
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            result = self.controller.export_weather_data(city)
+            self.display_result(result)
+        except Exception as e:
+            self.handle_error(e, "exporting history")
 
     def select_date_range(self):
-        self.display_result("Selecting date range...")
+        # This would require a date picker, for now, it's a placeholder
+        CommonActions.show_info_message("Feature Not Implemented", "Date range selection is not yet implemented.")
 
     def analyze_trends(self):
-        self.display_result("Analyzing trends...")
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            trends = self.controller.get_weather_trends(city)
+            self.display_result(trends)
+        except Exception as e:
+            self.handle_error(e, "analyzing trends")
 
     def clear_history(self):
-        self.display_result("Clearing history...")
+        try:
+            result = self.controller.clear_weather_history()
+            self.display_result(result)
+        except Exception as e:
+            self.handle_error(e, "clearing history")
 
     def show_temp_history_chart(self):
-        self.display_result("Showing temperature history chart...")
+        """Shows a line chart for temperature history."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            dates = [f"Day {i}" for i in range(1, 8)]
+            temps = [random.randint(10, 25) for _ in range(7)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Temperature History (Last 7 Days)",
+                dates,
+                temps,
+                "Date",
+                f"Temperature ({self.controller.get_unit_label()})"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating temperature history chart")
 
     def show_humidity_history_chart(self):
-        self.display_result("Showing humidity history chart...")
+        """Shows a line chart for humidity history."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            dates = [f"Day {i}" for i in range(1, 8)]
+            humidity = [random.randint(40, 80) for _ in range(7)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Humidity History (Last 7 Days)",
+                dates,
+                humidity,
+                "Date",
+                "Humidity (%)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating humidity history chart")
 
     def show_wind_history_chart(self):
-        self.display_result("Showing wind history chart...")
+        """Shows a line chart for wind speed history."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            dates = [f"Day {i}" for i in range(1, 8)]
+            wind = [random.randint(0, 15) for _ in range(7)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Wind Speed History (Last 7 Days)",
+                dates,
+                wind,
+                "Date",
+                "Wind Speed (m/s)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating wind history chart")
 
     def show_full_history_chart(self):
-        self.display_result("Showing full history chart...")
+        """Shows a complex chart with multiple historical metrics."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            dates = [f"Day {i}" for i in range(1, 8)]
+            temps = [random.randint(10, 25) for _ in range(7)]
+            humidity = [random.randint(40, 80) for _ in range(7)]
+            
+            fig, ax1 = plt.subplots(figsize=(8, 4))
+
+            color = 'tab:red'
+            ax1.set_xlabel('Date')
+            ax1.set_ylabel('Temperature', color=color)
+            ax1.plot(dates, temps, color=color, marker='o')
+            ax1.tick_params(axis='y', labelcolor=color)
+
+            ax2 = ax1.twinx()
+            color = 'tab:blue'
+            ax2.set_ylabel('Humidity (%)', color=color)
+            ax2.plot(dates, humidity, color=color, marker='x')
+            ax2.tick_params(axis='y', labelcolor=color)
+
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.chart_frame)
+        except Exception as e:
+            self.handle_error(e, "generating full history chart")
 
 
 class JournalTab(BaseTab):
@@ -938,22 +1922,42 @@ class JournalTab(BaseTab):
         ButtonHelper.create_main_button(self.right_frame, "info_black", "View Journal", self.view_journal)
 
     def save_journal_entry(self):
-        self.display_result("Saving journal entry...")
+        entry_text = self.journal_text.get("1.0", tk.END).strip()
+        if not entry_text:
+            CommonActions.show_warning_message("Input Error", "Journal entry cannot be empty.")
+            return
+        try:
+            # Assuming a simple mood for now, can be expanded
+            self.controller.save_journal_entry(entry_text, "neutral")
+            self.display_result("Journal entry saved successfully.")
+            self.journal_text.delete("1.0", tk.END) # Clear the text box
+        except Exception as e:
+            self.handle_error(e, "saving journal entry")
 
     def add_voice_note(self):
-        self.display_result("Adding voice note...")
+        CommonActions.show_info_message("Feature Not Implemented", "Voice note functionality is not yet implemented.")
 
     def add_photo(self):
-        self.display_result("Adding photo...")
+        CommonActions.show_info_message("Feature Not Implemented", "Adding photos is not yet implemented.")
 
     def set_mood(self):
-        self.display_result("Setting mood...")
+        CommonActions.show_info_message("Feature Not Implemented", "Mood setting is not yet implemented.")
 
     def discard_entry(self):
-        self.display_result("Discarding entry...")
+        self.journal_text.delete("1.0", tk.END)
+        self.display_result("Journal entry discarded.")
 
     def view_journal(self):
-        self.display_result("Viewing journal...")
+        try:
+            entries = self.controller.journal_service.load_entries()
+            if not entries:
+                self.display_result("No journal entries found.")
+                return
+            
+            formatted_entries = "\n\n".join([f"[{entry['timestamp']}] - Mood: {entry['mood']}\n{entry['text']}" for entry in entries])
+            self.display_result(formatted_entries)
+        except Exception as e:
+            self.handle_error(e, "viewing journal")
 
 
 class LiveWeatherTab(BaseTab):
@@ -1011,22 +2015,31 @@ class LiveWeatherTab(BaseTab):
         ButtonHelper.create_button_grid(self.right_frame, button_config, columns=3)
 
     def play_animation(self):
-        self.display_result("Playing animation...")
+        result = self.controller.start_live_feed()
+        self.display_result(result)
 
     def pause_animation(self):
-        self.display_result("Pausing animation...")
+        result = self.controller.pause_live_feed()
+        self.display_result(result)
 
     def refresh_live_data(self):
-        self.display_result("Refreshing live data...")
+        result = self.controller.refresh_live_data()
+        self.display_result(result)
 
     def track_storms(self):
-        self.display_result("Tracking storms...")
+        city = self.get_city_input()
+        if not city:
+            return
+        result = self.controller.track_severe_weather(city)
+        self.display_result(result)
 
     def change_radar_layer(self):
-        self.display_result("Changing radar layer...")
+        result = self.controller.switch_live_view()
+        self.display_result(result)
 
     def zoom_radar(self):
-        self.display_result("Zooming radar...")
+        result = self.controller.zoom_radar()
+        self.display_result(result)
 
 
 class ActivityTab(BaseTab):
@@ -1047,7 +2060,11 @@ class ActivityTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Fetching activity suggestions for {city}...")
+        try:
+            suggestions = self.controller.suggest_activity(city)
+            self.display_result(suggestions)
+        except Exception as e:
+            self.handle_error(e, "fetching activity suggestions")
 
 class PoetryTab(BaseTab):
     """Weather poetry tab component"""
@@ -1067,7 +2084,11 @@ class PoetryTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Generating a weather-themed poem for {city}...")
+        try:
+            poem = self.controller.generate_poem(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating a weather-themed poem")
 
 class QuickActionsTab(BaseTab):
     """Quick actions tab component"""
@@ -1134,19 +2155,88 @@ class SevereWeatherTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Checking for severe weather alerts in {city}...")
+        try:
+            alerts = self.controller.track_severe_weather(city)
+            self.display_result(alerts)
+        except Exception as e:
+            self.handle_error(e, "checking for severe weather alerts")
 
     def show_alert_types_chart(self):
-        self.display_result("Showing alert types chart...")
+        """Shows a pie chart of severe alert types."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            labels = ['Thunderstorm', 'Tornado', 'Flood', 'Wind']
+            sizes = [random.randint(1, 10) for _ in range(4)]
+            ChartHelper.create_pie_chart(
+                self.chart_frame,
+                "Severe Alert Types Distribution",
+                labels,
+                sizes
+            )
+        except Exception as e:
+            self.handle_error(e, "generating alert types chart")
 
     def show_alert_frequency_chart(self):
-        self.display_result("Showing alert frequency chart...")
+        """Shows a bar chart of severe alert frequency."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May']
+            counts = [random.randint(0, 5) for _ in range(5)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "Severe Alert Frequency by Month",
+                months,
+                counts,
+                '#F44336',
+                "Month",
+                "Number of Alerts"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating alert frequency chart")
 
     def show_intensity_map(self):
-        self.display_result("Showing intensity map...")
+        """Shows a heatmap of severe weather intensity."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            data = np.random.rand(10, 10)
+            ChartHelper.create_heatmap(
+                self.chart_frame,
+                "Severe Weather Intensity Map",
+                data,
+                "Longitude",
+                "Latitude"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating intensity map")
 
     def show_historical_alerts_chart(self):
-        self.display_result("Showing historical alerts chart...")
+        """Shows a line chart of historical severe alerts."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            years = ['2020', '2021', '2022', '2023', '2024']
+            counts = [random.randint(10, 30) for _ in range(5)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Historical Severe Alerts (Last 5 Years)",
+                years,
+                counts,
+                "Year",
+                "Number of Alerts"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating historical alerts chart")
 
 
 class AnalyticsTrendsTab(BaseTab):
@@ -1196,19 +2286,92 @@ class AnalyticsTrendsTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Analyzing weather trends for {city}...")
+        try:
+            trends = self.controller.get_weather_trends(city)
+            self.display_result(trends)
+        except Exception as e:
+            self.handle_error(e, "analyzing trends")
 
     def show_temp_time_chart(self):
-        self.display_result("Showing temperature vs. time chart...")
+        """Shows a line chart for temperature over time."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            time_of_day = [f"{h}:00" for h in range(0, 24, 3)]
+            temps = [random.randint(10, 25) for _ in range(8)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Temperature vs. Time of Day",
+                time_of_day,
+                temps,
+                "Time",
+                f"Temperature ({self.controller.get_unit_label()})"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating temp vs. time chart")
 
     def show_monthly_avg_chart(self):
-        self.display_result("Showing monthly average chart...")
+        """Shows a bar chart for monthly average temperatures."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+            avg_temps = [random.randint(-5, 30) for _ in range(6)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "Monthly Average Temperature",
+                months,
+                avg_temps,
+                '#8e44ad',
+                "Month",
+                f"Average Temperature ({self.controller.get_unit_label()})"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating monthly average chart")
 
     def show_correlation_heatmap(self):
-        self.display_result("Showing data correlation heatmap...")
+        """Shows a heatmap for weather data correlation."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            data = np.random.rand(5, 5)
+            labels = ['Temp', 'Humidity', 'Wind', 'Pressure', 'UV Index']
+            ChartHelper.create_heatmap(
+                self.chart_frame,
+                "Weather Data Correlation Matrix",
+                data,
+                labels,
+                labels,
+                cmap='viridis'
+            )
+        except Exception as e:
+            self.handle_error(e, "generating correlation heatmap")
 
     def show_uv_index_chart(self):
-        self.display_result("Showing UV index trend chart...")
+        """Shows a line chart for UV index trend."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            days = [f"Day {i}" for i in range(1, 8)]
+            uv_index = [random.randint(1, 11) for _ in range(7)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "UV Index Trend (Last 7 Days)",
+                days,
+                uv_index,
+                "Day",
+                "UV Index"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating UV index chart")
 
 
 class HealthWellnessTab(BaseTab):
@@ -1258,19 +2421,92 @@ class HealthWellnessTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Fetching health and wellness tips for {city}...")
+        try:
+            tips = self.controller.get_health_recommendations(city)
+            self.display_result(tips)
+        except Exception as e:
+            self.handle_error(e, "fetching health and wellness tips")
 
     def show_activity_index_chart(self):
-        self.display_result("Showing activity index chart...")
+        """Shows a bar chart for the outdoor activity index."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            activities = ['Running', 'Cycling', 'Hiking', 'Picnic']
+            scores = [random.randint(1, 10) for _ in range(4)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "Outdoor Activity Index",
+                activities,
+                scores,
+                '#27ae60',
+                "Activity",
+                "Suitability Score (1-10)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating activity index chart")
 
     def show_air_quality_chart(self):
-        self.display_result("Showing air quality chart...")
+        """Shows a gauge chart for air quality."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            aqi = random.randint(0, 200)
+            ChartHelper.create_gauge_chart(
+                self.chart_frame,
+                "Air Quality Index (AQI)",
+                aqi,
+                0,
+                300,
+                ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c']
+            )
+        except Exception as e:
+            self.handle_error(e, "generating air quality chart")
 
     def show_allergy_forecast_chart(self):
-        self.display_result("Showing allergy forecast chart...")
+        """Shows a bar chart for allergy forecast."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            allergens = ['Tree Pollen', 'Grass Pollen', 'Weed Pollen']
+            levels = [random.randint(1, 10) for _ in range(3)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "Allergy Forecast",
+                allergens,
+                levels,
+                '#d35400',
+                "Allergen",
+                "Pollen Level (1-10)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating allergy forecast chart")
 
     def show_uv_exposure_chart(self):
-        self.display_result("Showing UV exposure chart...")
+        """Shows a line chart for UV exposure throughout the day."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            hours = [f"{h}:00" for h in range(6, 20, 2)]
+            uv_levels = [random.randint(0, 11) for _ in range(7)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "UV Exposure by Hour",
+                hours,
+                uv_levels,
+                "Time of Day",
+                "UV Index"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating UV exposure chart")
 
 
 class SmartAlertsTab(BaseTab):
@@ -1320,23 +2556,98 @@ class SmartAlertsTab(BaseTab):
         city = self.get_city_input()
         if not city:
             return
-        self.display_result(f"Configuring smart alerts for {city}...")
+        try:
+            config_info = self.controller.configure_alert_settings()
+            self.display_result(config_info)
+        except Exception as e:
+            self.handle_error(e, "configuring alerts")
 
     def show_alert_stats_chart(self):
-        self.display_result("Showing alert statistics chart...")
+        """Shows a pie chart of alert statistics."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            labels = ['Triggered', 'Snoozed', 'Dismissed', 'Inactive']
+            sizes = [random.randint(1, 20) for _ in range(4)]
+            ChartHelper.create_pie_chart(
+                self.chart_frame,
+                "Alert Statistics",
+                labels,
+                sizes
+            )
+        except Exception as e:
+            self.handle_error(e, "generating alert stats chart")
 
     def show_trigger_history_chart(self):
-        self.display_result("Showing trigger history chart...")
+        """Shows a line chart of alert trigger history."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            dates = [f"Day {i}" for i in range(1, 11)]
+            triggers = [random.randint(0, 5) for _ in range(10)]
+            ChartHelper.create_line_chart(
+                self.chart_frame,
+                "Alert Trigger History (Last 10 Days)",
+                dates,
+                triggers,
+                "Date",
+                "Number of Triggers"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating trigger history chart")
 
     def show_active_rules_chart(self):
-        self.display_result("Showing active rules chart...")
+        """Shows a bar chart of active alert rules."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data
+            rules = ['High Temp', 'Low Temp', 'High Wind', 'Heavy Rain']
+            active_status = [random.choice([0, 1]) for _ in range(4)]
+            ChartHelper.create_bar_chart(
+                self.chart_frame,
+                "Active Alert Rules",
+                rules,
+                active_status,
+                ['#e74c3c', '#3498db'],
+                "Rule",
+                "Status (1=Active, 0=Inactive)"
+            )
+        except Exception as e:
+            self.handle_error(e, "generating active rules chart")
 
     def show_thresholds_chart(self):
-        self.display_result("Showing thresholds chart...")
+        """Shows a chart for alert thresholds."""
+        if not CHARTS_AVAILABLE:
+            self.display_result("Charts are not available.")
+            return
+        try:
+            # Dummy data for thresholds
+            labels = ['Temp >', 'Temp <', 'Wind >']
+            values = [30, 0, 20]
+            
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.barh(labels, values, color=['#e74c3c', '#3498db', '#95a5a6'])
+            ax.set_xlabel('Threshold Value')
+            ax.set_title('Configured Alert Thresholds')
+            
+            for index, value in enumerate(values):
+                ax.text(value, index, str(value))
+
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.chart_frame)
+        except Exception as e:
+            self.handle_error(e, "generating thresholds chart")
 
 
 class WeatherCameraTab(BaseTab):
     """Weather camera tab component"""
+    
     
     def __init__(self, notebook, controller):
         super().__init__(notebook, controller, "Cameras")
