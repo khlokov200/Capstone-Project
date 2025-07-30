@@ -15,22 +15,22 @@ from services.journal_service import JournalService
 from services.activity_service import ActivityService
 from services.poetry_service import PoetryService
 from controllers.ml_controller import MLController
+from services.json_data_service import JSONDataService
 from ui.constants import COLOR_PALETTE, TEMPERATURE_UNITS
 
 
 class WeatherController:
     """Main controller for weather dashboard functionality"""
     
-    def __init__(self, api_key):
+    def __init__(self, api_key, data_source="api", json_data_dir="data/json_exports"):
         self.api_key = api_key
         self.temp_unit_value = "metric"
         self.graph_mode_value = "line"
-        
-        # New attributes for enhanced functionality
         self.last_city = None
         self.favorite_cities = []
         self.auto_refresh_enabled = False
         self.auto_refresh_interval = 300000  # 5 minutes in milliseconds
+        self.data_source = data_source
         
         # Initialize services
         self.weather_service = WeatherService(api_key)
@@ -39,6 +39,7 @@ class WeatherController:
         self.journal_service = JournalService()
         self.activity_service = ActivityService(self.weather_service)
         self.poetry_service = PoetryService(self.weather_service)
+        self.json_data_service = JSONDataService(json_data_dir)
         
         # Initialize ML controller
         self.ml_controller = MLController()
@@ -47,12 +48,6 @@ class WeatherController:
         self.fig = None
         self.ax = None
         self.canvas = None
-
-        # New attributes for enhanced functionality
-        self.last_city = None
-        self.favorite_cities = []
-        self.auto_refresh_enabled = False
-        self.auto_refresh_interval = 300000  # 5 minutes in milliseconds
 
     def set_graph_components(self, fig, ax, canvas):
         """Set the matplotlib components for graph updates"""
@@ -63,15 +58,11 @@ class WeatherController:
     def get_current_weather(self, city):
         """Get current weather and return WeatherData model"""
         unit = self.temp_unit_value
-        weather_data = self.weather_service.get_current_weather(city, unit)
-        
-        # Update graph after getting weather
-        self.update_graph()
-        
-        # Ensure unit is always set, fallback to controller's unit setting
-        weather_unit = weather_data.get('unit') if isinstance(weather_data, dict) else getattr(weather_data, 'unit', unit)
-
-        if isinstance(weather_data, dict):
+        if self.data_source == "json":
+            weather_data = self.json_data_service.get_weather_data(city)
+            if not weather_data:
+                raise ValueError(f"No local JSON weather data for {city}")
+            weather_unit = weather_data.get('unit', unit)
             return WeatherData(
                 temperature=weather_data.get('temperature'),
                 description=weather_data.get('description'),
@@ -91,37 +82,78 @@ class WeatherController:
                 snow_1h=weather_data.get('snow_1h'),
                 snow_3h=weather_data.get('snow_3h')
             )
+        else:
+            weather_data = self.weather_service.get_current_weather(city, unit)
+            
+            # Update graph after getting weather
+            self.update_graph()
+            
+            # Ensure unit is always set, fallback to controller's unit setting
+            weather_unit = weather_data.get('unit') if isinstance(weather_data, dict) else getattr(weather_data, 'unit', unit)
 
-        return WeatherData(
-            temperature=weather_data.temperature,
-            description=weather_data.description,
-            humidity=weather_data.humidity,
-            wind_speed=weather_data.wind_speed,
-            unit=weather_unit,
-            city=city,
-            # Add new weather elements
-            visibility=weather_data.visibility,
-            cloudiness=weather_data.cloudiness,
-            pressure=weather_data.pressure,
-            feels_like=weather_data.feels_like,
-            wind_direction=weather_data.wind_direction,
-            sunrise=weather_data.sunrise,
-            sunset=weather_data.sunset,
-            rain_1h=weather_data.rain_1h,
-            rain_3h=weather_data.rain_3h,
-            snow_1h=weather_data.snow_1h,
-            snow_3h=weather_data.snow_3h
-        )
+            if isinstance(weather_data, dict):
+                return WeatherData(
+                    temperature=weather_data.get('temperature'),
+                    description=weather_data.get('description'),
+                    humidity=weather_data.get('humidity'),
+                    wind_speed=weather_data.get('wind_speed'),
+                    unit=weather_unit,
+                    city=city,
+                    visibility=weather_data.get('visibility'),
+                    cloudiness=weather_data.get('cloudiness'),
+                    pressure=weather_data.get('pressure'),
+                    feels_like=weather_data.get('feels_like'),
+                    wind_direction=weather_data.get('wind_direction'),
+                    sunrise=weather_data.get('sunrise'),
+                    sunset=weather_data.get('sunset'),
+                    rain_1h=weather_data.get('rain_1h'),
+                    rain_3h=weather_data.get('rain_3h'),
+                    snow_1h=weather_data.get('snow_1h'),
+                    snow_3h=weather_data.get('snow_3h')
+                )
+
+            return WeatherData(
+                temperature=weather_data.temperature,
+                description=weather_data.description,
+                humidity=weather_data.humidity,
+                wind_speed=weather_data.wind_speed,
+                unit=weather_unit,
+                city=city,
+                # Add new weather elements
+                visibility=weather_data.visibility,
+                cloudiness=weather_data.cloudiness,
+                pressure=weather_data.pressure,
+                feels_like=weather_data.feels_like,
+                wind_direction=weather_data.wind_direction,
+                sunrise=weather_data.sunrise,
+                sunset=weather_data.sunset,
+                rain_1h=weather_data.rain_1h,
+                rain_3h=weather_data.rain_3h,
+                snow_1h=weather_data.snow_1h,
+                snow_3h=weather_data.snow_3h
+            )
 
     def get_forecast(self, city):
         """Get weather forecast"""
         unit = self.temp_unit_value
-        return self.forecast_service.get_forecast(city, unit)
+        if self.data_source == "json":
+            forecast_data = self.json_data_service.get_forecast_data(city)
+            if not forecast_data:
+                raise ValueError(f"No local JSON forecast data for {city}")
+            return forecast_data
+        else:
+            return self.forecast_service.get_forecast(city, unit)
 
     def get_five_day_forecast(self, city):
         """Get 5-day weather forecast"""
         unit = self.temp_unit_value
-        return self.forecast_service.get_five_day_forecast(city, unit)
+        if self.data_source == "json":
+            forecast_data = self.json_data_service.get_forecast_data(city)
+            if not forecast_data:
+                raise ValueError(f"No local JSON forecast data for {city}")
+            return forecast_data
+        else:
+            return self.forecast_service.get_five_day_forecast(city, unit)
 
     def compare_cities(self, city1, city2):
         """Compare weather between two cities"""

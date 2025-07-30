@@ -111,8 +111,7 @@ Capstone-Project/
 │   └── components.py           # Reusable UI components
 ├── services/
 │   ├── live_weather_service.py # Real-time weather services
-│   ├── weather_service.py      # API integration services
-│   └── json_data_service.py    # JSON data loading service
+│   └── weather_service.py      # API integration services
 ├── models/
 │   └── weather_models.py       # Data models and structures
 ├── core/
@@ -277,31 +276,3 @@ MIT License - See LICENSE file for details
 ---
 
 *This project represents a complete software development lifecycle from conception to deployment, showcasing technical skills in Python development, API integration, data visualization, UI/UX design, and software engineering best practices.*
-
----
-
-## Dual Data Source Support
-
-This application supports two modes for weather and forecast data:
-- **API Mode**: Uses live weather APIs (default)
-- **JSON Mode**: Loads data from local JSON files (see `services/json_data_service.py`)
-
-### How to Use JSON Data Mode
-1. Place your weather/forecast JSON files in the `data/` directory (see [exports](https://github.com/StrayDogSyn/New_Team_Dashboard/tree/main/exports) for sample data).
-2. Set the data source mode in `main.py` (see comments in code):
-   - `data_source = "json"` for local JSON
-   - `data_source = "api"` for live API
-3. The controller (`weather_controller.py`) will use the appropriate service based on this setting.
-
-### Benefits
-- **Offline development**: No API keys or network required
-- **Testing**: Use static, repeatable data
-- **Demo**: Showcase features without live API
-
-### Architecture Overview
-- `WeatherService`/`ForecastService`: Live API data
-- `JSONDataService`: Loads local JSON data
-- `weather_controller.py`: Delegates to the correct service
-- `main.py`: Sets the data source mode
-
-See `ARCHITECTURE.md` for more details on the system structure and data flow.
