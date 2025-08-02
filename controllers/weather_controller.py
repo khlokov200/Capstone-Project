@@ -199,6 +199,21 @@ class WeatherController:
         unit = self.temp_unit_value
         return self.poetry_service.generate_free_verse(city, unit)
 
+    def generate_acrostic(self, city):
+        """Generate acrostic poem for a city"""
+        unit = self.temp_unit_value
+        return self.poetry_service.generate_acrostic(city, unit)
+
+    def generate_weather_riddle(self, city):
+        """Generate weather riddle for a city"""
+        unit = self.temp_unit_value
+        return self.poetry_service.generate_weather_riddle(city, unit)
+
+    def generate_interactive_prompt(self, city):
+        """Generate interactive poetry prompt for a city"""
+        unit = self.temp_unit_value
+        return self.poetry_service.generate_interactive_prompt(city, unit)
+
     # History-related methods for HistoryTab
     def get_weather_history(self, city_or_limit=7):
         """Get weather history - supports both city name and limit parameters"""

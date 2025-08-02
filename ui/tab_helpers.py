@@ -18,6 +18,11 @@ except ImportError:
     print("📊 Charts unavailable: matplotlib not installed")
 
 class BaseTab:
+    @staticmethod
+    def setup_whitespace_style():
+        from .constants import COLOR_PALETTE
+        style = ttk.Style()
+        style.configure("Whitespace.TFrame", background=COLOR_PALETTE["whitespace_bg"])
     """Base class for all weather tabs to reduce duplication"""
     
     def __init__(self, notebook, controller, tab_name):

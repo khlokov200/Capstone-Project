@@ -268,6 +268,8 @@ class AnimatedWeatherWidget:
         
         # Initialize people
         self._create_people()
+
+
         
     def _create_people(self):
         """Create animated people figures"""
@@ -479,6 +481,22 @@ class WeatherRadarWidget:
         self.fig, self.ax = plt.subplots(figsize=(6, 4))
         self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self._draw_legend_matplotlib()
+
+    def _draw_legend_matplotlib(self):
+        # Custom legend for radar chart
+        import matplotlib.patches as mpatches
+        legend_elements = [
+            mpatches.Patch(color='red', label='Severe (🔴)'),
+            mpatches.Patch(color='orange', label='Heavy (🟠)'),
+            mpatches.Patch(color='yellow', label='Moderate (🟡)'),
+            mpatches.Patch(color='green', label='Light (🟢)'),
+            mpatches.Patch(color='white', label='Clear (⚪)'),
+            mpatches.Patch(color='blue', label='Rain'),
+            mpatches.Patch(color='purple', label='Snow'),
+            mpatches.Patch(color='gray', label='Cloudy'),
+        ]
+        self.ax.legend(handles=legend_elements, loc='upper right', fontsize=8, title="Legend")
         
     def _create_text_display(self):
         """Create text-based radar display"""

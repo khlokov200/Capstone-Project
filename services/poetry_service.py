@@ -248,3 +248,42 @@ is part of us."""
         ]
         
         return random.choice(free_verses)
+
+    def generate_acrostic(self, city, unit="metric"):
+        """Generate an acrostic poem using the city name and weather"""
+        weather = self.weather_service.get_current_weather(city, unit)
+        desc = weather['description'].capitalize()
+        temp = weather['temperature']
+        acrostic = []
+        for i, letter in enumerate(city.upper()):
+            if i == 0:
+                line = f"{letter} - {desc} graces the sky."
+            elif i == len(city) // 2:
+                line = f"{letter} - Temperature: {temp}° brings a mood."
+            else:
+                line = f"{letter} - Weather's story continues."
+            acrostic.append(line)
+        return '\n'.join(acrostic)
+
+    def generate_weather_riddle(self, city, unit="metric"):
+        """Generate a weather-themed riddle for the city"""
+        weather = self.weather_service.get_current_weather(city, unit)
+        desc = weather['description'].lower()
+        temp = weather['temperature']
+        riddles = [
+            f"I am felt but never seen, I can be gentle or mean. In {city}, today I am {desc} at {temp}°. What am I?",
+            f"I fall from the sky, sometimes I am snow, sometimes I am rain. In {city}, I am {desc}. What am I?",
+            f"I can be hot or cold, I change with the seasons. In {city}, I am {temp}°. What am I?"
+        ]
+        return random.choice(riddles)
+
+    def generate_interactive_prompt(self, city, unit="metric"):
+        """Generate an interactive poetry prompt for the user"""
+        weather = self.weather_service.get_current_weather(city, unit)
+        desc = weather['description']
+        temp = weather['temperature']
+        prompt = (
+            f"Imagine you are standing in {city} where the weather is '{desc}' and the temperature is {temp}°. "
+            "Write a short poem or a few lines describing how this weather makes you feel."
+        )
+        return prompt

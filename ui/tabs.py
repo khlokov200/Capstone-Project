@@ -1472,7 +1472,9 @@ class ComparisonTab(BaseTab):
     """City comparison tab component with charts"""
     
     def __init__(self, notebook, controller):
+        BaseTab.setup_whitespace_style()
         super().__init__(notebook, controller, "Compare Cities")
+        self.frame.configure(style="Whitespace.TFrame")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -1981,11 +1983,75 @@ class LiveWeatherTab(BaseTab):
         """Setup the live animation interface in the left panel"""
         StyledLabel(self.left_frame, text="Live Weather Animation", font=("Arial", 14, "bold")).pack(pady=5)
         
-        # Add city input for context
-        self.setup_city_input(self.left_frame, "Enter City for Live View")
+
+        # Add city input for context with Enter button
+        city_input_frame = ttk.Frame(self.left_frame)
+        city_input_frame.pack(pady=(10, 0))
+        StyledLabel(city_input_frame, text="Enter City for Live View").pack(side="left", padx=(0, 5))
+        self.city_entry = ttk.Entry(city_input_frame)
+        self.city_entry.pack(side="left")
+        enter_btn = ttk.Button(city_input_frame, text="Enter", command=self._on_enter_city)
+        enter_btn.pack(side="left", padx=(5, 0))
+
+    def _on_enter_city(self):
+        city = self.get_city_input()
+        if city:
+            # Fetch weather type for the city
+            try:
+                weather = self.controller.get_current_weather(city)
+                # Try to get a weather type string for animation
+                weather_type = None
+                desc = (weather.description or '').lower() if hasattr(weather, 'description') else ''
+                if 'rain' in desc:
+                    weather_type = 'rain'
+                elif 'storm' in desc or 'thunder' in desc:
+                    weather_type = 'storm'
+                elif 'snow' in desc or 'blizzard' in desc:
+                    weather_type = 'snow'
+                elif 'cloud' in desc:
+                    weather_type = 'cloudy'
+                elif 'clear' in desc or 'sun' in desc:
+                    weather_type = 'clear'
+                else:
+                    weather_type = 'clear'
+                if hasattr(self, 'live_widget'):
+                    self.live_widget.update_weather(weather_type)
+                    self.live_widget.start_animation(weather_type)
+                self.display_result(f"City set for live view: {city}\nWeather: {weather.description}")
+            except Exception as e:
+                self.display_result(f"❌ Could not fetch weather for {city}: {e}")
+
 
         self.live_widget = AnimatedWeatherWidget(self.left_frame, width=400, height=300)
-        
+
+        # Add legend below the animation
+        legend_frame = ttk.LabelFrame(self.left_frame, text="Legend")
+        legend_frame.pack(pady=(5, 10), fill="x")
+        legend_items = [
+            ("blue", "Walker"),
+            ("green", "Jogger"),
+            ("purple", "Elderly"),
+            ("red", "Cyclist"),
+            ("blue", "Rain Drop"),
+            ("white", "Snowflake"),
+            ("yellow", "Lightning"),
+            ("darkblue", "Heavy Rain")
+        ]
+        for color, label in legend_items:
+            item_frame = ttk.Frame(legend_frame)
+            item_frame.pack(anchor="w", padx=8, pady=1)
+            color_box = tk.Canvas(item_frame, width=16, height=16, highlightthickness=0)
+            color_box.pack(side="left")
+            if color == "white":
+                color_box.create_oval(2, 2, 14, 14, fill=color, outline="lightgray")
+            elif color == "yellow":
+                color_box.create_line(2, 14, 14, 2, fill=color, width=3)
+            elif color == "darkblue":
+                color_box.create_line(2, 2, 14, 14, fill=color, width=3)
+            else:
+                color_box.create_oval(2, 2, 14, 14, fill=color, outline="black")
+            ttk.Label(item_frame, text=label, font=("Arial", 9)).pack(side="left", padx=6)
+
         button_config = [
             ("primary_black", "▶️ Play", self.play_animation),
             ("accent_black", "⏸️ Pause", self.pause_animation),
@@ -1998,6 +2064,7 @@ class LiveWeatherTab(BaseTab):
         StyledLabel(self.right_frame, text="Weather Radar", font=("Arial", 14, "bold")).pack(pady=5)
         
         # Assuming the controller can provide the radar service
+
         try:
             radar_service = self.controller.get_weather_radar_service()
             self.radar_widget = WeatherRadarWidget(self.right_frame, radar_service, width=400, height=300)
@@ -2007,6 +2074,34 @@ class LiveWeatherTab(BaseTab):
             radar_service = WeatherRadarService()
             self.radar_widget = WeatherRadarWidget(self.right_frame, radar_service, width=400, height=300)
 
+        # Add radar legend below the radar widget
+        radar_legend_frame = ttk.LabelFrame(self.right_frame, text="Legend")
+        radar_legend_frame.pack(pady=(5, 10), fill="x")
+        radar_legend_items = [
+            ("red", "Severe (🔴)"),
+            ("orange", "Heavy (🟠)"),
+            ("yellow", "Moderate (🟡)"),
+            ("green", "Light (🟢)"),
+            ("white", "Clear (⚪)"),
+            ("blue", "Rain"),
+            ("purple", "Snow"),
+            ("gray", "Cloudy"),
+            ("*", "Severe Weather Event (Red Star)")
+        ]
+        for color, label in radar_legend_items:
+            item_frame = ttk.Frame(radar_legend_frame)
+            item_frame.pack(anchor="w", padx=8, pady=1)
+            color_box = tk.Canvas(item_frame, width=16, height=16, highlightthickness=0)
+            color_box.pack(side="left")
+            if color == "white":
+                color_box.create_oval(2, 2, 14, 14, fill=color, outline="lightgray")
+            elif color == "*":
+                # Draw a red star for severe event
+                color_box.create_text(8, 8, text="*", fill="red", font=("Arial", 12, "bold"))
+            else:
+                color_box.create_oval(2, 2, 14, 14, fill=color, outline="black")
+            ttk.Label(item_frame, text=label, font=("Arial", 9)).pack(side="left", padx=6)
+
         button_config = [
             ("primary_black", "🛰️ Track Storms", self.track_storms),
             ("accent_black", "🗺️ Change Layer", self.change_radar_layer),
@@ -2015,12 +2110,18 @@ class LiveWeatherTab(BaseTab):
         ButtonHelper.create_button_grid(self.right_frame, button_config, columns=3)
 
     def play_animation(self):
-        result = self.controller.start_live_feed()
-        self.display_result(result)
+        if hasattr(self, 'live_widget'):
+            self.live_widget.start_animation()
+            self.display_result("▶️ Live animation started.")
+        else:
+            self.display_result("Live animation widget not available.")
 
     def pause_animation(self):
-        result = self.controller.pause_live_feed()
-        self.display_result(result)
+        if hasattr(self, 'live_widget'):
+            self.live_widget.stop_animation()
+            self.display_result("⏸️ Live animation paused.")
+        else:
+            self.display_result("Live animation widget not available.")
 
     def refresh_live_data(self):
         result = self.controller.refresh_live_data()
@@ -2079,7 +2180,83 @@ class PoetryTab(BaseTab):
         self.setup_city_input(self.frame)
         self.setup_result_text(self.frame, height=15, width=80)
         ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Poem", self.generate_poem)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Haiku", self.generate_haiku)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Sonnet", self.generate_sonnet)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Limerick", self.generate_limerick)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Free Verse", self.generate_free_verse)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Generate Acrostic", self.generate_acrostic)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Weather Riddle", self.generate_riddle)
+        ButtonHelper.create_main_button(self.frame, "primary_black", "Interactive Prompt", self.generate_interactive_prompt)
 
+    def generate_haiku(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            poem = self.controller.generate_weather_haiku(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating a haiku")
+
+    def generate_sonnet(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            poem = self.controller.generate_weather_sonnet(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating a sonnet")
+
+    def generate_limerick(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            poem = self.controller.generate_weather_limerick(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating a limerick")
+
+    def generate_free_verse(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            poem = self.controller.generate_weather_free_verse(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating free verse")
+
+    def generate_acrostic(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            poem = self.controller.generate_acrostic(city)
+            self.display_result(poem)
+        except Exception as e:
+            self.handle_error(e, "generating acrostic poem")
+
+    def generate_riddle(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            riddle = self.controller.generate_weather_riddle(city)
+            self.display_result(riddle)
+        except Exception as e:
+            self.handle_error(e, "generating weather riddle")
+
+    def generate_interactive_prompt(self):
+        city = self.get_city_input()
+        if not city:
+            return
+        try:
+            prompt = self.controller.generate_interactive_prompt(city)
+            self.display_result(prompt)
+        except Exception as e:
+            self.handle_error(e, "generating interactive prompt")
     def generate_poem(self):
         city = self.get_city_input()
         if not city:
@@ -2091,6 +2268,14 @@ class PoetryTab(BaseTab):
             self.handle_error(e, "generating a weather-themed poem")
 
 class QuickActionsTab(BaseTab):
+    def _cycle_bg_color(self):
+        """Cycle the background color of the entire Quick Actions tab using ttk style."""
+        self._bg_color_index = (self._bg_color_index + 1) % len(self._bg_colors)
+        new_color = self._bg_colors[self._bg_color_index]
+        style = ttk.Style()
+        style_name = "QuickActionsTab.TFrame"
+        style.configure(style_name, background=new_color)
+        self.frame.configure(style=style_name)
     """Quick actions tab component for instant access to all major features"""
     
     def __init__(self, notebook, controller):
@@ -2110,80 +2295,84 @@ class QuickActionsTab(BaseTab):
         desc_label.pack(pady=5)
         
         # Main actions container
+        self.main_container = tk.Frame(self.frame)
+        self.main_container.pack(pady=20, padx=20, fill="both", expand=True)
+        # Background color changer button (add after all other UI setup)
+        self._bg_colors = ["#f0f4f8", "#e0e7ef", "#ffe4e1", "#e6ffe6", "#e6f7ff", "#fffbe6", "#f5e6ff", "#262a32", "#23272e"]
+        self._bg_color_index = 0
+        StyledButton(self.frame, "accent_black", text="🎨 Change Background Color", command=self._cycle_bg_color).pack(pady=5)
+    def _setup_ui(self):
+        """Setup the quick actions UI components"""
+        # Title
+        title_label = StyledLabel(self.frame, text="🚀 Quick Actions Dashboard")
+        title_label.configure(font=("Arial", 16, "bold"))
+        title_label.pack(pady=20)
+        
+        # Description
+        desc_label = StyledLabel(self.frame, 
+                                text="Instant access to all major weather dashboard features")
+        desc_label.pack(pady=5)
+        
+        # Main actions container
         main_container = ttk.Frame(self.frame)
         main_container.pack(pady=20, padx=20, fill="both", expand=True)
-        
-        # Essential Weather Actions Section
+
+        # Weather Actions Section
         weather_frame = ttk.LabelFrame(main_container, text="🌤️ Weather Actions", padding=15)
         weather_frame.pack(fill="x", pady=10)
-        
         weather_row1 = ttk.Frame(weather_frame)
         weather_row1.pack(pady=5)
-        
-        StyledButton(weather_row1, "primary_black", text="🌡️ Quick Weather",
-                    command=self._quick_weather, width=15).grid(row=0, column=0, padx=5)
-        StyledButton(weather_row1, "info_black", text="📅 Today's Plan", 
-                    command=self._todays_plan, width=15).grid(row=0, column=1, padx=5)
-        StyledButton(weather_row1, "cool_black", text="🎯 Best Times",
-                    command=self._best_times, width=15).grid(row=0, column=2, padx=5)
-        
+        StyledButton(weather_row1, "primary_black", text="🌡️ Quick Weather", command=self._quick_weather, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(weather_row1, "info_black", text="📅 Today's Plan", command=self._todays_plan, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(weather_row1, "cool_black", text="🎯 Best Times", command=self._best_times, width=15).grid(row=0, column=2, padx=5)
+
         # Utility Actions Section
         utility_frame = ttk.LabelFrame(main_container, text="🔧 Utility Actions", padding=15)
         utility_frame.pack(fill="x", pady=10)
-        
         utility_row1 = ttk.Frame(utility_frame)
         utility_row1.pack(pady=5)
-        
-        StyledButton(utility_row1, "accent_black", text="📱 Share Weather",
-                    command=self._share_weather, width=15).grid(row=0, column=0, padx=5)
-        StyledButton(utility_row1, "success_black", text="⭐ Save Favorite",
-                    command=self._save_favorite, width=15).grid(row=0, column=1, padx=5)
-        StyledButton(utility_row1, "warning_black", text="⚠️ Weather Alerts",
-                    command=self._check_alerts, width=15).grid(row=0, column=2, padx=5)
-        
+        StyledButton(utility_row1, "accent_black", text="📱 Share Weather", command=self._share_weather, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(utility_row1, "success_black", text="⭐ Save Favorite", command=self._save_favorite, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(utility_row1, "warning_black", text="⚠️ Weather Alerts", command=self._check_alerts, width=15).grid(row=0, column=2, padx=5)
+
         # Smart Features Section
         smart_frame = ttk.LabelFrame(main_container, text="🧠 Smart Features", padding=15)
         smart_frame.pack(fill="x", pady=10)
-        
         smart_row1 = ttk.Frame(smart_frame)
         smart_row1.pack(pady=5)
-        
-        StyledButton(smart_row1, "accent_black", text="🔄 Refresh All",
-                    command=self._refresh_all, width=15).grid(row=0, column=0, padx=5)
-        StyledButton(smart_row1, "info_black", text="📊 Quick Stats",
-                    command=self._quick_stats, width=15).grid(row=0, column=1, padx=5)
-        StyledButton(smart_row1, "success_black", text="🌍 Multi-City",
-                    command=self._multi_city, width=15).grid(row=0, column=2, padx=5)
-        
+        StyledButton(smart_row1, "accent_black", text="🔄 Refresh All", command=self._refresh_all, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(smart_row1, "info_black", text="📊 Quick Stats", command=self._quick_stats, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(smart_row1, "success_black", text="🌍 Multi-City", command=self._multi_city, width=15).grid(row=0, column=2, padx=5)
+
+        # Background color changer button
+        self._bg_colors = ["#f0f4f8", "#e0e7ef", "#ffe4e1", "#e6ffe6", "#e6f7ff", "#fffbe6", "#f5e6ff", "#262a32", "#23272e"]
+        self._bg_color_index = 0
+        StyledButton(self.frame, "accent_black", text="🎨 Change Background Color", command=self._cycle_bg_color).pack(pady=5)
+
         # Results display area
         self.result_frame = ttk.LabelFrame(main_container, text="📄 Results", padding=10)
         self.result_frame.pack(fill="both", expand=True, pady=10)
-        
         self.result_text = StyledText(self.result_frame, height=12, width=80)
         self.result_text.pack(fill="both", expand=True, padx=5, pady=5)
-        
+
         # Initial welcome message
-        welcome_msg = """🌟 Welcome to Quick Actions Dashboard!
-
-Select any action above to get started:
-
-🌤️ Weather Actions:
-• Quick Weather - Get current conditions instantly
-• Today's Plan - Comprehensive daily weather planning  
-• Best Times - Optimal timing for activities
-
-🔧 Utility Actions:
-• Share Weather - Social media ready content
-• Save Favorite - Bookmark your cities
-• Weather Alerts - Check for weather warnings
-
-🧠 Smart Features:
-• Refresh All - System optimization and refresh
-• Quick Stats - Usage and performance statistics
-• Multi-City - Global weather overview
-
-Results will appear in this area when you use the quick actions above."""
-        
+        welcome_msg = (
+            "Welcome to Quick Actions Dashboard!\n\n"
+            "Select any action above to get started:\n\n"
+            "Weather Actions:\n"
+            "- Quick Weather: Get current conditions instantly\n"
+            "- Today's Plan: Comprehensive daily weather planning\n"
+            "- Best Times: Optimal timing for activities\n\n"
+            "Utility Actions:\n"
+            "- Share Weather: Social media ready content\n"
+            "- Save Favorite: Bookmark your cities\n"
+            "- Weather Alerts: Check for weather warnings\n\n"
+            "Smart Features:\n"
+            "- Refresh All: System optimization and refresh\n"
+            "- Quick Stats: Usage and performance statistics\n"
+            "- Multi-City: Global weather overview\n\n"
+            "Results will appear in this area when you use the quick actions above."
+        )
         self.result_text.insert("1.0", welcome_msg)
 
     # Quick Action Methods (delegated to controller with result display)
