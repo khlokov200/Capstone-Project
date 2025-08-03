@@ -8,9 +8,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from ui.constants import COLOR_PALETTE, UI_CONFIG
 from ui.components import StyledButton
-from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab, 
-                     JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab, LiveWeatherTab,
-                     SevereWeatherTab, AnalyticsTrendsTab, HealthWellnessTab, SmartAlertsTab, WeatherCameraTab)
+from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab,
+                         JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab,
+                         SmartAlertsTab, CameraTab, SevereWeatherTab, AnalyticsTab, 
+                         HealthTab, LiveRadarTab, LiveWeatherTab)
 
 
 class MainWindow(tk.Tk):
@@ -19,112 +20,45 @@ class MainWindow(tk.Tk):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self.theme = "dark"
-        self.palette = self._get_palette()
         self._setup_window()
         self._setup_styles()
         self._create_layout()
         self._setup_graph()
 
-    def _get_palette(self):
-        from ui.constants import get_palette
-        return get_palette(self.theme)
-
     def _setup_window(self):
         """Configure the main window"""
         self.title(UI_CONFIG["window_title"])
         self.geometry(UI_CONFIG["window_geometry"])
-        self.configure(bg=self.palette["background"])
+        self.configure(bg=COLOR_PALETTE["background"])
 
     def _setup_styles(self):
         """Setup TTK styles"""
         style = ttk.Style(self)
         style.theme_use("clam")
         style.configure("TNotebook", 
-                       background=self.palette["background"], 
+                       background=COLOR_PALETTE["background"], 
                        borderwidth=0)
         style.configure("TNotebook.Tab", 
-                       background=self.palette["tab_bg"], 
-                       foreground=self.palette["tab_fg"], 
+                       background=COLOR_PALETTE["tab_bg"], 
+                       foreground=COLOR_PALETTE["tab_fg"], 
                        padding=10)
         style.map("TNotebook.Tab", 
-                 background=[("selected", self.palette["accent"])] )
+                 background=[("selected", COLOR_PALETTE["accent"])])
 
     def _create_layout(self):
         """Create the main layout"""
         self.content_frame = ttk.Frame(self)
         self.content_frame.pack(fill="both", expand=True)
-        # Theme toggle button
-        self._create_theme_toggle()
+        
         # Temperature unit toggle button
         self._create_unit_toggle()
+        
         # Create notebook for tabs
         self.notebook = ttk.Notebook(self.content_frame)
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        
         # Create all tabs
         self._create_tabs()
-
-    def _create_theme_toggle(self):
-        """Create a theme toggle button"""
-        btn = tk.Button(self.content_frame, text=self._get_theme_toggle_text(), command=self._toggle_theme)
-        btn.pack(pady=5)
-        self.theme_toggle_btn = btn
-
-    def _get_theme_toggle_text(self):
-        return "Switch to Light Theme" if self.theme == "dark" else "Switch to Dark Theme"
-
-    def _toggle_theme(self):
-        """Toggle between light and dark themes"""
-        self.theme = "light" if self.theme == "dark" else "dark"
-        self.palette = self._get_palette()
-        self._apply_theme()
-        # Update the button text to reflect the new theme
-        self.theme_toggle_btn.config(text=self._get_theme_toggle_text())
-        # Force redraw of the window and notebook to ensure background updates
-        self.update_idletasks()
-        if hasattr(self, 'notebook'):
-            self.notebook.update_idletasks()
-
-    def _apply_theme(self):
-        """Apply the current theme to the window and widgets (background only)"""
-        # Update the background colors of the main window and content frame
-        self.configure(bg=self.palette["background"])
-        self.content_frame.configure(bg=self.palette["background"])
-        # Update notebook and tab backgrounds
-        if hasattr(self, 'notebook'):
-            style = ttk.Style(self)
-            style.theme_use("clam")
-            style.configure("TNotebook", background=self.palette["background"])
-            style.configure("TNotebook.Tab", background=self.palette["tab_bg"], foreground=self.palette["tab_fg"])
-            style.map("TNotebook.Tab", background=[("selected", self.palette["accent"])] )
-            self.notebook.configure(bg=self.palette["background"])
-            # Update all tab frames' backgrounds recursively
-            for tab in self.notebook.winfo_children():
-                self._set_frame_bg_recursive(tab, self.palette["background"])
-            # Redraw tabs to force update
-            self.notebook.update_idletasks()
-
-    def _set_frame_bg_recursive(self, widget, color):
-        # Recursively set background color for all frames and their children
-        try:
-            widget.configure(bg=color)
-        except Exception:
-            pass
-        for child in getattr(widget, 'winfo_children', lambda: [])():
-            self._set_frame_bg_recursive(child, color)
-
-    def _update_tab_themes(self):
-        """Update theme for all custom widgets in all tabs"""
-        for tab in getattr(self, 'notebook', []).winfo_children():
-            self._update_widget_theme(tab)
-
-    def _update_widget_theme(self, widget):
-        # Recursively update theme for custom widgets
-        from ui.components import StyledButton, StyledLabel, StyledText
-        if isinstance(widget, (StyledButton, StyledLabel, StyledText)):
-            widget.update_theme(self.palette)
-        for child in getattr(widget, 'winfo_children', lambda: [])():
-            self._update_widget_theme(child)
 
     def _create_unit_toggle(self):
         """Create the temperature unit toggle button"""
@@ -138,24 +72,29 @@ class MainWindow(tk.Tk):
 
     def _create_tabs(self):
         """Create all dashboard tabs"""
-        # Quick Actions tab as the first tab
+        # Analytics tab as the first prominent tab
+        self.analytics_tab = AnalyticsTab(self.notebook, self.controller)
+        
+        # Quick Actions tab 
         self.quick_actions_tab = QuickActionsTab(self.notebook, self.controller)
         
-        # Main weather tab with graph
+        # Main weather tab with live weather and analytics merged
         self.weather_tab = WeatherTab(self.notebook, self.controller)
-        
-        # Live Weather tab with animations and radar
-        self.live_weather_tab = LiveWeatherTab(self.notebook, self.controller)
         
         # Forecast tabs
         self.forecast_tab = ForecastTab(self.notebook, self.controller)
         
-        # New tabs positioned after forecast tab
-        self.severe_weather_tab = SevereWeatherTab(self.notebook, self.controller)
-        self.analytics_trends_tab = AnalyticsTrendsTab(self.notebook, self.controller)
-        self.health_wellness_tab = HealthWellnessTab(self.notebook, self.controller)
+        # NEW IMPLEMENTED FEATURES - Health and Live Radar tabs
+        self.health_tab = HealthTab(self.notebook, self.controller)
+        self.live_radar_tab = LiveRadarTab(self.notebook, self.controller)
+        
+        # Live Weather tab  
+        self.live_weather_tab = LiveWeatherTab(self.notebook, self.controller)
+        
+        # Feature tabs positioned after forecast tab
         self.smart_alerts_tab = SmartAlertsTab(self.notebook, self.controller)
-        self.weather_camera_tab = WeatherCameraTab(self.notebook, self.controller)
+        self.camera_tab = CameraTab(self.notebook, self.controller)
+        self.severe_weather_tab = SevereWeatherTab(self.notebook, self.controller)
         
         # Remaining tabs
         self.five_day_tab = FiveDayForecastTab(self.notebook, self.controller)

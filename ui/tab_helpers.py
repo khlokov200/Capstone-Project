@@ -27,8 +27,52 @@ class BaseTab:
     
     def __init__(self, notebook, controller, tab_name):
         self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text=tab_name)
+        # Neon border colors
+        self._neon_colors = [
+            "#39FF14",  # Neon green
+            "#00FFFF",  # Aqua
+            "#FF00FF",  # Magenta
+            "#FFD700",  # Gold
+            "#FF073A",  # Neon red
+            "#00FFEA",  # Cyan
+            "#FF61F6",  # Pink
+            "#FFF700",  # Yellow
+            "#FF5F1F",  # Orange
+            "#00FFB3",  # Mint
+            "#B967FF",  # Purple
+        ]
+        self._neon_color_index = 0
+        # Create a Canvas to draw the neon border
+        self._border_canvas = tk.Canvas(notebook, highlightthickness=0, bd=0, bg=COLOR_PALETTE["background"])
+        self._border_canvas.pack_propagate(False)
+        # Create the main frame inside the canvas
+        self.frame = ttk.Frame(self._border_canvas)
+        # Add the frame to the canvas as a window
+        self._frame_window = self._border_canvas.create_window(10, 10, anchor="nw", window=self.frame)
+        # Add the canvas as the tab
+        notebook.add(self._border_canvas, text=tab_name)
+        # Bind resize to redraw border
+        self._border_canvas.bind("<Configure>", self._draw_neon_border)
+        self._animate_neon_border()
+
+    def _draw_neon_border(self, event=None):
+        self._border_canvas.delete("neon_border")
+        w = self._border_canvas.winfo_width()
+        h = self._border_canvas.winfo_height()
+        # Draw a solid rectangle border with current neon color
+        color = self._neon_colors[self._neon_color_index]
+        self._border_canvas.create_rectangle(
+            5, 5, w-5, h-5,
+            outline=color, width=6, tags="neon_border"
+        )
+        # Keep the frame window at a fixed offset
+        self._border_canvas.coords(self._frame_window, 10, 10)
+        self._border_canvas.itemconfig(self._frame_window, width=w-20, height=h-20)
+
+    def _animate_neon_border(self):
+        self._neon_color_index = (self._neon_color_index + 1) % len(self._neon_colors)
+        self._draw_neon_border()
+        self._border_canvas.after(350, self._animate_neon_border)
 
     def get_city_input(self):
         """Get and validate city input"""

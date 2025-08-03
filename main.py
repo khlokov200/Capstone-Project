@@ -23,12 +23,8 @@ def main():
     if not api_key:
         raise ValueError("Missing WEATHER_API_KEY in environment variables")
     
-    # Toggle data source: "api" for live, "json" for local JSON
-    data_source = os.getenv("DATA_SOURCE_MODE", "api")  # or set manually: "json" or "api"
-    json_data_dir = os.getenv("JSON_DATA_DIR", "data/json_exports")
-    
     # Create controller
-    controller = WeatherController(api_key, data_source=data_source, json_data_dir=json_data_dir)
+    controller = WeatherController(api_key)
     
     # Create and run main window
     app = MainWindow(controller)
