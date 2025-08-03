@@ -1,63 +1,85 @@
-# 🌤️ Advanced Weather Dashboard - Capstone Project
+# 🌤️ Advanced Weather Dashboard
 
-A comprehensive, professional-grade weather dashboard application built with Python, featuring real-time weather data, advanced analytics, interactive charts, and a modern multi-tab interface. Developed as a capstone project demonstrating full-stack development skills and software engineering best practices.
-
-## 🚀 **PROJECT STATUS: COMPLETED** ✅
-
-**Latest Update**: All UI bugs resolved, comprehensive functionality implemented, professional-grade features complete.
+A professional-grade weather dashboard built with Python and Tkinter, featuring real-time and local weather data, advanced analytics, interactive charts, and a modern multi-tab interface.
 
 ---
 
-## 🎯 **Overview**
+## 🛠️ Setup Instructions
 
-This weather dashboard has evolved from a simple weather lookup tool into a comprehensive meteorological analysis platform with 15+ integrated tabs, advanced charting capabilities, machine learning insights, and professional-grade features rivaling commercial weather applications.
+### Requirements
+- Python 3.8+
+- Tkinter (usually included with Python)
+- matplotlib
+- requests
+- python-dotenv
 
-### **🏆 Key Achievements**
-- **15 Functional Tabs** with comprehensive weather features
-- **Professional Chart Integration** using matplotlib with 6+ chart types
-- **9-Button Quick Actions Dashboard** for instant access to all features
-- **Advanced Analytics** with trend analysis and correlation studies
-- **Health & Wellness Monitoring** with UV, air quality, and activity recommendations
-- **Zero Critical Bugs** - fully tested and production-ready
-- **Modern UI Design** with split-panel layouts and professional styling
+### Installation
+```bash
+git clone <repository-url>
+cd Capstone-Project
+pip install -r requirements.txt
+```
 
----
+### Environment Setup
+1. Register at [OpenWeatherMap](https://openweathermap.org/api) and get your API key.
+2. Create a `.env` file in the project root:
+   ```
+   WEATHER_API_KEY=your_api_key_here
+   ```
+3. (Optional) To use local JSON data, set:
+   ```
+   DATA_SOURCE_MODE=json
+   ```
+   By default, the app uses live API data.
 
-## 🌟 **Core Features**
-
-### ✅ **Weather Data & API Integration**
-- **Real-time Weather Data**: OpenWeatherMap API integration with error handling
-- **Multi-City Support**: Compare weather across multiple locations
-- **5-Day Forecasting**: Extended weather predictions with hourly details
-- **Historical Weather**: Track and analyze weather patterns over time
-- **Weather Alerts**: Smart notifications for severe weather conditions
-
-### ✅ **Advanced Visualization & Charts**
-- **Interactive Charts**: matplotlib integration with 6+ chart types
-  - Line charts for temperature trends
-  - Bar charts for weather comparisons  
-  - Pie charts for weather distribution
-  - Histograms for statistical analysis
-  - Heatmaps for correlation analysis
-  - Gauge charts for weather metrics
-- **Split-Panel Layouts**: Professional dashboard-style interface
-- **Chart Controls**: Interactive buttons for chart generation
-- **Data Visualization**: Visual weather trend analysis
-
-### ✅ **Smart Features & Analytics**
-- **Quick Actions Dashboard**: 9 comprehensive weather tools
-- **Analytics & Trends**: Weather pattern analysis and forecasting
-- **Health & Wellness**: UV index, air quality, activity recommendations
-- **Activity Suggestions**: Weather-based activity planning
-- **Travel Planning**: Weather-informed travel recommendations
-- **Social Sharing**: Export weather content for social media
+### Running the App
+```bash
+python main.py
+```
 
 ---
 
-## 📱 **Application Tabs & Features**
+## 📖 Usage Guide
 
-### **🚀 Quick Actions** (Main Dashboard)
-Professional dashboard with instant access to all major features:
+- Launch the app to access a multi-tabbed dashboard with real-time or local weather data.
+- Use the Quick Actions dashboard for instant access to major features.
+- Switch between tabs for current weather, forecasts, analytics, health & wellness, and more.
+- Toggle between live API and local JSON data by setting the `DATA_SOURCE_MODE` environment variable.
+- All features are available offline in JSON mode using the `data/team_cities.json` file.
+
+---
+
+## ✨ Feature Summary
+
+- **Dual Data Source**: Live API or local JSON (`team_cities.json`) for all weather data.
+- **15+ Tabs**: Current weather, forecasts, analytics, health, and more.
+- **Quick Actions Dashboard**: 9 instant-access weather tools.
+- **Advanced Charts**: 6+ chart types with interactive controls.
+- **Health & Wellness**: UV index, air quality, and activity recommendations.
+- **Professional UI**: Modern split-panel layout, theme toggle, and legends.
+- **Offline Mode**: Full functionality using local data for demos or testing.
+- **Personalization**: Weather journal, poetry generator, and history tracking.
+- **Robust Error Handling**: Graceful error messages and guidance.
+
+---
+
+## 📄 License
+
+MIT License - See LICENSE file for details
+
+---
+
+## 👨‍💻 Developer
+
+**Capstone Project** - Advanced Weather Dashboard  
+*Demonstrating comprehensive software development skills and modern application architecture*
+
+**Contact**: [Your Contact Information]  
+**Project Repository**: [Repository Link]
+
+---
+
+*This project represents a complete software development lifecycle from conception to deployment, showcasing technical skills in Python development, API integration, data visualization, UI/UX design, and software engineering best practices.*
 - **🌡️ Quick Weather** - Instant current conditions
 - **📅 Today's Plan** - Weather-based daily planning  
 - **🎯 Best Times** - Activity timing optimization

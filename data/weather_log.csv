@@ -388,3 +388,10 @@ DateTime           , City     , Temperature, Description
 2025-08-01 18:49:53,Manila,29.62,Overcast clouds,metric,78,2.64
 2025-08-01 21:50:09,Cebu,32.34,Overcast clouds,metric,66,2.41
 2025-08-02 09:20:36,Durban,16.89,Clear sky,metric,70,3.59
+2025-08-02 11:40:30,Chicago,24.46,Broken clouds,metric,44,3.46
+2025-08-02 11:40:40,Chicago,76.03,Broken clouds,imperial,44,7.74
+2025-08-02 11:41:00,New York,76.51,Scattered clouds,imperial,43,5.08
+2025-08-02 11:41:01,Denver,80.31,Clear sky,imperial,32,4.65
+2025-08-02 13:13:16,lagos,24.49,Broken clouds,metric,86,2.76
+2025-08-02 13:13:26,lagos,24.49,Broken clouds,metric,86,2.76
+2025-08-02 13:13:27,lagos,24.49,Broken clouds,metric,86,2.76
