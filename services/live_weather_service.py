@@ -80,24 +80,68 @@ class WeatherRadarService:
         
     def get_weather_alerts(self, lat: float, lon: float) -> List[Dict]:
         """Get weather alerts for specific coordinates"""
-        try:
-            url = f"https://api.openweathermap.org/data/2.5/onecall"
-            params = {
-                'lat': lat,
-                'lon': lon,
-                'appid': self.api_key,
-                'exclude': 'minutely,daily'
-            }
+        # This is a mock implementation
+        alerts = []
+        if 30 < lat < 40 and -80 < lon < -70:
+            alerts.append({
+                "sender_name": "NWS", "event": "Tornado Warning",
+                "start": int(time.time()), "end": int(time.time()) + 3600,
+                "description": "Tornado Warning for your area. Take shelter immediately!"
+            })
+        return alerts
+
+    def get_severe_weather_data(self, lat: float, lon: float, tracking_options: Dict) -> Dict:
+        """Get severe weather data for specific coordinates with tracking options"""
+        # This is a mock implementation
+        severe_weather = {
+            "hurricanes": [], "tornadoes": [], "storms": [], "blizzards": []
+        }
+        
+        if tracking_options.get("hurricanes"):
+            severe_weather["hurricanes"].append({
+                "id": "HUR-01", "name": "Hurricane Alex", "category": 3,
+                "lat": lat + 1.5, "lon": lon - 1.5, "wind_speed": 120
+            })
             
-            response = requests.get(url, params=params, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('alerts', [])
-            return []
+        if tracking_options.get("tornadoes"):
+            severe_weather["tornadoes"].append({
+                "id": "TOR-01", "ef_scale": 2, "lat": lat - 0.5, "lon": lon + 0.5,
+                "movement": "NE at 30 mph"
+            })
             
-        except Exception as e:
-            print(f"Weather alerts error: {e}")
-            return []
+        if tracking_options.get("storms"):
+            severe_weather["storms"].append({
+                "id": "STM-01", "type": "Supercell", "lat": lat + 0.2, "lon": lon - 0.2,
+                "intensity": "High"
+            })
+            
+        if tracking_options.get("blizzards"):
+            severe_weather["blizzards"].append({
+                "id": "BLZ-01", "lat": lat + 2.0, "lon": lon + 2.0,
+                "snow_rate": "2 inches/hr", "wind_speed": 40
+            })
+            
+        return severe_weather
+
+    def get_radar_data(self, lat: float, lon: float, radar_range: str = "200 km") -> Dict:
+        """Get radar data for specific coordinates"""
+        # This is a mock implementation
+        intensity = np.random.rand(20, 20) * 100
+        return {"intensity": intensity, "range": radar_range}
+
+    def get_storm_history(self, lat: float, lon: float) -> List[Dict]:
+        """Get historical storm data for a location"""
+        # Mock implementation
+        return [
+            {"date": "2023-08-15", "type": "Tornado", "ef_scale": 1},
+            {"date": "2023-07-20", "type": "Hurricane", "category": 2},
+        ]
+
+    def get_radar_analysis(self, lat: float, lon: float) -> str:
+        """Get a detailed analysis of the radar data"""
+        # Mock implementation
+        return f"Radar Analysis for {lat}, {lon}:\n\n- High precipitation core detected at center.\n- Scattered showers in the NE quadrant."
+
     
     def get_radar_data(self, lat: float, lon: float, zoom: int = 5) -> Optional[Dict]:
         """Get weather radar data for coordinates"""
@@ -268,8 +312,6 @@ class AnimatedWeatherWidget:
         
         # Initialize people
         self._create_people()
-
-
         
     def _create_people(self):
         """Create animated people figures"""
@@ -481,22 +523,6 @@ class WeatherRadarWidget:
         self.fig, self.ax = plt.subplots(figsize=(6, 4))
         self.canvas = FigureCanvasTkAgg(self.fig, self.frame)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
-        self._draw_legend_matplotlib()
-
-    def _draw_legend_matplotlib(self):
-        # Custom legend for radar chart
-        import matplotlib.patches as mpatches
-        legend_elements = [
-            mpatches.Patch(color='red', label='Severe (🔴)'),
-            mpatches.Patch(color='orange', label='Heavy (🟠)'),
-            mpatches.Patch(color='yellow', label='Moderate (🟡)'),
-            mpatches.Patch(color='green', label='Light (🟢)'),
-            mpatches.Patch(color='white', label='Clear (⚪)'),
-            mpatches.Patch(color='blue', label='Rain'),
-            mpatches.Patch(color='purple', label='Snow'),
-            mpatches.Patch(color='gray', label='Cloudy'),
-        ]
-        self.ax.legend(handles=legend_elements, loc='upper right', fontsize=8, title="Legend")
         
     def _create_text_display(self):
         """Create text-based radar display"""

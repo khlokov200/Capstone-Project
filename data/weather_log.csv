@@ -395,3 +395,43 @@ DateTime           , City     , Temperature, Description
 2025-08-02 13:13:16,lagos,24.49,Broken clouds,metric,86,2.76
 2025-08-02 13:13:26,lagos,24.49,Broken clouds,metric,86,2.76
 2025-08-02 13:13:27,lagos,24.49,Broken clouds,metric,86,2.76
+2025-08-03 18:40:38,New York,24.37,Clear sky,metric,48,4.94
+2025-08-03 18:40:39,Paris,18.64,Overcast clouds,metric,76,2.96
+2025-08-03 20:42:12,Riyadh,32.11,Clear sky,metric,17,1.73
+2025-08-03 20:42:18,Riyadh,32.11,Clear sky,metric,17,1.73
+2025-08-03 21:35:00,Monrovia,24.05,Overcast clouds,metric,86,4.24
+2025-08-03 21:35:01,Monrovia,24.05,Overcast clouds,metric,86,4.24
+2025-08-03 21:35:01,Monrovia,24.05,Overcast clouds,metric,86,4.24
+2025-08-03 21:39:48,Copenhagen,60.3,Moderate rain,imperial,93,8.28
+2025-08-03 21:40:34,Ontario,77.45,Scattered clouds,imperial,43,6.67
+2025-08-03 21:40:49,Ontario,77.45,Scattered clouds,imperial,43,6.67
+2025-08-03 21:46:52,New York,67.48,Clear sky,imperial,60,8.37
+2025-08-03 21:46:52,Denver,73.92,Clear sky,imperial,29,8.16
+2025-08-03 22:58:13,New York,18.73,Clear sky,metric,63,2.62
+2025-08-03 22:58:13,Denver,21.57,Clear sky,metric,34,3.14
+2025-08-03 22:58:14,New York,18.73,Clear sky,metric,63,2.62
+2025-08-03 22:58:14,Denver,21.57,Clear sky,metric,34,3.14
+2025-08-03 23:02:41,denver,21.57,Clear sky,metric,34,3.14
+2025-08-03 23:02:41,chicago,18.61,Scattered clouds,metric,77,2.59
+2025-08-03 23:02:42,denver,21.57,Clear sky,metric,34,3.14
+2025-08-03 23:02:42,chicago,18.61,Scattered clouds,metric,77,2.59
+2025-08-03 23:31:04,chicago,18.53,Scattered clouds,metric,82,2.59
+2025-08-03 23:31:04,denver,21.27,Clear sky,metric,40,3.14
+2025-08-03 23:31:09,chicago,18.53,Scattered clouds,metric,82,2.59
+2025-08-03 23:31:09,denver,21.27,Clear sky,metric,40,3.14
+2025-08-03 23:31:14,chicago,18.53,Scattered clouds,metric,82,2.59
+2025-08-03 23:31:14,denver,21.27,Clear sky,metric,40,3.14
+2025-08-03 23:31:18,chicago,18.53,Scattered clouds,metric,82,2.59
+2025-08-03 23:31:19,denver,21.27,Clear sky,metric,40,3.14
+2025-08-04 11:48:07,Beijing,25.32,Light rain,metric,95,1.73
+2025-08-04 11:48:11,Beijing,25.32,Light rain,metric,95,1.73
+2025-08-04 11:54:30,chicago,26.06,Broken clouds,metric,54,5.14
+2025-08-04 11:54:45,chicago,26.06,Broken clouds,metric,54,5.14
+2025-08-04 11:55:00,chicago,26.06,Broken clouds,metric,54,5.14
+2025-08-04 11:55:06,chicago,26.06,Broken clouds,metric,54,5.14
+2025-08-04 12:00:22,chicago,26.08,Overcast clouds,metric,55,3.82
+2025-08-04 12:00:39,new york,29.94,Clear sky,metric,41,4.02
+2025-08-04 12:02:00,new york,29.4,Clear sky,metric,41,0.41
+2025-08-04 12:08:48,Beijing,22.5,Clear sky,metric,65,3.6
+2025-08-04 12:11:35,chicago,25.8,Overcast clouds,metric,57,3.82
+2025-08-04 12:11:44,chicago,78.44,Overcast clouds,imperial,57,8.55

@@ -18,61 +18,12 @@ except ImportError:
     print("📊 Charts unavailable: matplotlib not installed")
 
 class BaseTab:
-    @staticmethod
-    def setup_whitespace_style():
-        from .constants import COLOR_PALETTE
-        style = ttk.Style()
-        style.configure("Whitespace.TFrame", background=COLOR_PALETTE["whitespace_bg"])
     """Base class for all weather tabs to reduce duplication"""
     
     def __init__(self, notebook, controller, tab_name):
         self.controller = controller
-        # Neon border colors
-        self._neon_colors = [
-            "#39FF14",  # Neon green
-            "#00FFFF",  # Aqua
-            "#FF00FF",  # Magenta
-            "#FFD700",  # Gold
-            "#FF073A",  # Neon red
-            "#00FFEA",  # Cyan
-            "#FF61F6",  # Pink
-            "#FFF700",  # Yellow
-            "#FF5F1F",  # Orange
-            "#00FFB3",  # Mint
-            "#B967FF",  # Purple
-        ]
-        self._neon_color_index = 0
-        # Create a Canvas to draw the neon border
-        self._border_canvas = tk.Canvas(notebook, highlightthickness=0, bd=0, bg=COLOR_PALETTE["background"])
-        self._border_canvas.pack_propagate(False)
-        # Create the main frame inside the canvas
-        self.frame = ttk.Frame(self._border_canvas)
-        # Add the frame to the canvas as a window
-        self._frame_window = self._border_canvas.create_window(10, 10, anchor="nw", window=self.frame)
-        # Add the canvas as the tab
-        notebook.add(self._border_canvas, text=tab_name)
-        # Bind resize to redraw border
-        self._border_canvas.bind("<Configure>", self._draw_neon_border)
-        self._animate_neon_border()
-
-    def _draw_neon_border(self, event=None):
-        self._border_canvas.delete("neon_border")
-        w = self._border_canvas.winfo_width()
-        h = self._border_canvas.winfo_height()
-        # Draw a solid rectangle border with current neon color
-        color = self._neon_colors[self._neon_color_index]
-        self._border_canvas.create_rectangle(
-            5, 5, w-5, h-5,
-            outline=color, width=6, tags="neon_border"
-        )
-        # Keep the frame window at a fixed offset
-        self._border_canvas.coords(self._frame_window, 10, 10)
-        self._border_canvas.itemconfig(self._frame_window, width=w-20, height=h-20)
-
-    def _animate_neon_border(self):
-        self._neon_color_index = (self._neon_color_index + 1) % len(self._neon_colors)
-        self._draw_neon_border()
-        self._border_canvas.after(350, self._animate_neon_border)
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text=tab_name)
 
     def get_city_input(self):
         """Get and validate city input"""
@@ -208,7 +159,7 @@ class ChartHelper:
         ChartHelper.embed_chart_in_frame(fig, chart_frame)
 
     @staticmethod
-    def create_bar_chart(chart_frame, title, x_data, y_data, colors=None, x_label="X", y_label="Y", rotate_labels=False):
+    def create_bar_chart(chart_frame, title, x_data, y_data, colors=None, rotate_labels=False):
         """Create standardized bar chart"""
         if not CHARTS_AVAILABLE:
             ChartHelper.show_chart_unavailable(chart_frame)
@@ -226,8 +177,7 @@ class ChartHelper:
                      edgecolor='white', linewidth=1.5)
         
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        ax.set_xlabel(x_label, fontsize=12)
-        ax.set_ylabel(y_label, fontsize=12)
+        ax.set_ylabel('Values', fontsize=12)
         ax.grid(True, alpha=0.3, axis='y', linestyle='--')
         ax.set_facecolor('#f8f9fa')
         
@@ -275,127 +225,6 @@ class ChartHelper:
         fig.tight_layout()
         ChartHelper.embed_chart_in_frame(fig, chart_frame)
 
-    @staticmethod
-    def create_pie_chart(chart_frame, title, labels, sizes, colors=None):
-        """Create standardized pie chart"""
-        if not CHARTS_AVAILABLE:
-            ChartHelper.show_chart_unavailable(chart_frame)
-            return
-
-        ChartHelper.clear_chart_area(chart_frame)
-        
-        fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
-        ax = fig.add_subplot(111)
-        
-        if colors is None:
-            colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#F3A683']
-
-        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90,
-               colors=colors[:len(labels)], wedgeprops={'edgecolor': 'white', 'linewidth': 1.5})
-        
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-        
-        fig.tight_layout()
-        ChartHelper.embed_chart_in_frame(fig, chart_frame)
-
-    @staticmethod
-    def create_grouped_bar_chart(chart_frame, title, categories, data_dict, x_label="Categories", y_label="Values"):
-        """Create standardized grouped bar chart"""
-        if not CHARTS_AVAILABLE:
-            ChartHelper.show_chart_unavailable(chart_frame)
-            return
-
-        ChartHelper.clear_chart_area(chart_frame)
-        
-        fig = Figure(figsize=(10, 6), dpi=100, facecolor='white')
-        ax = fig.add_subplot(111)
-        
-        n_categories = len(categories)
-        series_names = list(data_dict.keys())
-        n_series = len(series_names)
-        bar_width = 0.8 / n_series
-        
-        x = np.arange(n_categories)
-        
-        for i, series_name in enumerate(series_names):
-            values = data_dict[series_name]
-            offset = (i - n_series / 2 + 0.5) * bar_width
-            ax.bar(x + offset, values, bar_width, label=series_name)
-
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        ax.set_xlabel(x_label, fontsize=12)
-        ax.set_ylabel(y_label, fontsize=12)
-        ax.set_xticks(x)
-        ax.set_xticklabels(categories)
-        ax.legend()
-        ax.grid(True, alpha=0.3, axis='y', linestyle='--')
-        ax.set_facecolor('#f8f9fa')
-        
-        fig.tight_layout()
-        ChartHelper.embed_chart_in_frame(fig, chart_frame)
-
-    @staticmethod
-    def create_heatmap(chart_frame, title, data, x_labels, y_labels, cmap='coolwarm'):
-        """Create standardized heatmap"""
-        if not CHARTS_AVAILABLE:
-            ChartHelper.show_chart_unavailable(chart_frame)
-            return
-
-        ChartHelper.clear_chart_area(chart_frame)
-        
-        fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
-        ax = fig.add_subplot(111)
-        
-        im = ax.imshow(data, cmap=cmap)
-        
-        ax.set_xticks(np.arange(len(x_labels)))
-        ax.set_yticks(np.arange(len(y_labels)))
-        ax.set_xticklabels(x_labels)
-        ax.set_yticklabels(y_labels)
-        
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-        
-        fig.colorbar(im)
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        
-        fig.tight_layout()
-        ChartHelper.embed_chart_in_frame(fig, chart_frame)
-
-    @staticmethod
-    def create_gauge_chart(chart_frame, title, value, min_val, max_val, colors):
-        """Create standardized gauge chart"""
-        if not CHARTS_AVAILABLE:
-            ChartHelper.show_chart_unavailable(chart_frame)
-            return
-
-        ChartHelper.clear_chart_area(chart_frame)
-        
-        fig = Figure(figsize=(6, 4), dpi=100, facecolor='white')
-        ax = fig.add_subplot(111, polar=True)
-        
-        ax.set_theta_zero_location('N')
-        ax.set_theta_direction(-1)
-        ax.set_thetagrids([], labels=[])
-        ax.set_rgrids([], labels=[])
-        
-        normalized_value = (value - min_val) / (max_val - min_val)
-        angle = normalized_value * 180
-        
-        # Background arc
-        ax.barh(1, width=np.radians(180), left=np.radians(180), color='#E0E0E0')
-        
-        # Value arc
-        ax.barh(1, width=np.radians(angle), left=np.radians(180-angle), color=colors[int(normalized_value * (len(colors)-1))])
-        
-        ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-        
-        # Add value text
-        fig.text(0.5, 0.4, f"{value}", ha='center', va='center', fontsize=24, fontweight='bold')
-        
-        ChartHelper.embed_chart_in_frame(fig, chart_frame)
-
-
 class ButtonHelper:
     """Helper for creating standardized button layouts"""
     
@@ -409,6 +238,9 @@ class ButtonHelper:
         button_frame.pack(pady=5)
         
         for i, (style, text, command) in enumerate(buttons_config):
+            # Ensure black text for better legibility by appending _black to style if not already present
+            if not style.endswith('_black'):
+                style = f"{style}_black"
             row = i // columns
             col = i % columns
             StyledButton(button_frame, style, text=text, 
@@ -419,6 +251,9 @@ class ButtonHelper:
     @staticmethod
     def create_main_button(parent, style, text, command):
         """Create standardized main action button"""
+        # Ensure black text for better legibility by appending _black to style if not already present
+        if not style.endswith('_black'):
+            style = f"{style}_black"
         return StyledButton(parent, style, text=text, command=command).pack(pady=5)
 
 class WeatherFormatter:
@@ -474,7 +309,7 @@ class CommonActions:
         text_widget.insert("1.0", content)
         text_widget.config(state="disabled")
         
-        StyledButton(popup, "primary", text="Close", 
+        StyledButton(popup, "primary_black", text="Close", 
                     command=popup.destroy).pack(pady=10)
 
     @staticmethod

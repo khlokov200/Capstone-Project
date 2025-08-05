@@ -359,27 +359,87 @@ Select a chart type to visualize forecast data."""
             self.handle_error(e, "fetching forecast")
 
     def get_hourly_forecast(self):
-        """Get detailed hourly forecast"""
+        """Get detailed hourly forecast with enhanced visualization and recommendations"""
         city = self.get_city_input()
         if not city:
             return
         
         try:
-            # Enhanced hourly forecast display
+            # Get forecast data from controller
             forecast = self.controller.get_forecast(city)
-            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city}:\n"
+            
+            # Current time for reference
+            from datetime import datetime, timedelta
+            current_time = datetime.now()
+            
+            # Create enhanced hourly details
+            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city.upper()}\n"
             hourly_details += "━" * 50 + "\n\n"
-            hourly_details += "⏰ Next 24 Hours:\n"
-            hourly_details += "• 6 AM: Partly cloudy, 18°C, Light breeze\n"
-            hourly_details += "• 9 AM: Sunny, 22°C, Moderate breeze\n"
-            hourly_details += "• 12 PM: Sunny, 26°C, Strong breeze\n"
-            hourly_details += "• 3 PM: Partly cloudy, 28°C, Moderate breeze\n"
-            hourly_details += "• 6 PM: Cloudy, 24°C, Light breeze\n"
-            hourly_details += "• 9 PM: Clear, 20°C, Calm\n\n"
-            hourly_details += "🌟 Best Times Today:\n"
-            hourly_details += "• Outdoor Activities: 9 AM - 3 PM\n"
-            hourly_details += "• Photography: 6 PM - 8 PM (Golden hour)\n"
-            hourly_details += "• Evening Walks: 7 PM - 9 PM\n\n"
+            
+            # Current conditions
+            hourly_details += "📍 CURRENT CONDITIONS:\n"
+            current_temp = 24  # Example value, should come from forecast data
+            current_desc = "Partly Cloudy"  # Example value
+            current_feel = current_temp + 2  # Example value
+            hourly_details += f"• Temperature: {current_temp}°C (Feels like {current_feel}°C)\n"
+            hourly_details += f"• Conditions: {current_desc}\n"
+            hourly_details += f"• Last Updated: {current_time.strftime('%I:%M %p')}\n\n"
+            
+            # Hourly breakdown (next 24 hours)
+            hourly_details += "⏰ HOURLY BREAKDOWN:\n"
+            forecast_hours = [
+                (current_time + timedelta(hours=i)).strftime("%I %p")
+                for i in range(24)
+            ]
+            
+            # Generate hourly data with realistic patterns
+            conditions = []
+            temps = []
+            wind = []
+            
+            import numpy as np
+            
+            for hour in range(24):
+                time = current_time + timedelta(hours=hour)
+                hour_val = time.hour
+                
+                # Temperature variation (cooler at night, warmer in day)
+                base_temp = 22
+                temp_variation = 8 * np.sin((hour_val - 6) * np.pi / 12)  # Peak at 2PM
+                temp = round(base_temp + temp_variation)
+                temps.append(temp)
+                
+                # Conditions based on time of day
+                if 6 <= hour_val < 9:
+                    conditions.append("Partly Cloudy")
+                    wind.append("Light breeze")
+                elif 9 <= hour_val < 16:
+                    conditions.append("Sunny")
+                    wind.append("Moderate breeze")
+                elif 16 <= hour_val < 19:
+                    conditions.append("Partly Cloudy")
+                    wind.append("Light breeze")
+                else:
+                    conditions.append("Clear")
+                    wind.append("Calm")
+            
+            # Display hourly details in 3-hour intervals
+            for i in range(0, 24, 3):
+                hour = forecast_hours[i]
+                hourly_details += f"• {hour:5}: {conditions[i]:12} {temps[i]:2}°C, {wind[i]}\n"
+            
+            hourly_details += "\n🌟 RECOMMENDED TIMES:\n"
+            hourly_details += "• Peak Sunshine: 12 PM - 3 PM (Best for solar activities)\n"
+            hourly_details += "• Outdoor Exercise: 7 AM - 9 AM (Comfortable temperatures)\n"
+            hourly_details += "• Beach/Pool: 10 AM - 4 PM (Watch UV index)\n"
+            hourly_details += "• Photography: 6 PM - 7 PM (Golden hour)\n"
+            hourly_details += "• Evening Activities: After 7 PM (Cooler temperatures)\n\n"
+            
+            hourly_details += "⚡ QUICK STATS:\n"
+            hourly_details += f"• Warmest Hour: {temps.index(max(temps))+1}:00 ({max(temps)}°C)\n"
+            hourly_details += f"• Coolest Hour: {temps.index(min(temps))+1}:00 ({min(temps)}°C)\n"
+            hourly_details += f"• Temperature Swing: {max(temps) - min(temps)}°C\n\n"
+            
             hourly_details += forecast
             
             self.display_result(hourly_details)
@@ -414,22 +474,59 @@ Select a chart type to visualize forecast data."""
             self.handle_error(e, "showing forecast chart")
 
     def share_forecast(self):
-        """Share forecast information"""
+        """Share forecast information with enhanced formatting and social media integration"""
         city = self.get_city_input()
         if not city:
             return
         
         try:
+            # Get forecast data
             forecast = self.controller.get_forecast(city)
-            share_text = f"📱 SHAREABLE FORECAST for {city}:\n"
+            from datetime import datetime
+            
+            # Create enhanced share content
+            share_text = "🌤️ WEATHER FORECAST SHARE 🌤️\n"
             share_text += "━" * 50 + "\n\n"
-            share_text += f"Weather forecast ready for sharing!\n\n"
-            share_text += "Share-ready format:\n"
-            share_text += f"🌤️ {city} Weather Update\n"
-            share_text += forecast[:200] + "...\n\n"
-            share_text += "📲 Social Media Ready:\n"
-            share_text += f"#Weather #{city.replace(' ', '')} #Forecast\n\n"
-            share_text += "💡 Content has been formatted for easy sharing!"
+            
+            # Add location and timestamp
+            share_text += f"📍 Location: {city.upper()}\n"
+            share_text += f"🕒 Generated: {datetime.now().strftime('%Y-%m-%d at %I:%M %p')}\n\n"
+            
+            # Add main forecast content with emoji indicators
+            share_text += "�️ FORECAST OVERVIEW:\n"
+            share_text += forecast[:300] + "...\n\n"  # Show more content
+            
+            # Add useful tags and links
+            share_text += "� SHARE OPTIONS:\n"
+            # Create a clean city name for hashtags (remove spaces and special characters)
+            city_tag = ''.join(c for c in city if c.isalnum())
+            share_text += "• Twitter/X: "
+            share_text += f"#Weather #{city_tag} #WeatherForecast #WeatherAlert\n"
+            share_text += "• Instagram: "
+            share_text += f"#WeatherToday #{city_tag}Weather #WeatherUpdates #SkyWatch\n\n"
+            
+            # Add call to action
+            share_text += "💡 PRO TIPS:\n"
+            share_text += "• Check hourly details for better planning\n"
+            share_text += "• Enable notifications for weather alerts\n"
+            share_text += "• View charts for detailed weather trends\n\n"
+            
+            # Add footer
+            share_text += "━" * 50 + "\n"
+            share_text += "📲 Shared via Weather App - Your Personal Weather Assistant\n"
+            share_text += "Stay informed about your local weather! ⛅️\n"
+            
+            # Copy to clipboard
+            import pyperclip
+            pyperclip.copy(share_text)
+            
+            # Show success message with preview
+            preview = share_text[:150] + "..." if len(share_text) > 150 else share_text
+            messagebox.showinfo("Share Success", 
+                              "✅ Forecast has been copied to your clipboard!\n\n"
+                              "Preview of shared content:\n"
+                              f"{preview}\n\n"
+                              "You can now paste this anywhere to share it!")
             
             self.display_result(share_text)
         except Exception as e:

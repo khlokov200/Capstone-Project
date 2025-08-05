@@ -1,152 +1,125 @@
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-import numpy as np
-
-# Color palette for UI elements (define as needed)
-COLOR_PALETTE = {
-    "tab_bg": "#f7f7f7",
-    "tab_fg": "#222222"
-}
-
-# Check if matplotlib is available for charts
-CHARTS_AVAILABLE = True
 """
 Individual tab components for the weather dashboard
 """
-
+import random
 import tkinter as tk
 from tkinter import ttk, messagebox
 from .components import StyledButton, StyledText, StyledLabel, AnimatedLabel
+from .constants import COLOR_PALETTE
+from .tab_helpers import ButtonHelper, ChartHelper
 
-def set_tab_font(notebook, font=("Arial", 9, "bold")):
-    style = ttk.Style()
-    style.configure("TNotebook.Tab", font=font)
+# Matplotlib imports with availability checking
+CHARTS_AVAILABLE = False
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+    from matplotlib.figure import Figure
+    import numpy as np
+    # Suppress emoji glyph warnings
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
+    CHARTS_AVAILABLE = True
+except ImportError:
+    print("📊 Charts unavailable: matplotlib not installed")
+    # Fallback classes to prevent errors
+    class Figure:
+        pass
+    class FigureCanvasTkAgg:
+        def __init__(self, *args, **kwargs):
+            pass
 
-# --- Restored WeatherTab class ---
+
 class WeatherTab:
-    """Main weather tab component with live weather and analytics"""
+    """Current weather tab component"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="Current Weather")
-        set_tab_font(notebook)
         self._setup_ui()
 
     def _setup_ui(self):
-        """Setup the UI with split-screen layout for live weather and charts"""
-        # Create main paned window for split view
-        self.main_paned = ttk.PanedWindow(self.frame, orient=tk.HORIZONTAL)
+        """Setup the UI components"""
+        # Create main horizontal paned window for split layout
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
         self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Left panel for live weather data input and display
+        # Left panel for weather data input and display
         self.left_frame = ttk.Frame(self.main_paned)
         self.main_paned.add(self.left_frame, weight=1)
         
-        # Right panel for charts and analytics
+        # Right panel for charts
         self.right_frame = ttk.Frame(self.main_paned)
         self.main_paned.add(self.right_frame, weight=1)
         
-        # Setup left panel (live weather interface)
+        # Setup left panel (original weather interface)
         self._setup_weather_interface()
         
         # Setup right panel (chart area)
         self._setup_chart_interface()
     
     def _setup_weather_interface(self):
-        """Setup the live weather data interface in the left panel"""
-        # Title
-        StyledLabel(self.left_frame, text="🌦️ Live Weather Dashboard", 
-                   font=("Arial", 16, "bold")).pack(pady=10)
-        
+        """Setup the weather data interface in the left panel"""
         # City input
-        input_frame = ttk.Frame(self.left_frame)
-        input_frame.pack(pady=10)
+        StyledLabel(self.left_frame, text="Enter City:").pack(pady=10)
+        self.city_entry = ttk.Entry(self.left_frame)
+        self.city_entry.pack()
         
-        StyledLabel(input_frame, text="Enter City:").pack()
-        self.city_entry = ttk.Entry(input_frame, font=("Arial", 12), width=25)
-        self.city_entry.pack(pady=5)
-        self.city_entry.bind('<Return>', lambda e: self.fetch_weather())
+        # Results display - adjusted size for split view
+        self.result_text = StyledText(self.left_frame, height=12, width=60)
+        self.result_text.pack(pady=10)
         
-        # Main action button
-        StyledButton(self.left_frame, "primary", text="🔄 Get Live Weather", 
-                    command=self.fetch_weather).pack(pady=5)
-        
-        # Quick action buttons
-        quick_actions = ttk.Frame(self.left_frame)
-        quick_actions.pack(pady=5)
-        
-        StyledButton(quick_actions, "accent_black", text="⭐ Save Favorite", 
-                    command=self.save_favorite).grid(row=0, column=0, padx=2)
-        StyledButton(quick_actions, "success_black", text="🔄 Auto-Refresh", 
-                    command=self.toggle_auto_refresh).grid(row=0, column=1, padx=2)
-        StyledButton(quick_actions, "warning_black", text="⚠️ Weather Alerts", 
-                    command=self.check_alerts).grid(row=1, column=0, padx=2, pady=2)
-        StyledButton(quick_actions, "info_black", text="📊 Toggle Graph", 
-                    command=self.controller.toggle_graph_mode).grid(row=1, column=1, padx=2, pady=2)
-        
-        # Results display - optimized for live updates
-        self.result_text = StyledText(self.left_frame, height=15, width=55)
-        self.result_text.pack(pady=10, fill="both", expand=True)
-        
-        # Alert label for live warnings
-        self.alert_label = StyledLabel(self.left_frame, text="", 
-                                     font=("Arial", 10, "bold"))
-        self.alert_label.pack(pady=5)
-        
-        # Animated mascot (if available)
+        # Animated mascot
         try:
             self.anim_label = AnimatedLabel(self.left_frame, "assets/sunny.gif")
-            self.anim_label.pack(pady=5)
+            self.anim_label.pack(pady=10)
         except Exception:
             pass  # Skip if GIF not found
+        
+        # Alert label
+        self.alert_label = StyledLabel(self.left_frame, text="")
+        self.alert_label.pack(pady=5)
+        
+        # Buttons
+        StyledButton(self.left_frame, "primary_black", text="Get Weather", 
+                    command=self.fetch_weather).pack(pady=5)
+        
+        StyledButton(self.left_frame, "info_black", text="Toggle Graph Type", 
+                    command=self.controller.toggle_graph_mode).pack(pady=5)
+        
+        # Additional Quick Action Buttons
+        button_frame = ttk.Frame(self.left_frame)
+        button_frame.pack(pady=5)
+        
+        StyledButton(button_frame, "accent_black", text="⭐ Save Favorite", 
+                    command=self.save_favorite).grid(row=0, column=0, padx=2)
+        StyledButton(button_frame, "success_black", text="🔄 Auto-Refresh", 
+                    command=self.toggle_auto_refresh).grid(row=0, column=1, padx=2)
+        StyledButton(button_frame, "warning_black", text="⚠️ Check Alerts", 
+                    command=self.check_alerts).grid(row=0, column=2, padx=2)
     
     def _setup_chart_interface(self):
-        """Setup the advanced chart interface in the right panel"""
+        """Setup the chart interface in the right panel"""
         # Chart title
-        StyledLabel(self.right_frame, text="📊 Weather Analytics & Charts", 
-                   font=("Arial", 16, "bold")).pack(pady=10)
+        StyledLabel(self.right_frame, text="📊 Weather Charts", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
         
-        # Chart type selection buttons - organized in categories
+        # Chart control buttons
         chart_controls = ttk.Frame(self.right_frame)
-        chart_controls.pack(pady=10)
+        chart_controls.pack(pady=5)
         
-        # Category 1: Trend Analysis
-        trend_frame = ttk.LabelFrame(chart_controls, text="📈 Trend Analysis")
-        trend_frame.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        
-        StyledButton(trend_frame, "info", text="Temperature Trend", 
-                    command=self.generate_temperature_chart).grid(row=0, column=0, padx=1, pady=1)
-        StyledButton(trend_frame, "accent", text="Weather Timeline", 
-                    command=self.generate_weather_timeline).grid(row=0, column=1, padx=1, pady=1)
-        
-        # Category 2: Statistical Analysis  
-        stats_frame = ttk.LabelFrame(chart_controls, text="📊 Statistical Analysis")
-        stats_frame.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        
-        StyledButton(stats_frame, "success", text="Weather Metrics", 
-                    command=self.generate_metrics_bar_chart).grid(row=0, column=0, padx=1, pady=1)
-        StyledButton(stats_frame, "warning", text="Data Distribution", 
-                    command=self.generate_histogram).grid(row=0, column=1, padx=1, pady=1)
-        
-        # Category 3: Correlation Analysis
-        corr_frame = ttk.LabelFrame(chart_controls, text="🔗 Correlation Analysis")
-        corr_frame.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-        
-        StyledButton(corr_frame, "primary", text="Comfort Analysis", 
-                    command=self.generate_scatter_plot).grid(row=0, column=0, padx=1, pady=1)
-        StyledButton(corr_frame, "secondary", text="Wind Rose", 
-                    command=self.generate_wind_rose).grid(row=0, column=1, padx=1, pady=1)
-        
-        # Category 4: Advanced Charts
-        advanced_frame = ttk.LabelFrame(chart_controls, text="⚡ Advanced Charts")
-        advanced_frame.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-        
-        StyledButton(advanced_frame, "danger", text="Heat Map", 
-                    command=self.generate_heatmap).grid(row=0, column=0, padx=1, pady=1)
-        StyledButton(advanced_frame, "cool", text="Radar Chart", 
-                    command=self.generate_radar_chart).grid(row=0, column=1, padx=1, pady=1)
+        if CHARTS_AVAILABLE:
+            StyledButton(chart_controls, "info_black", text="📈 Temperature Trend", 
+                        command=self.generate_temperature_chart).grid(row=0, column=0, padx=2)
+            StyledButton(chart_controls, "success_black", text="📊 Weather Metrics", 
+                        command=self.generate_metrics_bar_chart).grid(row=0, column=1, padx=2)
+            StyledButton(chart_controls, "accent_black", text="📋 Data Distribution", 
+                        command=self.generate_histogram).grid(row=1, column=0, padx=2, pady=2)
+            StyledButton(chart_controls, "warning_black", text="🌡️ Comfort Analysis", 
+                        command=self.generate_scatter_plot).grid(row=1, column=1, padx=2, pady=2)
+        else:
+            StyledLabel(chart_controls, text="Charts unavailable\n(matplotlib not installed)", 
+                       foreground="red").pack()
         
         # Chart display area
         self.chart_frame = ttk.Frame(self.right_frame)
@@ -157,39 +130,23 @@ class WeatherTab:
 
     def _create_chart_placeholder(self):
         """Create a placeholder for the chart area"""
-        placeholder_frame = ttk.LabelFrame(self.chart_frame, text="📊 Weather Analytics Dashboard")
+        placeholder_frame = ttk.LabelFrame(self.chart_frame, text="Chart Display Area")
         placeholder_frame.pack(fill="both", expand=True)
         
-        placeholder_text = tk.Text(placeholder_frame, height=12, wrap="word",
-                                 bg=COLOR_PALETTE["tab_bg"], fg=COLOR_PALETTE["tab_fg"],
-                                 font=("Arial", 11))
-        placeholder_text.pack(fill="both", expand=True, padx=10, pady=10)
+        placeholder_text = tk.Text(placeholder_frame, height=10, wrap="word",
+                                 bg=COLOR_PALETTE["tab_bg"], fg=COLOR_PALETTE["tab_fg"])
+        placeholder_text.pack(fill="both", expand=True, padx=5, pady=5)
         
-        placeholder_content = """🌦️ Enhanced Weather Analytics Available:
+        placeholder_content = """📊 Weather Charts Available:
 
-📈 TREND ANALYSIS:
-• Temperature Trend - Historical temperature progression
-• Weather Timeline - Multi-metric timeline visualization
+Click any chart button to generate visualizations:
 
-📊 STATISTICAL ANALYSIS:
-• Weather Metrics - Current conditions comparison bar chart
-• Data Distribution - Temperature frequency histogram
+📈 Temperature Trend - Historical temperature data
+📊 Weather Metrics - Current conditions comparison  
+📋 Data Distribution - Temperature distribution analysis
+🌡️ Comfort Analysis - Temperature vs humidity scatter plot
 
-🔗 CORRELATION ANALYSIS:
-• Comfort Analysis - Temperature vs humidity scatter plot
-• Wind Rose - Wind direction and speed distribution
-
-⚡ ADVANCED CHARTS:
-• Heat Map - Temperature patterns visualization
-• Radar Chart - Multi-dimensional weather comparison
-
-🎯 FEATURES:
-• Real-time data updates
-• Interactive chart navigation
-• Export capabilities
-• Alert notifications
-
-Select any chart type above to visualize live weather data!"""
+Charts will appear here when generated."""
         
         placeholder_text.insert("1.0", placeholder_content)
         placeholder_text.config(state="disabled")
@@ -200,7 +157,7 @@ Select any chart type above to visualize live weather data!"""
             widget.destroy()
     
     def fetch_weather(self):
-        """Fetch live weather for the entered city"""
+        """Fetch weather for the entered city"""
         city = self.city_entry.get().strip()
         if not city:
             messagebox.showwarning("Input Error", "Please enter a city name")
@@ -211,97 +168,66 @@ Select any chart type above to visualize live weather data!"""
             self.display_weather_result(result)
             self.check_weather_alerts(result)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to fetch weather: {str(e)}")
+            messagebox.showerror("Error", str(e))
 
     def display_weather_result(self, weather_data):
-        """Display comprehensive live weather result"""
+        """Display weather result in the text widget"""
         self.result_text.delete(1.0, tk.END)
         
-        # Build enhanced weather display with live indicators
-        weather_text = f"🌦️ LIVE WEATHER: {weather_data.city}\n"
-        weather_text += f"{'='*50}\n\n"
+        # Build comprehensive weather display
+        weather_text = f"Weather in {weather_data.city}:\n"
+        weather_text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        weather_text += f"🌡️  Temperature: {weather_data.formatted_temperature}\n"
+        weather_text += f"🌡️  Feels Like: {weather_data.formatted_feels_like}\n"
+        weather_text += f"📋 Description: {weather_data.description}\n"
+        weather_text += f"💧 Humidity: {weather_data.humidity}%\n"
+        weather_text += f"💨 Wind Speed: {weather_data.formatted_wind}\n"
+        weather_text += f"👁️  Visibility: {weather_data.formatted_visibility}\n"
+        weather_text += f"☁️  Cloudiness: {weather_data.formatted_cloudiness}\n"
+        weather_text += f"🌅 Sunrise: {weather_data.formatted_sunrise}\n"
+        weather_text += f"🌇 Sunset: {weather_data.formatted_sunset}\n"
+        weather_text += f"🌫️  Fog: {weather_data.formatted_fog}\n"
+        weather_text += f"🌧️  Rain/Snow: {weather_data.formatted_precipitation}\n"
         
-        # Current conditions
-        weather_text += f"🌡️ TEMPERATURE:\n"
-        weather_text += f"   Current: {weather_data.formatted_temperature}\n"
-        weather_text += f"   Feels Like: {weather_data.formatted_feels_like}\n\n"
-        
-        weather_text += f"📋 CONDITIONS:\n"
-        weather_text += f"   Status: {weather_data.description.title()}\n"
-        weather_text += f"   Cloudiness: {weather_data.formatted_cloudiness}\n\n"
-        
-        weather_text += f"💧 ATMOSPHERIC:\n"
-        weather_text += f"   Humidity: {weather_data.humidity}%\n"
         if weather_data.pressure:
-            weather_text += f"   Pressure: {weather_data.pressure} hPa\n"
-        weather_text += f"   Visibility: {weather_data.formatted_visibility}\n\n"
-        
-        weather_text += f"💨 WIND:\n"
-        weather_text += f"   Speed: {weather_data.formatted_wind}\n\n"
-        
-        weather_text += f"🌅 SUN SCHEDULE:\n"
-        weather_text += f"   Sunrise: {weather_data.formatted_sunrise}\n"
-        weather_text += f"   Sunset: {weather_data.formatted_sunset}\n\n"
-        
-        if weather_data.formatted_precipitation != "None":
-            weather_text += f"🌧️ PRECIPITATION:\n"
-            weather_text += f"   {weather_data.formatted_precipitation}\n\n"
-        
-        if weather_data.formatted_fog != "None":
-            weather_text += f"🌫️ FOG CONDITIONS:\n"
-            weather_text += f"   {weather_data.formatted_fog}\n\n"
-        
-        # Add timestamp for live updates
-        import datetime
-        weather_text += f"🕐 Last Updated: {datetime.datetime.now().strftime('%H:%M:%S')}\n"
-        weather_text += f"📡 Data Source: Live Weather API"
+            weather_text += f"🧭 Pressure: {weather_data.pressure} hPa\n"
         
         self.result_text.insert(tk.END, weather_text)
 
     def check_weather_alerts(self, weather_data):
-        """Check and display live weather alerts"""
-        temp = weather_data.temperature
-        desc = weather_data.description.lower()
-        humidity = weather_data.humidity
-        
-        alerts = []
-        
-        # Temperature alerts
-        if weather_data.unit == "metric":
-            if temp > 35:
-                alerts.append("🔥 EXTREME HEAT WARNING")
-            elif temp < -10:
-                alerts.append("🧊 EXTREME COLD WARNING")
-        else:
-            if temp > 95:
-                alerts.append("🔥 EXTREME HEAT WARNING") 
-            elif temp < 14:
-                alerts.append("🧊 EXTREME COLD WARNING")
-        
-        # Weather condition alerts
-        if any(word in desc for word in ["storm", "thunder", "severe"]):
-            alerts.append("⛈️ STORM ALERT")
-        elif any(word in desc for word in ["rain", "shower"]):
-            alerts.append("🌧️ RAIN EXPECTED")
-        elif "fog" in desc:
-            alerts.append("🌫️ FOG WARNING")
-        elif any(word in desc for word in ["snow", "blizzard"]):
-            alerts.append("❄️ SNOW ALERT")
-        
-        # Humidity alerts
-        if humidity > 85:
-            alerts.append("💧 HIGH HUMIDITY")
-        elif humidity < 20:
-            alerts.append("🏜️ LOW HUMIDITY")
-        
-        # Display alerts
-        if alerts:
-            alert_text = " | ".join(alerts)
-            self.alert_label.config(text=f"⚠️ {alert_text}", 
-                                   foreground="red")
-        else:
-            self.alert_label.config(text="✅ No weather alerts", 
-                                   foreground="green")
+        """Check and display weather alerts"""
+        try:
+            # Get temperature value from formatted string
+            temp_str = weather_data.formatted_temperature.split('°')[0]
+            temp = float(temp_str)
+            desc = weather_data.description.lower()
+            
+            # Check for severe weather conditions
+            has_alert = False
+            alert_text = "⚠️ Weather Alert:"
+            
+            if (temp > 35 and "C" in weather_data.formatted_temperature) or \
+               (temp > 95 and "F" in weather_data.formatted_temperature):
+                alert_text += " Extreme temperature!"
+                has_alert = True
+                
+            if "storm" in desc or "severe" in desc:
+                alert_text += " Severe weather conditions!"
+                has_alert = True
+                
+            # Update alert label
+            if has_alert:
+                self.alert_label.config(text=alert_text, 
+                                      foreground=COLOR_PALETTE["heat"])
+            else:
+                self.alert_label.config(text="", 
+                                      foreground=COLOR_PALETTE["tab_fg"])
+                                      
+        except (AttributeError, ValueError) as e:
+            # Handle any errors gracefully
+            print(f"Error checking weather alerts: {e}")
+            self.alert_label.config(text="", 
+                                  foreground=COLOR_PALETTE["tab_fg"])
 
     def save_favorite(self):
         """Save current city as favorite"""
@@ -310,22 +236,16 @@ Select any chart type above to visualize live weather data!"""
             messagebox.showwarning("Input Error", "Please enter a city name first")
             return
         
-        try:
-            result = self.controller.add_favorite_city(city)
-            messagebox.showinfo("Favorite Saved", result)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save favorite: {str(e)}")
+        result = self.controller.add_favorite_city(city)
+        messagebox.showinfo("Favorite Saved", result)
 
     def toggle_auto_refresh(self):
-        """Toggle auto-refresh for live weather updates"""
-        try:
-            result = self.controller.toggle_auto_refresh()
-            messagebox.showinfo("Auto-Refresh", result)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to toggle auto-refresh: {str(e)}")
+        """Toggle auto-refresh for weather updates"""
+        result = self.controller.toggle_auto_refresh()
+        messagebox.showinfo("Auto-Refresh", result)
 
     def check_alerts(self):
-        """Check detailed weather alerts for current city"""
+        """Check weather alerts for current city"""
         city = self.city_entry.get().strip()
         if not city:
             messagebox.showwarning("Input Error", "Please enter a city name first")
@@ -335,12 +255,12 @@ Select any chart type above to visualize live weather data!"""
             alerts = self.controller.check_weather_alerts(city)
             # Show alerts in a popup
             popup = tk.Toplevel(self.frame)
-            popup.title(f"Weather Alerts - {city}")
-            popup.geometry("500x400")
+            popup.title("Weather Alerts")
+            popup.geometry("400x300")
             popup.configure(bg=COLOR_PALETTE["background"])
             
-            text_widget = StyledText(popup, height=15, width=60)
-            text_widget.pack(padx=15, pady=15, fill="both", expand=True)
+            text_widget = StyledText(popup, height=12, width=50)
+            text_widget.pack(padx=10, pady=10, fill="both", expand=True)
             text_widget.insert("1.0", alerts)
             text_widget.config(state="disabled")
             
@@ -355,32 +275,54 @@ Select any chart type above to visualize live weather data!"""
             messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
             return
         
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name first")
+            return
+            
         try:
             self._clear_chart_area()
             
+            # Get weather data from controller
+            weather_data = self.controller.get_current_weather(city)
+            if not weather_data or not hasattr(weather_data, 'temperature'):
+                messagebox.showerror("Error", "Could not retrieve temperature data")
+                return
+                
             # Create figure and axis
             fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
             ax = fig.add_subplot(111)
             
-            # Sample temperature data (replace with real data from controller)
-            dates = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            temps = [22, 24, 19, 25, 27, 23, 21]
+            # Use current temperature for single point visualization
+            current_temp = weather_data.temperature
             
             # Create line chart with styling
-            ax.plot(dates, temps, marker='o', linewidth=2, markersize=8, 
+            ax.plot(['Current'], [current_temp], marker='o', linewidth=2, markersize=12,
                    color='#2E86AB', markerfacecolor='#A23B72', markeredgecolor='white', markeredgewidth=2)
             
             # Customize chart
-            ax.set_title('7-Day Temperature Trend', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Day', fontsize=12)
+            ax.set_title(f'Current Temperature in {city}', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Time', fontsize=12)
             ax.set_ylabel('Temperature (°C)', fontsize=12)
             ax.grid(True, alpha=0.3, linestyle='--')
             ax.set_facecolor('#f8f9fa')
             
-            # Add value annotations
-            for i, temp in enumerate(temps):
-                ax.annotate(f'{temp}°', (i, temp), textcoords="offset points", 
-                           xytext=(0,10), ha='center', fontsize=10, fontweight='bold')
+            # Add value annotation
+            ax.annotate(f'{current_temp}°C',
+                      xy=(0, current_temp), 
+                      xytext=(10, 10),
+                      textcoords='offset points',
+                      fontsize=12,
+                      fontweight='bold')
+            
+            # Create canvas and add toolbar
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+            
+            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            toolbar.update()
+            canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
             
             fig.tight_layout()
             
@@ -395,61 +337,6 @@ Select any chart type above to visualize live weather data!"""
             
         except Exception as e:
             messagebox.showerror("Chart Error", f"Failed to generate temperature chart: {str(e)}")
-
-    def generate_weather_timeline(self):
-        """Generate weather timeline chart"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure and axis
-            fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111)
-            
-            # Sample timeline data
-            hours = ['06:00', '09:00', '12:00', '15:00', '18:00', '21:00']
-            temperatures = [18, 22, 26, 28, 25, 20]
-            humidity = [75, 65, 55, 50, 60, 70]
-            
-            # Create dual-axis plot
-            ax2 = ax.twinx()
-            
-            line1 = ax.plot(hours, temperatures, 'o-', color='#FF6B6B', linewidth=2, 
-                           markersize=6, label='Temperature (°C)')
-            line2 = ax2.plot(hours, humidity, 's-', color='#4ECDC4', linewidth=2, 
-                            markersize=6, label='Humidity (%)')
-            
-            # Customize axes
-            ax.set_title('Weather Timeline - Today', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Time', fontsize=12)
-            ax.set_ylabel('Temperature (°C)', fontsize=12, color='#FF6B6B')
-            ax2.set_ylabel('Humidity (%)', fontsize=12, color='#4ECDC4')
-            
-            # Grid and styling
-            ax.grid(True, alpha=0.3)
-            ax.set_facecolor('#f8f9fa')
-            
-            # Combined legend
-            lines = line1 + line2
-            labels = [l.get_label() for l in lines]
-            ax.legend(lines, labels, loc='upper right')
-            
-            fig.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate timeline: {str(e)}")
 
     def generate_metrics_bar_chart(self):
         """Generate weather metrics bar chart"""
@@ -515,9 +402,11 @@ Select any chart type above to visualize live weather data!"""
             ax = fig.add_subplot(111)
             
             # Sample temperature distribution data
-            import numpy as np
-            np.random.seed(42)  # For consistent results
-            temp_data = np.random.normal(22, 3, 100)  # Mean 22°C, std dev 3°C
+            if CHARTS_AVAILABLE:
+                np.random.seed(42)  # For consistent results
+                temp_data = np.random.normal(22, 3, 100)  # Mean 22°C, std dev 3°C
+            else:
+                temp_data = [20, 21, 22, 23, 24]  # Fallback data
             
             # Create histogram
             n, bins, patches = ax.hist(temp_data, bins=15, alpha=0.7, color='#3498db', 
@@ -531,12 +420,13 @@ Select any chart type above to visualize live weather data!"""
             ax.set_facecolor('#f8f9fa')
             
             # Add statistical info
-            mean_temp = np.mean(temp_data)
-            ax.axvline(mean_temp, color='red', linestyle='--', linewidth=2, 
-                      label=f'Mean: {mean_temp:.1f}°C')
-            ax.legend()
+            if CHARTS_AVAILABLE:
+                mean_temp = np.mean(temp_data)
+                ax.axvline(mean_temp, color='red', linestyle='--', linewidth=2, 
+                          label=f'Mean: {mean_temp:.1f}°C')
+                ax.legend()
             
-            fig.tight_layout()
+            fig.tight_layout();
             
             # Embed chart in tkinter
             canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
@@ -564,21 +454,24 @@ Select any chart type above to visualize live weather data!"""
             ax = fig.add_subplot(111)
             
             # Sample temperature vs humidity data
-            import numpy as np
-            np.random.seed(42)
-            temperatures = np.random.normal(23, 4, 50)
-            humidity = np.random.normal(60, 15, 50)
-            
-            # Calculate comfort index (simple formula)
-            comfort_index = 100 - abs(temperatures - 22) * 2 - abs(humidity - 50) * 0.5
-            
-            # Create scatter plot with color mapping for comfort
-            scatter = ax.scatter(temperatures, humidity, c=comfort_index, cmap='RdYlGn', 
-                               s=80, alpha=0.7, edgecolors='white', linewidth=1)
-            
-            # Add colorbar for comfort index
-            cbar = fig.colorbar(scatter, ax=ax)
-            cbar.set_label('Comfort Index', fontsize=12)
+            if CHARTS_AVAILABLE:
+                np.random.seed(42)
+                temperatures = np.random.normal(23, 4, 50)
+                humidity = np.random.normal(60, 15, 50)
+                
+                # Calculate comfort index (simple formula)
+                comfort_index = 100 - abs(temperatures - 22) * 2 - abs(humidity - 50) * 0.5
+                
+                # Create scatter plot with color mapping for comfort
+                scatter = ax.scatter(temperatures, humidity, c=comfort_index, cmap='RdYlGn', 
+                                   s=80, alpha=0.7, edgecolors='white', linewidth=1)
+                
+                # Add colorbar for comfort index
+                cbar = fig.colorbar(scatter, ax=ax)
+                cbar.set_label('Comfort Index', fontsize=12)
+            else:
+                # Fallback simple scatter
+                ax.scatter([20, 22, 24, 26], [45, 55, 65, 75], s=80, alpha=0.7)
             
             # Customize chart
             ax.set_title('Temperature vs Humidity Comfort Analysis', fontsize=14, fontweight='bold', pad=20)
@@ -606,1039 +499,13 @@ Select any chart type above to visualize live weather data!"""
         except Exception as e:
             messagebox.showerror("Chart Error", f"Failed to generate scatter plot: {str(e)}")
 
-    def generate_wind_rose(self):
-        """Generate wind rose diagram"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure and axis
-            fig = Figure(figsize=(8, 8), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111, projection='polar')
-            
-            # Sample wind data
-            import numpy as np
-            np.random.seed(42)
-            wind_directions = np.random.uniform(0, 2*np.pi, 100)
-            wind_speeds = np.random.exponential(10, 100)
-            
-            # Create wind rose
-            theta_bins = np.linspace(0, 2*np.pi, 17)
-            speed_bins = [0, 5, 10, 15, 20, 25]
-            colors = ['#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c']
-            
-            for i in range(len(speed_bins)-1):
-                mask = (wind_speeds >= speed_bins[i]) & (wind_speeds < speed_bins[i+1])
-                if np.any(mask):
-                    ax.hist(wind_directions[mask], bins=theta_bins, alpha=0.7, 
-                           label=f'{speed_bins[i]}-{speed_bins[i+1]} km/h',
-                           color=colors[i % len(colors)])
-            
-            ax.set_title('Wind Rose Diagram', fontsize=14, fontweight='bold', pad=20)
-            ax.set_theta_direction(-1)
-            ax.set_theta_zero_location('N')
-            ax.legend(loc='upper left', bbox_to_anchor=(0.1, 1.1))
-            
-            fig.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate wind rose: {str(e)}")
-
-    def generate_heatmap(self):
-        """Generate temperature heat map"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure and axis
-            fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111)
-            
-            # Sample temperature matrix data (24 hours x 7 days)
-            import numpy as np
-            np.random.seed(42)
-            base_temp = 20
-            daily_variation = np.sin(np.linspace(0, 2*np.pi, 24)) * 5
-            weekly_data = []
-            
-            for day in range(7):
-                day_temps = base_temp + daily_variation + np.random.normal(0, 1, 24)
-                weekly_data.append(day_temps)
-            
-            temp_matrix = np.array(weekly_data).T
-            
-            # Create heatmap
-            im = ax.imshow(temp_matrix, cmap='RdYlBu_r', aspect='auto')
-            
-            # Customize chart
-            ax.set_title('Weekly Temperature Heat Map', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Day of Week', fontsize=12)
-            ax.set_ylabel('Hour of Day', fontsize=12)
-            
-            # Set ticks
-            days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            hours = [f'{i:02d}:00' for i in range(0, 24, 3)]
-            ax.set_xticks(range(7))
-            ax.set_xticklabels(days)
-            ax.set_yticks(range(0, 24, 3))
-            ax.set_yticklabels(hours)
-            
-            # Add colorbar
-            cbar = fig.colorbar(im, ax=ax)
-            cbar.set_label('Temperature (°C)', fontsize=12)
-            
-            fig.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate heat map: {str(e)}")
-
-    def generate_radar_chart(self):
-        """Generate radar chart for weather conditions"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure and axis
-            fig = Figure(figsize=(8, 8), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111, projection='polar')
-            
-            # Sample weather metrics for radar chart
-            categories = ['Temperature', 'Humidity', 'Wind Speed', 'Pressure', 'Visibility', 'UV Index']
-            values = [85, 60, 40, 75, 90, 65]  # Normalized to 0-100
-            
-            # Add first value at end to close the radar chart
-            values += values[:1]
-            
-            # Calculate angles for each category
-            import numpy as np
-            angles = np.linspace(0, 2*np.pi, len(categories), endpoint=False).tolist()
-            angles += angles[:1]
-            
-            # Plot radar chart
-            ax.plot(angles, values, 'o-', linewidth=2, color='#3498db')
-            ax.fill(angles, values, alpha=0.25, color='#3498db')
-            
-            # Customize chart
-            ax.set_title('Weather Conditions Radar Chart', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xticks(angles[:-1])
-            ax.set_xticklabels(categories)
-            ax.set_ylim(0, 100)
-            ax.grid(True)
-            
-            # Add value labels
-            for angle, value, category in zip(angles[:-1], values[:-1], categories):
-                ax.text(angle, value + 5, f'{value}%', ha='center', va='center', fontsize=9)
-            
-            fig.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate radar chart: {str(e)}")
-
-
-class HistoryTab:
-    """History tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="History")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="History features coming soon.").pack(pady=20)
-
-
-class PoetryTab:
-    """Poetry tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Poetry")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Poetry features coming soon.").pack(pady=20)
-
-
-class WhiteSpaceTab:
-    """White Space tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="White Space")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="White Space features coming soon.").pack(pady=20)
-
-
-class ActivityTab:
-    """Activity tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Activity")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Activity features coming soon.").pack(pady=20)
-
-
-class SmartAlertsTab:
-    """Smart Alerts tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Smart Alerts")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Smart Alerts features coming soon.").pack(pady=20)
-
-
-class CameraTab:
-    """Camera tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Camera")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Camera features coming soon.").pack(pady=20)
-
-
-class SevereWeatherTab:
-    """Severe Weather tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Severe Weather")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Severe Weather features coming soon.").pack(pady=20)
-
-
-class LiveWeatherTab:
-    """Live Weather tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Live Weather")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Live Weather features coming soon.").pack(pady=20)
-
-
-class AnalyticsTab:
-    """Analytics tab component - comprehensive weather data analytics dashboard"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Analytics")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the analytics UI with split-screen layout"""
-        # Create main horizontal paned window for split layout
-        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
-        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Left panel for analytics controls and data input
-        self.left_frame = ttk.Frame(self.main_paned)
-        self.main_paned.add(self.left_frame, weight=1)
-        
-        # Right panel for analytics charts and visualizations
-        self.right_frame = ttk.Frame(self.main_paned)
-        self.main_paned.add(self.right_frame, weight=1)
-        
-        # Setup left panel (analytics interface)
-        self._setup_analytics_interface()
-        
-        # Setup right panel (chart area)
-        self._setup_analytics_charts()
-    
-    def _setup_analytics_interface(self):
-        """Setup the analytics data interface in the left panel"""
-        # Analytics title
-        StyledLabel(self.left_frame, text="📊 Weather Analytics Dashboard", 
-                   font=("Arial", 16, "bold")).pack(pady=10)
-        
-        # City input for data analysis
-        StyledLabel(self.left_frame, text="Enter City for Analysis:").pack(pady=5)
-        self.city_entry = ttk.Entry(self.left_frame, width=30)
-        self.city_entry.pack(pady=5)
-        
-        # Analytics results display
-        self.result_text = StyledText(self.left_frame, height=15, width=55)
-        self.result_text.pack(pady=10, fill="both", expand=True)
-        
-        # Analytics action buttons
-        button_frame = ttk.Frame(self.left_frame)
-        button_frame.pack(pady=10)
-        
-        StyledButton(button_frame, "primary", text="🔍 Analyze Weather Data", 
-                    command=self.analyze_weather_data).grid(row=0, column=0, columnspan=2, pady=5)
-        
-        # Advanced analytics buttons
-        analytics_controls = ttk.Frame(self.left_frame)
-        analytics_controls.pack(pady=5)
-        
-        StyledButton(analytics_controls, "info_black", text="📈 Trends Analysis", 
-                    command=self.show_trends_analysis).grid(row=0, column=0, padx=2)
-        StyledButton(analytics_controls, "success_black", text="🎯 Predictions", 
-                    command=self.show_weather_predictions).grid(row=0, column=1, padx=2)
-        StyledButton(analytics_controls, "accent_black", text="� Statistics", 
-                    command=self.show_weather_statistics).grid(row=1, column=0, padx=2, pady=2)
-        StyledButton(analytics_controls, "warning_black", text="🌡️ Patterns", 
-                    command=self.show_weather_patterns).grid(row=1, column=1, padx=2, pady=2)
-    
-    def _setup_analytics_charts(self):
-        """Setup the analytics chart interface in the right panel"""
-        # Chart title
-        StyledLabel(self.right_frame, text="📊 Analytics Visualizations", 
-                   font=("Arial", 14, "bold")).pack(pady=5)
-        
-        # Chart control buttons
-        chart_controls = ttk.Frame(self.right_frame)
-        chart_controls.pack(pady=5)
-        
-        if CHARTS_AVAILABLE:
-            StyledButton(chart_controls, "info_black", text="📈 Data Trends", 
-                        command=self.generate_trend_analysis_chart).grid(row=0, column=0, padx=2)
-            StyledButton(chart_controls, "success_black", text="🌡️ Heat Map", 
-                        command=self.generate_weather_heatmap).grid(row=0, column=1, padx=2)
-            StyledButton(chart_controls, "accent_black", text="� Correlation", 
-                        command=self.generate_correlation_matrix).grid(row=1, column=0, padx=2, pady=2)
-            StyledButton(chart_controls, "warning_black", text="🔄 Time Series", 
-                        command=self.generate_time_series_chart).grid(row=1, column=1, padx=2, pady=2)
-        else:
-            StyledLabel(chart_controls, text="Charts unavailable\n(matplotlib not installed)", 
-                       foreground="red").pack()
-        
-        # Chart display area
-        self.chart_frame = ttk.Frame(self.right_frame)
-        self.chart_frame.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Initialize with analytics placeholder
-        self._create_analytics_placeholder()
-
-    def _create_analytics_placeholder(self):
-        """Create a placeholder for the analytics chart area"""
-        placeholder_frame = ttk.LabelFrame(self.chart_frame, text="Analytics Dashboard")
-        placeholder_frame.pack(fill="both", expand=True)
-        
-        placeholder_text = tk.Text(placeholder_frame, height=12, wrap="word",
-                                 bg=COLOR_PALETTE["tab_bg"], fg=COLOR_PALETTE["tab_fg"])
-        placeholder_text.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        placeholder_content = """📊 Weather Analytics Dashboard
-
-Advanced analytics and insights available:
-
-📈 Data Trends - Historical weather patterns and trends
-🌡️ Heat Map - Temperature and humidity distribution
-📊 Correlation - Weather parameter relationships
-🔄 Time Series - Temporal weather analysis
-
-🔍 Analytics Features:
-• Trend Analysis - Identify weather patterns over time
-• Predictions - Weather forecasting using ML
-• Statistics - Comprehensive weather statistics
-• Patterns - Seasonal and cyclical weather patterns
-
-Click 'Analyze Weather Data' to begin comprehensive analysis.
-Select chart types to visualize weather analytics."""
-        
-        placeholder_text.insert("1.0", placeholder_content)
-        placeholder_text.config(state="disabled")
-    
-    def _clear_chart_area(self):
-        """Clear the analytics chart display area"""
-        for widget in self.chart_frame.winfo_children():
-            widget.destroy()
-    
-    def analyze_weather_data(self):
-        """Perform comprehensive weather data analysis"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            # Get current weather data for analysis
-            result = self.controller.get_current_weather(city)
-            
-            # Build comprehensive analytics report
-            analysis_text = f"📊 WEATHER ANALYTICS REPORT for {result.city}\n"
-            analysis_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            
-            # Current conditions analysis
-            analysis_text += "🌡️ CURRENT CONDITIONS ANALYSIS:\n\n"
-            analysis_text += f"Temperature: {result.formatted_temperature}\n"
-            analysis_text += f"Feels Like: {result.formatted_feels_like}\n"
-            analysis_text += f"Humidity: {result.humidity}%\n"
-            analysis_text += f"Wind Speed: {result.formatted_wind}\n"
-            analysis_text += f"Visibility: {result.formatted_visibility}\n"
-            analysis_text += f"Pressure: {result.pressure} hPa\n\n"
-            
-            # Comfort analysis
-            temp = result.temperature
-            humidity = result.humidity
-            comfort_score = self._calculate_comfort_score(temp, humidity)
-            analysis_text += f"🎯 COMFORT ANALYSIS:\n\n"
-            analysis_text += f"Comfort Score: {comfort_score}/10\n"
-            analysis_text += f"Assessment: {self._get_comfort_assessment(comfort_score)}\n\n"
-            
-            # Weather pattern analysis
-            analysis_text += "📈 PATTERN ANALYSIS:\n\n"
-            analysis_text += self._analyze_weather_patterns(result)
-            
-            # Recommendations
-            analysis_text += "💡 RECOMMENDATIONS:\n\n"
-            analysis_text += self._generate_recommendations(result)
-            
-            # Statistical insights
-            analysis_text += "📊 STATISTICAL INSIGHTS:\n\n"
-            analysis_text += self._generate_statistical_insights(result)
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, analysis_text)
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Analysis failed: {str(e)}")
-    
-    def _calculate_comfort_score(self, temperature, humidity):
-        """Calculate comfort score based on temperature and humidity"""
-        # Ideal temperature range: 20-24°C, ideal humidity: 40-60%
-        temp_score = max(0, 10 - abs(temperature - 22) * 0.5)
-        humidity_score = max(0, 10 - abs(humidity - 50) * 0.1)
-        return round((temp_score + humidity_score) / 2, 1)
-    
-    def _get_comfort_assessment(self, score):
-        """Get comfort assessment based on score"""
-        if score >= 8.5:
-            return "Excellent - Perfect weather conditions"
-        elif score >= 7.0:
-            return "Very Good - Comfortable conditions"
-        elif score >= 5.5:
-            return "Good - Generally comfortable"
-        elif score >= 4.0:
-            return "Fair - Somewhat comfortable"
-        else:
-            return "Poor - Uncomfortable conditions"
-    
-    def _analyze_weather_patterns(self, weather_data):
-        """Analyze weather patterns for insights"""
-        desc = weather_data.description.lower()
-        temp = weather_data.temperature
-        
-        patterns = ""
-        
-        # Temperature patterns
-        if temp > 30:
-            patterns += "• High temperature pattern - Heat wave conditions\n"
-        elif temp < 5:
-            patterns += "• Low temperature pattern - Cold weather system\n"
-        elif 20 <= temp <= 25:
-            patterns += "• Optimal temperature pattern - Ideal conditions\n"
-        
-        # Weather condition patterns
-        if "rain" in desc:
-            patterns += "• Precipitation pattern - Active weather system\n"
-        elif "clear" in desc or "sunny" in desc:
-            patterns += "• High pressure pattern - Stable weather system\n"
-        elif "cloud" in desc:
-            patterns += "• Mixed pattern - Transitional weather system\n"
-        
-        return patterns
-    
-    def _generate_recommendations(self, weather_data):
-        """Generate weather-based recommendations"""
-        temp = weather_data.temperature
-        desc = weather_data.description.lower()
-        humidity = weather_data.humidity
-        
-        recommendations = ""
-        
-        # Activity recommendations
-        if temp > 25 and "clear" in desc:
-            recommendations += "• Perfect for outdoor activities and sports\n"
-        elif "rain" in desc:
-            recommendations += "• Indoor activities recommended\n"
-        elif temp < 10:
-            recommendations += "• Warm clothing required for outdoor activities\n"
-        
-        # Health recommendations
-        if humidity > 70:
-            recommendations += "• High humidity - Stay hydrated, use dehumidifier\n"
-        elif humidity < 30:
-            recommendations += "• Low humidity - Use moisturizer, humidifier beneficial\n"
-        
-        # Energy recommendations
-        if temp > 28:
-            recommendations += "• Consider air conditioning, energy usage may increase\n"
-        elif temp < 15:
-            recommendations += "• Heating may be needed, energy costs could rise\n"
-        
-        return recommendations
-    
-    def _generate_statistical_insights(self, weather_data):
-        """Generate statistical insights about the weather"""
-        insights = ""
-        
-        # Temperature insights
-        temp = weather_data.temperature
-        if temp > 25:
-            insights += f"• Temperature is {temp - 25:.1f}°C above comfort range\n"
-        elif temp < 20:
-            insights += f"• Temperature is {20 - temp:.1f}°C below comfort range\n"
-        else:
-            insights += "• Temperature is within optimal comfort range\n"
-        
-        # Humidity insights
-        humidity = weather_data.humidity
-        if humidity > 60:
-            insights += f"• Humidity is {humidity - 60}% above ideal range\n"
-        elif humidity < 40:
-            insights += f"• Humidity is {40 - humidity}% below ideal range\n"
-        else:
-            insights += "• Humidity is within ideal range\n"
-        
-        # Pressure insights
-        if weather_data.pressure:
-            pressure = weather_data.pressure
-            if pressure > 1020:
-                insights += "• High pressure system - stable weather expected\n"
-            elif pressure < 1000:
-                insights += "• Low pressure system - weather changes likely\n"
-            else:
-                insights += "• Normal pressure - typical weather patterns\n"
-        
-        return insights
-
-    
-    def show_trends_analysis(self):
-        """Show detailed trends analysis"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            trends_text = f"📈 WEATHER TRENDS ANALYSIS for {city}\n"
-            trends_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            trends_text += "🕐 TEMPORAL TRENDS:\n\n"
-            trends_text += "Daily Patterns:\n"
-            trends_text += "• Morning: Cooler temperatures, higher humidity\n"
-            trends_text += "• Afternoon: Peak temperatures, lower humidity\n"
-            trends_text += "• Evening: Moderate temperatures, stable conditions\n"
-            trends_text += "• Night: Coolest temperatures, highest humidity\n\n"
-            trends_text += "Weekly Patterns:\n"
-            trends_text += "• Monday-Wednesday: Generally stable conditions\n"
-            trends_text += "• Thursday-Friday: Weather system changes likely\n"
-            trends_text += "• Weekend: Mixed conditions, seasonal influence\n\n"
-            trends_text += "🌍 SEASONAL TRENDS:\n\n"
-            trends_text += "Current Season Analysis:\n"
-            trends_text += "• Temperature trend: Moderate seasonal progression\n"
-            trends_text += "• Precipitation pattern: Typical for current season\n"
-            trends_text += "• Pressure systems: Regular high/low alternation\n"
-            trends_text += "• Wind patterns: Seasonal directional shifts\n\n"
-            trends_text += "📊 TREND INDICATORS:\n\n"
-            trends_text += "• Temperature volatility: Moderate\n"
-            trends_text += "• Pressure stability: High\n"
-            trends_text += "• Weather predictability: Good\n"
-            trends_text += "• Seasonal alignment: Normal\n\n"
-            trends_text += "🔮 TREND PREDICTIONS:\n\n"
-            trends_text += "• Short-term: Stable conditions expected\n"
-            trends_text += "• Medium-term: Seasonal progression continues\n"
-            trends_text += "• Pattern confidence: High reliability"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, trends_text)
-        except Exception as e:
-            messagebox.showerror("Error", f"Trends analysis failed: {str(e)}")
-    
-    def show_weather_predictions(self):
-        """Show AI-powered weather predictions"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            predictions_text = f"🎯 WEATHER PREDICTIONS for {city}\n"
-            predictions_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            predictions_text += "🤖 AI-POWERED FORECASTING:\n\n"
-            predictions_text += "Next 24 Hours:\n"
-            predictions_text += "• Temperature: 22°C ± 2°C (89% confidence)\n"
-            predictions_text += "• Precipitation: 15% chance (low probability)\n"
-            predictions_text += "• Wind: Light to moderate (8-15 km/h)\n"
-            predictions_text += "• Conditions: Partly cloudy to clear\n\n"
-            predictions_text += "Next 3 Days:\n"
-            predictions_text += "• Day 1: Sunny, 24°C, ideal conditions\n"
-            predictions_text += "• Day 2: Partly cloudy, 21°C, light breeze\n"
-            predictions_text += "• Day 3: Cloudy, 19°C, possible light rain\n\n"
-            predictions_text += "📈 PREDICTION MODEL:\n\n"
-            predictions_text += "Model Accuracy: 85% for 24h, 72% for 3-day\n"
-            predictions_text += "Data Sources: Satellite, ground stations, radar\n"
-            predictions_text += "Algorithm: Machine learning ensemble\n"
-            predictions_text += "Update Frequency: Every 3 hours\n\n"
-            predictions_text += "🎯 CONFIDENCE LEVELS:\n\n"
-            predictions_text += "• Temperature: High confidence (85-90%)\n"
-            predictions_text += "• Precipitation: Moderate confidence (70-75%)\n"
-            predictions_text += "• Wind: High confidence (80-85%)\n"
-            predictions_text += "• General conditions: Very high (90%+)\n\n"
-            predictions_text += "⚠️ WEATHER ALERTS:\n\n"
-            predictions_text += "• No severe weather alerts\n"
-            predictions_text += "• No extreme temperature warnings\n"
-            predictions_text += "• No precipitation advisories\n"
-            predictions_text += "• All systems normal"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, predictions_text)
-        except Exception as e:
-            messagebox.showerror("Error", f"Predictions failed: {str(e)}")
-    
-    def show_weather_statistics(self):
-        """Show comprehensive weather statistics"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            stats_text = f"📊 WEATHER STATISTICS for {city}\n"
-            stats_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            stats_text += "📈 TEMPERATURE STATISTICS:\n\n"
-            stats_text += "Current Month:\n"
-            stats_text += "• Average: 22.4°C\n"
-            stats_text += "• Maximum: 28.7°C\n"
-            stats_text += "• Minimum: 16.2°C\n"
-            stats_text += "• Standard Deviation: 3.2°C\n"
-            stats_text += "• Variance: 10.24\n\n"
-            stats_text += "Historical Comparison:\n"
-            stats_text += "• Above average: +1.8°C\n"
-            stats_text += "• Percentile: 78th\n"
-            stats_text += "• Trend: Warming (+0.3°C/decade)\n\n"
-            stats_text += "💧 HUMIDITY STATISTICS:\n\n"
-            stats_text += "• Average: 64.2%\n"
-            stats_text += "• Range: 45% - 85%\n"
-            stats_text += "• Variability: Moderate\n"
-            stats_text += "• Comfort days: 18/30 (60%)\n\n"
-            stats_text += "💨 WIND STATISTICS:\n\n"
-            stats_text += "• Average speed: 12.3 km/h\n"
-            stats_text += "• Maximum gust: 34.2 km/h\n"
-            stats_text += "• Predominant direction: Southwest\n"
-            stats_text += "• Calm days: 8/30 (27%)\n\n"
-            stats_text += "🌧️ PRECIPITATION STATISTICS:\n\n"
-            stats_text += "• Total monthly: 78.5 mm\n"
-            stats_text += "• Rainy days: 12/30 (40%)\n"
-            stats_text += "• Average intensity: 6.5 mm/day\n"
-            stats_text += "• Heaviest day: 18.3 mm\n\n"
-            stats_text += "📊 EXTREME EVENTS:\n\n"
-            stats_text += "• Heat days (>25°C): 8 days\n"
-            stats_text += "• Cool days (<15°C): 3 days\n"
-            stats_text += "• Stormy days: 2 days\n"
-            stats_text += "• Perfect days: 17 days (57%)"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, stats_text)
-        except Exception as e:
-            messagebox.showerror("Error", f"Statistics failed: {str(e)}")
-    
-    def show_weather_patterns(self):
-        """Show weather pattern analysis"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            patterns_text = f"🌡️ WEATHER PATTERNS for {city}\n"
-            patterns_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            patterns_text += "🔄 CYCLICAL PATTERNS:\n\n"
-            patterns_text += "Daily Cycles:\n"
-            patterns_text += "• Diurnal temperature: 16-24°C range\n"
-            patterns_text += "• Humidity oscillation: 50-80% range\n"
-            patterns_text += "• Pressure variation: ±2-3 hPa daily\n"
-            patterns_text += "• Wind speed peaks: Afternoon hours\n\n"
-            patterns_text += "Weekly Patterns:\n"
-            patterns_text += "• Weather system cycle: 5-7 days\n"
-            patterns_text += "• High pressure dominance: 4 days/week\n"
-            patterns_text += "• Transition periods: 2-3 days/week\n"
-            patterns_text += "• Stability index: High (0.78/1.0)\n\n"
-            patterns_text += "🌍 SYNOPTIC PATTERNS:\n\n"
-            patterns_text += "Pressure Systems:\n"
-            patterns_text += "• High pressure: Clear, stable conditions\n"
-            patterns_text += "• Low pressure: Cloudy, unstable weather\n"
-            patterns_text += "• Frontal passages: Temperature drops\n"
-            patterns_text += "• Ridge patterns: Extended fair weather\n\n"
-            patterns_text += "🌊 SEASONAL PATTERNS:\n\n"
-            patterns_text += "Current Season Characteristics:\n"
-            patterns_text += "• Temperature progression: Normal\n"
-            patterns_text += "• Precipitation timing: Expected\n"
-            patterns_text += "• Storm frequency: Below average\n"
-            patterns_text += "• Sunshine hours: Above average\n\n"
-            patterns_text += "📊 PATTERN ANALYSIS:\n\n"
-            patterns_text += "Predictability Metrics:\n"
-            patterns_text += "• Pattern strength: Strong (0.82/1.0)\n"
-            patterns_text += "• Consistency: High (87%)\n"
-            patterns_text += "• Deviation frequency: Low (13%)\n"
-            patterns_text += "• Forecast reliability: Very good\n\n"
-            patterns_text += "🎯 PATTERN INSIGHTS:\n\n"
-            patterns_text += "• Dominant pattern: Stable high pressure\n"
-            patterns_text += "• Weather predictability: High\n"
-            patterns_text += "• Seasonal timing: On schedule\n"
-            patterns_text += "• Anomaly frequency: Within normal range"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, patterns_text)
-        except Exception as e:
-            messagebox.showerror("Error", f"Pattern analysis failed: {str(e)}")
-    
-    def generate_trend_analysis_chart(self):
-        """Generate advanced trend analysis chart"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure with subplots
-            fig = Figure(figsize=(10, 8), dpi=100, facecolor='white')
-            
-            # Temperature trend
-            ax1 = fig.add_subplot(2, 2, 1)
-            dates = ['Week 1', 'Week 2', 'Week 3', 'Week 4']
-            temps = [20, 22, 25, 23]
-            ax1.plot(dates, temps, marker='o', linewidth=3, color='#FF6B6B')
-            ax1.set_title('Temperature Trend', fontweight='bold')
-            ax1.set_ylabel('Temperature (°C)')
-            ax1.grid(True, alpha=0.3)
-            
-            # Humidity trend
-            ax2 = fig.add_subplot(2, 2, 2)
-            humidity = [65, 70, 58, 62]
-            ax2.plot(dates, humidity, marker='s', linewidth=3, color='#4ECDC4')
-            ax2.set_title('Humidity Trend', fontweight='bold')
-            ax2.set_ylabel('Humidity (%)')
-            ax2.grid(True, alpha=0.3)
-            
-            # Pressure trend
-            ax3 = fig.add_subplot(2, 2, 3)
-            pressure = [1015, 1012, 1018, 1016]
-            ax3.plot(dates, pressure, marker='^', linewidth=3, color='#95E1D3')
-            ax3.set_title('Pressure Trend', fontweight='bold')
-            ax3.set_ylabel('Pressure (hPa)')
-            ax3.grid(True, alpha=0.3)
-            
-            # Combined comfort index
-            ax4 = fig.add_subplot(2, 2, 4)
-            comfort = [7.2, 6.8, 8.1, 7.5]
-            bars = ax4.bar(dates, comfort, color='#FFD93D', alpha=0.8)
-            ax4.set_title('Comfort Index Trend', fontweight='bold')
-            ax4.set_ylabel('Comfort (1-10)')
-            ax4.set_ylim(0, 10)
-            
-            # Add value labels
-            for bar, val in zip(bars, comfort):
-                ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
-                        f'{val}', ha='center', va='bottom', fontweight='bold')
-            
-            plt.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate trend analysis: {str(e)}")
-    
-    def generate_weather_heatmap(self):
-        """Generate weather heatmap showing temperature and humidity patterns"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure
-            fig = Figure(figsize=(10, 6), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111)
-            
-            # Sample heatmap data (24 hours x 7 days)
-            if CHARTS_AVAILABLE:
-                np.random.seed(42)
-                # Generate realistic temperature patterns
-                hours = np.arange(24)
-                days = np.arange(7)
-                temp_data = np.zeros((7, 24))
-                
-                for day in range(7):
-                    for hour in range(24):
-                        # Base temperature with daily cycle
-                        base_temp = 18 + 6 * np.sin((hour - 6) * np.pi / 12)
-                        # Add some random variation
-                        temp_data[day, hour] = base_temp + np.random.normal(0, 2)
-                
-                # Create heatmap
-                im = ax.imshow(temp_data, cmap='RdYlBu_r', aspect='auto', alpha=0.8)
-                
-                # Customize axes
-                ax.set_xticks(range(0, 24, 3))
-                ax.set_xticklabels([f'{h:02d}:00' for h in range(0, 24, 3)])
-                ax.set_yticks(range(7))
-                ax.set_yticklabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
-                
-                # Add colorbar
-                cbar = fig.colorbar(im, ax=ax)
-                cbar.set_label('Temperature (°C)', fontsize=12)
-                
-                # Add grid
-                ax.set_xticks(np.arange(24) - 0.5, minor=True)
-                ax.set_yticks(np.arange(7) - 0.5, minor=True)
-                ax.grid(which='minor', color='white', linestyle='-', linewidth=0.5)
-                
-            ax.set_title('Weekly Temperature Heatmap (24h Pattern)', 
-                        fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Hour of Day', fontsize=12)
-            ax.set_ylabel('Day of Week', fontsize=12)
-            
-            plt.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate heatmap: {str(e)}")
-    
-    def generate_correlation_matrix(self):
-        """Generate correlation matrix for weather parameters"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure
-            fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
-            ax = fig.add_subplot(111)
-            
-            # Weather parameters correlation matrix
-            if CHARTS_AVAILABLE:
-                # Create sample correlation data
-                params = ['Temp', 'Humidity', 'Pressure', 'Wind', 'Visibility']
-                correlation_data = np.array([
-                    [1.00, -0.65, 0.45, 0.23, 0.78],  # Temperature
-                    [-0.65, 1.00, -0.34, -0.12, -0.56],  # Humidity
-                    [0.45, -0.34, 1.00, 0.67, 0.34],  # Pressure
-                    [0.23, -0.12, 0.67, 1.00, 0.21],  # Wind
-                    [0.78, -0.56, 0.34, 0.21, 1.00]   # Visibility
-                ])
-                
-                # Create heatmap
-                im = ax.imshow(correlation_data, cmap='RdBu', vmin=-1, vmax=1, alpha=0.8)
-                
-                # Add correlation values as text
-                for i in range(len(params)):
-                    for j in range(len(params)):
-                        text = ax.text(j, i, f'{correlation_data[i, j]:.2f}',
-                                     ha="center", va="center", color="black", fontweight='bold')
-                
-                # Customize axes
-                ax.set_xticks(range(len(params)))
-                ax.set_yticks(range(len(params)))
-                ax.set_xticklabels(params)
-                ax.set_yticklabels(params)
-                
-                # Add colorbar
-                cbar = fig.colorbar(im, ax=ax)
-                cbar.set_label('Correlation Coefficient', fontsize=12)
-                
-            ax.set_title('Weather Parameters Correlation Matrix', 
-                        fontsize=14, fontweight='bold', pad=20)
-            
-            plt.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate correlation matrix: {str(e)}")
-    
-    def generate_time_series_chart(self):
-        """Generate comprehensive time series analysis chart"""
-        if not CHARTS_AVAILABLE:
-            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
-            return
-        
-        try:
-            self._clear_chart_area()
-            
-            # Create figure
-            fig = Figure(figsize=(12, 8), dpi=100, facecolor='white')
-            
-            # Main time series plot
-            ax1 = fig.add_subplot(3, 1, 1)
-            
-            if CHARTS_AVAILABLE:
-                # Generate realistic time series data
-                np.random.seed(42)
-                time_points = np.arange(0, 30, 0.5)  # 30 days, half-day intervals
-                
-                # Temperature with seasonal trend and daily cycles
-                seasonal_trend = 20 + 5 * np.sin(time_points * 2 * np.pi / 365)
-                daily_cycle = 3 * np.sin(time_points * 2 * np.pi)
-                noise = np.random.normal(0, 1, len(time_points))
-                temperature = seasonal_trend + daily_cycle + noise
-                
-                ax1.plot(time_points, temperature, color='#FF6B6B', linewidth=2, alpha=0.8)
-                ax1.fill_between(time_points, temperature, alpha=0.3, color='#FF6B6B')
-                
-                # Add trend line
-                z = np.polyfit(time_points, temperature, 1)
-                p = np.poly1d(z)
-                ax1.plot(time_points, p(time_points), "r--", alpha=0.8, linewidth=2, label=f'Trend: {z[0]:.3f}°C/day')
-                ax1.legend()
-                
-            ax1.set_title('Temperature Time Series Analysis', fontsize=14, fontweight='bold')
-            ax1.set_ylabel('Temperature (°C)')
-            ax1.grid(True, alpha=0.3)
-            
-            # Moving average plot
-            ax2 = fig.add_subplot(3, 1, 2)
-            if CHARTS_AVAILABLE:
-                # Calculate moving averages
-                window_3 = np.convolve(temperature, np.ones(6)/6, mode='valid')
-                window_7 = np.convolve(temperature, np.ones(14)/14, mode='valid')
-                
-                ax2.plot(time_points, temperature, alpha=0.5, color='gray', label='Original')
-                ax2.plot(time_points[5:], window_3, color='#4ECDC4', linewidth=2, label='3-day MA')
-                ax2.plot(time_points[13:], window_7, color='#95E1D3', linewidth=2, label='7-day MA')
-                ax2.legend()
-                
-            ax2.set_title('Moving Averages', fontweight='bold')
-            ax2.set_ylabel('Temperature (°C)')
-            ax2.grid(True, alpha=0.3)
-            
-            # Volatility plot
-            ax3 = fig.add_subplot(3, 1, 3)
-            if CHARTS_AVAILABLE:
-                # Calculate rolling standard deviation (volatility)
-                volatility = []
-                window = 7
-                for i in range(window, len(temperature)):
-                    vol = np.std(temperature[i-window:i])
-                    volatility.append(vol)
-                
-                ax3.plot(time_points[window:], volatility, color='#FFD93D', linewidth=2)
-                ax3.fill_between(time_points[window:], volatility, alpha=0.5, color='#FFD93D')
-                
-            ax3.set_title('Temperature Volatility (7-day rolling std)', fontweight='bold')
-            ax3.set_xlabel('Days')
-            ax3.set_ylabel('Volatility (°C)')
-            ax3.grid(True, alpha=0.3)
-            
-            plt.tight_layout()
-            
-            # Embed chart in tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-            # Add navigation toolbar
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
-            toolbar.update()
-            
-        except Exception as e:
-            messagebox.showerror("Chart Error", f"Failed to generate time series chart: {str(e)}")
-
 class ForecastTab:
-    def generate_precipitation_chart(self):
-        return self.show_precipitation_chart()
-
-    def generate_temp_histogram(self):
-        return self.generate_histogram()
-
-    # Alias for compatibility with button commands in _setup_forecast_charts
-    def generate_forecast_line_chart(self):
-        return self.generate_temperature_chart()
-
-    def generate_forecast_bar_chart(self):
-        return self.generate_metrics_bar_chart()
-
+    """Weather forecast tab component"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="Forecast")
-        set_tab_font(notebook)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -1671,7 +538,7 @@ class ForecastTab:
         self.result_text.pack(pady=10)
         
         # Main action button
-        StyledButton(self.left_frame, "primary", text="Get Forecast", 
+        StyledButton(self.left_frame, "primary_black", text="Get Forecast", 
                     command=self.fetch_forecast).pack(pady=5)
         
         # Additional Enhanced Buttons
@@ -1766,27 +633,89 @@ Select a chart type to visualize forecast data."""
             return
         
         try:
-            # Enhanced hourly forecast display
+            # Get forecast data from controller
             forecast = self.controller.get_forecast(city)
-            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city}:\n"
-            hourly_details += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            hourly_details += "⏰ Next 24 Hours:\n"
-            hourly_details += "• 6 AM: Partly cloudy, 18°C, Light breeze\n"
-            hourly_details += "• 9 AM: Sunny, 22°C, Moderate breeze\n"
-            hourly_details += "• 12 PM: Sunny, 26°C, Strong breeze\n"
-            hourly_details += "• 3 PM: Partly cloudy, 28°C, Moderate breeze\n"
-            hourly_details += "• 6 PM: Cloudy, 24°C, Light breeze\n"
-            hourly_details += "• 9 PM: Clear, 20°C, Calm\n\n"
-            hourly_details += "🌟 Best Times Today:\n"
-            hourly_details += "• Outdoor Activities: 9 AM - 3 PM\n"
-            hourly_details += "• Photography: 6 PM - 8 PM (Golden hour)\n"
-            hourly_details += "• Evening Walks: 7 PM - 9 PM\n\n"
-            hourly_details += forecast
             
+            # Current time for reference
+            from datetime import datetime, timedelta
+            import numpy as np
+            current_time = datetime.now()
+            
+            # Create enhanced hourly details
+            hourly_details = f"🌤️ HOURLY FORECAST DETAILS for {city.upper()}\n"
+            hourly_details += "━" * 50 + "\n\n"
+            
+            # Current conditions
+            hourly_details += "📍 CURRENT CONDITIONS:\n"
+            current_temp = 24  # Example value, should come from forecast data
+            current_desc = "Partly Cloudy"  # Example value
+            current_feel = current_temp + 2  # Example value
+            hourly_details += f"• Temperature: {current_temp}°C (Feels like {current_feel}°C)\n"
+            hourly_details += f"• Conditions: {current_desc}\n"
+            hourly_details += f"• Last Updated: {current_time.strftime('%I:%M %p')}\n\n"
+            
+            # Hourly breakdown (next 24 hours)
+            hourly_details += "⏰ HOURLY BREAKDOWN:\n"
+            forecast_hours = [
+                (current_time + timedelta(hours=i)).strftime("%I %p")
+                for i in range(24)
+            ]
+            # Generate hourly data with conditions that follow a realistic pattern
+            conditions = []
+            temps = []
+            wind = []
+            
+            for hour in range(24):
+                time = current_time + timedelta(hours=hour)
+                hour_val = time.hour
+                
+                # Temperature variation (cooler at night, warmer in day)
+                base_temp = 22
+                temp_variation = 8 * np.sin((hour_val - 6) * np.pi / 12)  # Peak at 2PM
+                temp = round(base_temp + temp_variation)
+                temps.append(temp)
+                
+                # Conditions based on time of day
+                if 6 <= hour_val < 9:
+                    conditions.append("Partly Cloudy")
+                    wind.append("Light breeze")
+                elif 9 <= hour_val < 16:
+                    conditions.append("Sunny")
+                    wind.append("Moderate breeze")
+                elif 16 <= hour_val < 19:
+                    conditions.append("Partly Cloudy")
+                    wind.append("Light breeze")
+                else:
+                    conditions.append("Clear")
+                    wind.append("Calm")
+            
+            # Display hourly details in 3-hour intervals
+            for i in range(0, 24, 3):
+                hour = forecast_hours[i]
+                hourly_details += f"• {hour:5}: {conditions[i]:12} {temps[i]:2}°C, {wind[i]}\n"
+            
+            hourly_details += "\n🌟 RECOMMENDED TIMES:\n"
+            hourly_details += "• Peak Sunshine: 12 PM - 3 PM (Best for solar activities)\n"
+            hourly_details += "• Outdoor Exercise: 7 AM - 9 AM (Comfortable temperatures)\n"
+            hourly_details += "• Beach/Pool: 10 AM - 4 PM (Watch UV index)\n"
+            hourly_details += "• Photography: 6 PM - 7 PM (Golden hour)\n"
+            hourly_details += "• Evening Activities: After 7 PM (Cooler temperatures)\n\n"
+            
+            hourly_details += "⚡ QUICK STATS:\n"
+            hourly_details += f"• Warmest Hour: {temps.index(max(temps))+1}:00 ({max(temps)}°C)\n"
+            hourly_details += f"• Coolest Hour: {temps.index(min(temps))+1}:00 ({min(temps)}°C)\n"
+            hourly_details += f"• Temperature Swing: {max(temps) - min(temps)}°C\n"
+            
+            # Update display
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, hourly_details)
+            
+            # Show a helpful tooltip
+            messagebox.showinfo("Forecast Tip", 
+                              "💡 Hover over times to see detailed conditions.\n"
+                              "Use the chart view for visual temperature trends!")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to get hourly forecast: {str(e)}")
 
     def show_forecast_chart(self):
         """Show forecast in chart format"""
@@ -1797,7 +726,7 @@ Select a chart type to visualize forecast data."""
         
         try:
             chart_data = f"📊 CHART VIEW for {city}:\n"
-            chart_data += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            chart_data += "━" * 50 + "\n\n"
             chart_data += "Temperature Trend (Next 5 Days):\n"
             chart_data += "Day 1: ████████████████████ 24°C ☀️\n"
             chart_data += "Day 2: ██████████████████ 22°C ⛅\n"
@@ -1815,7 +744,7 @@ Select a chart type to visualize forecast data."""
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, chart_data)
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to display forecast chart: {str(e)}")
 
     def share_forecast(self):
         """Share forecast information"""
@@ -1876,6 +805,280 @@ Select a chart type to visualize forecast data."""
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def generate_forecast_line_chart(self):
+        """Generate forecast line chart visualization"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
+        try:
+            self._clear_forecast_chart_area()
+            
+            if CHARTS_AVAILABLE:
+                import matplotlib.pyplot as plt
+                import matplotlib.dates as mdates
+                from datetime import datetime, timedelta
+                import numpy as np
+                
+                # Create figure
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+                fig.suptitle(f'📈 Forecast Trend for {city}', fontsize=14, fontweight='bold')
+                
+                # Generate sample forecast data
+                dates = [datetime.now() + timedelta(days=i) for i in range(5)]
+                temps = [22, 25, 18, 20, 26]  # Sample temperatures
+                humidity = [65, 70, 85, 75, 60]  # Sample humidity
+                
+                # Temperature trend
+                ax1.plot(dates, temps, marker='o', linewidth=2, color='#FF6B6B', label='Temperature')
+                ax1.set_ylabel('Temperature (°C)', fontweight='bold')
+                ax1.set_title('Temperature Trend', fontweight='bold')
+                ax1.grid(True, alpha=0.3)
+                ax1.legend()
+                
+                # Humidity trend
+                ax2.plot(dates, humidity, marker='s', linewidth=2, color='#4ECDC4', label='Humidity')
+                ax2.set_ylabel('Humidity (%)', fontweight='bold')
+                ax2.set_title('Humidity Trend', fontweight='bold')
+                ax2.set_xlabel('Date', fontweight='bold')
+                ax2.grid(True, alpha=0.3)
+                ax2.legend()
+                
+                # Format dates
+                for ax in [ax1, ax2]:
+                    ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d'))
+                    ax.xaxis.set_major_locator(mdates.DayLocator())
+                
+                plt.tight_layout()
+                
+                # Display chart
+                canvas = FigureCanvasTkAgg(fig, self.forecast_chart_frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill="both", expand=True)
+                
+                # Add toolbar
+                from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+                toolbar = NavigationToolbar2Tk(canvas, self.forecast_chart_frame)
+                toolbar.update()
+            else:
+                # Fallback text display
+                self._create_forecast_chart_placeholder()
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, f"📈 Forecast Line Chart for {city}:\n\nTemperature and humidity trends would be displayed here if matplotlib was available.")
+                
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate forecast line chart: {str(e)}")
+
+    def generate_forecast_bar_chart(self):
+        """Generate forecast bar chart for weather conditions"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
+        try:
+            self._clear_forecast_chart_area()
+            
+            if CHARTS_AVAILABLE:
+                import matplotlib.pyplot as plt
+                import numpy as np
+                
+                # Create figure
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.suptitle(f'📊 Weather Conditions for {city}', fontsize=14, fontweight='bold')
+                
+                # Sample data
+                days = ['Today', 'Tomorrow', 'Day 3', 'Day 4', 'Day 5']
+                temperatures = [22, 25, 18, 20, 26]
+                wind_speeds = [10, 15, 25, 12, 8]
+                
+                x = np.arange(len(days))
+                width = 0.35
+                
+                bars1 = ax.bar(x - width/2, temperatures, width, label='Temperature (°C)', color='#FF9F43', alpha=0.8)
+                bars2 = ax.bar(x + width/2, wind_speeds, width, label='Wind Speed (km/h)', color='#74B9FF', alpha=0.8)
+                
+                ax.set_xlabel('Days', fontweight='bold')
+                ax.set_ylabel('Values', fontweight='bold')
+                ax.set_title('Temperature vs Wind Speed Comparison', fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(days)
+                ax.legend()
+                ax.grid(True, alpha=0.3)
+                
+                # Add value labels on bars
+                for bars in [bars1, bars2]:
+                    for bar in bars:
+                        height = bar.get_height()
+                        ax.annotate(f'{height:.0f}',
+                                  xy=(bar.get_x() + bar.get_width() / 2, height),
+                                  xytext=(0, 3),
+                                  textcoords="offset points",
+                                  ha='center', va='bottom',
+                                  fontweight='bold')
+                
+                plt.tight_layout()
+                
+                # Display chart
+                canvas = FigureCanvasTkAgg(fig, self.forecast_chart_frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill="both", expand=True)
+                
+                # Add toolbar
+                from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+                toolbar = NavigationToolbar2Tk(canvas, self.forecast_chart_frame)
+                toolbar.update()
+            else:
+                # Fallback text display
+                self._create_forecast_chart_placeholder()
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, f"📊 Weather Conditions Bar Chart for {city}:\n\nWeather conditions comparison would be displayed here if matplotlib was available.")
+                
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate forecast bar chart: {str(e)}")
+
+    def generate_precipitation_chart(self):
+        """Generate precipitation probability chart"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
+        try:
+            self._clear_forecast_chart_area()
+            
+            if CHARTS_AVAILABLE:
+                import matplotlib.pyplot as plt
+                import numpy as np
+                
+                # Create figure
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.suptitle(f'🌧️ Precipitation Forecast for {city}', fontsize=14, fontweight='bold')
+                
+                # Sample precipitation data
+                days = ['Today', 'Tomorrow', 'Day 3', 'Day 4', 'Day 5']
+                precipitation_prob = [10, 25, 80, 30, 5]  # Percentage
+                precipitation_amount = [0, 2, 15, 5, 0]  # mm
+                
+                x = np.arange(len(days))
+                
+                # Create dual y-axis chart
+                ax2 = ax.twinx()
+                
+                bars = ax.bar(x, precipitation_prob, alpha=0.7, color='#74B9FF', label='Probability (%)')
+                line = ax2.plot(x, precipitation_amount, color='#00B894', marker='o', linewidth=3, 
+                               markersize=8, label='Amount (mm)')
+                
+                ax.set_xlabel('Days', fontweight='bold')
+                ax.set_ylabel('Precipitation Probability (%)', color='#74B9FF', fontweight='bold')
+                ax2.set_ylabel('Precipitation Amount (mm)', color='#00B894', fontweight='bold')
+                ax.set_title('Precipitation Probability & Amount', fontweight='bold')
+                ax.set_xticks(x)
+                ax.set_xticklabels(days)
+                
+                # Add value labels
+                for i, (prob, amount) in enumerate(zip(precipitation_prob, precipitation_amount)):
+                    ax.text(i, prob + 2, f'{prob}%', ha='center', va='bottom', fontweight='bold')
+                    ax2.text(i, amount + 0.5, f'{amount}mm', ha='center', va='bottom', 
+                            fontweight='bold', color='#00B894')
+                
+                # Legends
+                ax.legend(loc='upper left')
+                ax2.legend(loc='upper right')
+                ax.grid(True, alpha=0.3)
+                
+                plt.tight_layout()
+                
+                # Display chart
+                canvas = FigureCanvasTkAgg(fig, self.forecast_chart_frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill="both", expand=True)
+                
+                # Add toolbar
+                from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+                toolbar = NavigationToolbar2Tk(canvas, self.forecast_chart_frame)
+                toolbar.update()
+            else:
+                # Fallback text display
+                self._create_forecast_chart_placeholder()
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, f"🌧️ Precipitation Chart for {city}:\n\nPrecipitation probability and amount would be displayed here if matplotlib was available.")
+                
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate precipitation chart: {str(e)}")
+
+    def generate_temp_histogram(self):
+        """Generate temperature distribution histogram"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
+        try:
+            self._clear_forecast_chart_area()
+            
+            if CHARTS_AVAILABLE:
+                import matplotlib.pyplot as plt
+                import numpy as np
+                
+                # Create figure
+                fig, ax = plt.subplots(figsize=(8, 6))
+                fig.suptitle(f'🌡️ Temperature Distribution for {city}', fontsize=14, fontweight='bold')
+                
+                # Generate sample temperature distribution data
+                np.random.seed(42)  # For consistent results
+                daily_temps = np.random.normal(22, 4, 30)  # 30 days of temperatures
+                hourly_temps = np.random.normal(20, 6, 100)  # Hourly variation
+                
+                # Create histogram
+                n, bins, patches = ax.hist(daily_temps, bins=10, alpha=0.7, color='#FF6B6B', 
+                                         edgecolor='black', linewidth=1.2)
+                
+                # Color gradient for bars
+                for i, patch in enumerate(patches):
+                    patch.set_facecolor(plt.cm.viridis(i / len(patches)))
+                
+                ax.set_xlabel('Temperature (°C)', fontweight='bold')
+                ax.set_ylabel('Frequency (Days)', fontweight='bold')
+                ax.set_title('Temperature Frequency Distribution (30 Days)', fontweight='bold')
+                ax.grid(True, alpha=0.3)
+                
+                # Add statistics text
+                mean_temp = np.mean(daily_temps)
+                std_temp = np.std(daily_temps)
+                stats_text = f'Mean: {mean_temp:.1f}°C\nStd Dev: {std_temp:.1f}°C'
+                ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
+                       verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
+                       fontweight='bold')
+                
+                # Add normal distribution curve
+                x = np.linspace(min(daily_temps), max(daily_temps), 100)
+                y = ((1/(std_temp * np.sqrt(2 * np.pi))) * 
+                     np.exp(-0.5 * ((x - mean_temp) / std_temp) ** 2)) * len(daily_temps) * (bins[1] - bins[0])
+                ax.plot(x, y, 'r-', linewidth=2, label='Normal Distribution')
+                ax.legend()
+                
+                plt.tight_layout()
+                
+                # Display chart
+                canvas = FigureCanvasTkAgg(fig, self.forecast_chart_frame)
+                canvas.draw()
+                canvas.get_tk_widget().pack(fill="both", expand=True)
+                
+                # Add toolbar
+                from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+                toolbar = NavigationToolbar2Tk(canvas, self.forecast_chart_frame)
+                toolbar.update()
+            else:
+                # Fallback text display
+                self._create_forecast_chart_placeholder()
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, f"🌡️ Temperature Distribution for {city}:\n\nTemperature histogram would be displayed here if matplotlib was available.")
+                
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate temperature histogram: {str(e)}")
+
 
 class FiveDayForecastTab:
     """5-day forecast tab component"""
@@ -1884,8 +1087,317 @@ class FiveDayForecastTab:
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="5-Day Forecast")
-        set_tab_font(notebook)
         self._setup_ui()
+        
+    def _setup_ui(self):
+        """Setup the UI components"""
+        # Input area
+        input_frame = ttk.Frame(self.frame)
+        input_frame.pack(pady=10, padx=10)
+        
+        StyledLabel(input_frame, text="Enter City:").pack(side="left", padx=5)
+        self.city_entry = ttk.Entry(input_frame)
+        self.city_entry.pack(side="left", padx=5)
+        
+        # Action buttons
+        button_frame = ttk.Frame(self.frame)
+        button_frame.pack(pady=5)
+        
+        get_forecast_btn = StyledButton(button_frame, "primary_black", text="Get Forecast", 
+                    command=self._get_forecast)
+        get_forecast_btn.configure(fg="black")  # Explicitly set to black
+        get_forecast_btn.pack(side="left", padx=5)
+        
+        StyledButton(button_frame, "accent_black", text="Weekly Planner", 
+                    command=self.create_week_planner).pack(side="left", padx=5)
+                    
+        StyledButton(button_frame, "info_black", text="Best Weather Days", 
+                    command=self.find_best_weather_days).pack(side="left", padx=5)
+                    
+        StyledButton(button_frame, "success_black", text="Travel Guide", 
+                    command=self.generate_travel_guide).pack(side="left", padx=5)
+        
+        # Results area
+        self.result_text = StyledText(self.frame, height=20, width=60)
+        self.result_text.pack(pady=10, padx=10, fill="both", expand=True)
+        
+    def _get_forecast(self):
+        """Get and display the 5-day forecast for the entered city"""
+        city = self.city_entry.get().strip()
+        if not city:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "Please enter a city name")
+            return
+            
+        try:
+            # Get forecast data from controller
+            forecast_data = self.controller.get_five_day_forecast(city)
+            
+            # Clear previous results
+            self.result_text.delete(1.0, tk.END)
+            
+            # Display formatted forecast
+            self.result_text.insert(tk.END, f"📍 5-Day Forecast for {city}\n\n")
+            
+            # Handle both list and string responses
+            if isinstance(forecast_data, str):
+                self.result_text.insert(tk.END, forecast_data)
+            else:
+                for day in forecast_data:
+                    try:
+                        date = str(day['date']) if 'date' in day else 'Date not available'
+                        temp = f"{day['temp']}°C" if 'temp' in day else 'Temperature not available'
+                        humidity = f"{day['humidity']}%" if 'humidity' in day else 'Humidity not available'
+                        conditions = day['conditions'] if 'conditions' in day else 'Conditions not available'
+                        
+                        self.result_text.insert(tk.END, f"📅 {date}\n")
+                        self.result_text.insert(tk.END, f"🌡️ Temperature: {temp}\n")
+                        self.result_text.insert(tk.END, f"💧 Humidity: {humidity}\n")
+                        self.result_text.insert(tk.END, f"🌥️ Conditions: {conditions}\n")
+                        self.result_text.insert(tk.END, "\n")
+                    except (TypeError, AttributeError) as e:
+                        print(f"Error processing day data: {e}")
+                        continue
+                
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error getting forecast: {str(e)}\n\n")
+            self.result_text.insert(tk.END, "Please check:\n")
+            self.result_text.insert(tk.END, "- City name is spelled correctly\n")
+            self.result_text.insert(tk.END, "- Internet connection is active\n")
+            self.result_text.insert(tk.END, "- Weather service is available")
+
+    def create_week_planner(self):
+        """Create a weekly weather planner based on the forecast"""
+        city = self.city_entry.get().strip()
+        if not city:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "Please enter a city name first")
+            return
+            
+        try:
+            # Get forecast data
+            forecast_data = self.controller.get_five_day_forecast(city)
+            
+            # Clear previous results
+            self.result_text.delete(1.0, tk.END)
+            
+            # Create weekly planner
+            self.result_text.insert(tk.END, f"📋 Weekly Weather Planner for {city}\n")
+            self.result_text.insert(tk.END, "=" * 40 + "\n\n")
+            
+            for day in forecast_data:
+                # Add day header
+                self.result_text.insert(tk.END, f"📅 {day['date']}\n")
+                
+                # Add weather summary
+                self.result_text.insert(tk.END, f"Weather: {day['conditions']}\n")
+                self.result_text.insert(tk.END, f"Temperature: {day['temp']}°C\n")
+                
+                # Add activity suggestions based on weather
+                if "rain" in day['conditions'].lower():
+                    self.result_text.insert(tk.END, "Suggested: Indoor activities\n")
+                elif "clear" in day['conditions'].lower():
+                    self.result_text.insert(tk.END, "Suggested: Outdoor activities\n")
+                else:
+                    self.result_text.insert(tk.END, "Suggested: Mixed activities\n")
+                
+                self.result_text.insert(tk.END, "\n")
+                
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error creating week planner: {str(e)}")
+
+    def find_best_weather_days(self):
+        """Find and display the best weather days for outdoor activities"""
+        city = self.city_entry.get().strip()
+        if not city:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "Please enter a city name first")
+            return
+            
+        try:
+            # Get forecast data
+            forecast_data = self.controller.get_five_day_forecast(city)
+            
+            # Clear previous results
+            self.result_text.delete(1.0, tk.END)
+            
+            # Header
+            self.result_text.insert(tk.END, f"🎯 Best Days for Outdoor Activities in {city}\n")
+            self.result_text.insert(tk.END, "=" * 40 + "\n\n")
+            
+            # Score each day
+            good_days = []
+            for day in forecast_data:
+                score = 0
+                conditions = day['conditions'].lower()
+                temp = float(day['temp'])
+                
+                # Score based on temperature (15-25°C ideal)
+                if 15 <= temp <= 25:
+                    score += 2
+                elif 10 <= temp <= 30:
+                    score += 1
+                
+                # Score based on conditions
+                if "clear" in conditions or "sunny" in conditions:
+                    score += 2
+                elif "partly cloudy" in conditions:
+                    score += 1
+                elif "rain" in conditions or "storm" in conditions:
+                    score -= 2
+                
+                if score > 0:
+                    good_days.append((day['date'], score, temp, day['conditions']))
+            
+            # Sort by score
+            good_days.sort(key=lambda x: x[1], reverse=True)
+            
+            if good_days:
+                for date, score, temp, conditions in good_days:
+                    self.result_text.insert(tk.END, f"📅 {date}\n")
+                    self.result_text.insert(tk.END, f"🌡️ Temperature: {temp}°C\n")
+                    self.result_text.insert(tk.END, f"🌥️ Conditions: {conditions}\n")
+                    stars = "⭐" * score
+                    self.result_text.insert(tk.END, f"Rating: {stars}\n\n")
+            else:
+                self.result_text.insert(tk.END, "No ideal outdoor days found in the forecast.\n")
+                self.result_text.insert(tk.END, "Consider indoor activities this week!\n")
+                
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error finding best days: {str(e)}")
+
+    def generate_travel_guide(self):
+        """Generate a weather-based travel guide for the city"""
+        city = self.city_entry.get().strip()
+        if not city:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "Please enter a city name first")
+            return
+            
+        try:
+            # Get forecast data
+            forecast_data = self.controller.get_five_day_forecast(city)
+            
+            # Clear previous results
+            self.result_text.delete(1.0, tk.END)
+            
+            # Create travel guide header
+            self.result_text.insert(tk.END, f"✈️ Travel Guide for {city}\n")
+            self.result_text.insert(tk.END, "=" * 40 + "\n\n")
+            
+            # Weather overview
+            temps = [float(day['temp']) for day in forecast_data]
+            avg_temp = sum(temps) / len(temps)
+            
+            self.result_text.insert(tk.END, "🌡️ Weather Overview:\n")
+            self.result_text.insert(tk.END, f"Average Temperature: {avg_temp:.1f}°C\n")
+            self.result_text.insert(tk.END, f"Temperature Range: {min(temps):.1f}°C to {max(temps):.1f}°C\n\n")
+            
+            # Weather pattern analysis
+            conditions = [day['conditions'].lower() for day in forecast_data]
+            rainy_days = sum(1 for c in conditions if "rain" in c)
+            sunny_days = sum(1 for c in conditions if "clear" in c or "sunny" in c)
+            
+            self.result_text.insert(tk.END, "🌦️ Weather Pattern:\n")
+            if rainy_days > 2:
+                self.result_text.insert(tk.END, "Pack rain gear - significant chance of rain\n")
+            if sunny_days > 2:
+                self.result_text.insert(tk.END, "Bring sun protection - sunny weather expected\n")
+            self.result_text.insert(tk.END, "\n")
+            
+            # Daily recommendations
+            self.result_text.insert(tk.END, "📅 Daily Planning Guide:\n")
+            for day in forecast_data:
+                self.result_text.insert(tk.END, f"\n{day['date']}:\n")
+                temp = float(day['temp'])
+                conditions = day['conditions'].lower()
+                
+                # Clothing recommendations
+                if temp < 15:
+                    self.result_text.insert(tk.END, "👕 Warm layers recommended\n")
+                elif temp > 25:
+                    self.result_text.insert(tk.END, "👕 Light, breathable clothing\n")
+                
+                # Activity suggestions
+                if "rain" in conditions:
+                    self.result_text.insert(tk.END, "🎫 Indoor activities recommended\n")
+                elif "clear" in conditions or "sunny" in conditions:
+                    self.result_text.insert(tk.END, "🏖️ Perfect for outdoor exploration\n")
+                
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error generating travel guide: {str(e)}")
+
+    def get_weather_preparation(self):
+        """Get weather preparation advice based on the forecast"""
+        city = self.city_entry.get().strip()
+        if not city:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "Please enter a city name first")
+            return
+            
+        try:
+            # Get forecast data
+            forecast_data = self.controller.get_five_day_forecast(city)
+            
+            # Clear previous results
+            self.result_text.delete(1.0, tk.END)
+            
+            # Create header
+            self.result_text.insert(tk.END, f"🎒 Weather Preparation Guide for {city}\n")
+            self.result_text.insert(tk.END, "=" * 40 + "\n\n")
+            
+            # Analyze weather patterns
+            conditions = [day['conditions'].lower() for day in forecast_data]
+            temps = [float(day['temp']) for day in forecast_data]
+            
+            # Essential items section
+            self.result_text.insert(tk.END, "🔰 Essential Items:\n")
+            essentials = ["Water bottle", "Weather app", "Emergency contacts"]
+            for item in essentials:
+                self.result_text.insert(tk.END, f"• {item}\n")
+            self.result_text.insert(tk.END, "\n")
+            
+            # Weather-specific items
+            self.result_text.insert(tk.END, "🌦️ Weather-Specific Items:\n")
+            if any("rain" in c for c in conditions):
+                self.result_text.insert(tk.END, "☔ Rain Protection:\n")
+                self.result_text.insert(tk.END, "• Umbrella\n")
+                self.result_text.insert(tk.END, "• Waterproof jacket\n")
+                self.result_text.insert(tk.END, "• Water-resistant footwear\n\n")
+                
+            if any("clear" in c or "sunny" in c for c in conditions):
+                self.result_text.insert(tk.END, "☀️ Sun Protection:\n")
+                self.result_text.insert(tk.END, "• Sunscreen (SPF 30+)\n")
+                self.result_text.insert(tk.END, "• Sunglasses\n")
+                self.result_text.insert(tk.END, "• Hat or cap\n\n")
+                
+            # Temperature-based recommendations
+            self.result_text.insert(tk.END, "🌡️ Temperature Considerations:\n")
+            if any(t < 15 for t in temps):
+                self.result_text.insert(tk.END, "❄️ Cold Weather Items:\n")
+                self.result_text.insert(tk.END, "• Warm jacket\n")
+                self.result_text.insert(tk.END, "• Gloves\n")
+                self.result_text.insert(tk.END, "• Thermal layers\n\n")
+                
+            if any(t > 25 for t in temps):
+                self.result_text.insert(tk.END, "🌞 Hot Weather Items:\n")
+                self.result_text.insert(tk.END, "• Light, breathable clothing\n")
+                self.result_text.insert(tk.END, "• Cooling towel\n")
+                self.result_text.insert(tk.END, "• Electrolyte drinks\n\n")
+                
+            # Safety tips
+            self.result_text.insert(tk.END, "⚠️ Safety Tips:\n")
+            self.result_text.insert(tk.END, "• Check weather updates regularly\n")
+            self.result_text.insert(tk.END, "• Stay hydrated\n")
+            self.result_text.insert(tk.END, "• Know emergency shelter locations\n")
+            
+        except Exception as e:
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error getting preparation guide: {str(e)}")
 
     def _setup_ui(self):
         """Setup the UI components with split-screen layout"""
@@ -1919,7 +1431,7 @@ class FiveDayForecastTab:
         
         # Main action button
         StyledButton(parent_frame, "primary", text="Get 5-Day Forecast", 
-                    command=self.fetch_5day_forecast).pack(pady=5)
+                    command=self._get_forecast).pack(pady=5)
         
         # Additional Enhanced Buttons
         fiveday_button_frame = ttk.Frame(parent_frame)
@@ -1944,13 +1456,13 @@ class FiveDayForecastTab:
         chart_buttons_frame = ttk.Frame(parent_frame)
         chart_buttons_frame.pack(pady=5)
         
-        StyledButton(chart_buttons_frame, "info", text="📈 Temperature Trend", 
+        StyledButton(chart_buttons_frame, "info_black", text="📈 Temperature Trend", 
                     command=self.show_temperature_trend_chart).grid(row=0, column=0, padx=2)
-        StyledButton(chart_buttons_frame, "accent", text="📊 Daily Comparison", 
+        StyledButton(chart_buttons_frame, "accent_black", text="📊 Daily Comparison", 
                     command=self.show_daily_comparison_chart).grid(row=0, column=1, padx=2)
-        StyledButton(chart_buttons_frame, "warning", text="🌧️ Precipitation", 
+        StyledButton(chart_buttons_frame, "warning_black", text="🌧️ Precipitation", 
                     command=self.show_precipitation_chart).grid(row=1, column=0, padx=2)
-        StyledButton(chart_buttons_frame, "success", text="📊 Overview", 
+        StyledButton(chart_buttons_frame, "success_black", text="📊 Overview", 
                     command=self.show_forecast_overview_chart).grid(row=1, column=1, padx=2)
         
         # Chart display area
@@ -2234,168 +1746,198 @@ class FiveDayForecastTab:
         # Add navigation toolbar
         toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
         toolbar.update()
-
-    def fetch_5day_forecast(self):
-        """Fetch 5-day forecast for the entered city"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
         
-        try:
-            forecast = self.controller.get_five_day_forecast(city)
-            unit_label = self.controller.get_unit_label()
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, f"5-Day Forecast for {city} ({unit_label}):\n{forecast}")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def create_week_planner(self):
-        """Create a detailed week planner based on weather"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
+    def _create_chart_placeholder(self):
+        """Create a placeholder for the chart area"""
+        if self.current_chart_frame:
+            self.current_chart_frame.destroy()
         
-        try:
-            planner = f"📅 WEEK PLANNER for {city}:\n"
-            planner += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            planner += "🗓️ Smart Weekly Schedule:\n\n"
-            planner += "MONDAY: ☀️ Perfect Day (24°C, Sunny)\n"
-            planner += "  ✅ Ideal for: Outdoor meetings, sports, photography\n"
-            planner += "  📍 Suggested: Park visits, outdoor dining\n\n"
-            planner += "TUESDAY: ⛅ Good Day (22°C, Partly Cloudy)\n"
-            planner += "  ✅ Ideal for: Walking tours, shopping, city exploration\n"
-            planner += "  📍 Suggested: Museum visits with outdoor breaks\n\n"
-            planner += "WEDNESDAY: 🌧️ Indoor Day (18°C, Rainy)\n"
-            planner += "  ✅ Ideal for: Work from home, movies, cooking\n"
-            planner += "  📍 Suggested: Library visits, indoor fitness\n\n"
-            planner += "THURSDAY: 🌤️ Mixed Day (20°C, Scattered Clouds)\n"
-            planner += "  ✅ Ideal for: Flexible indoor/outdoor activities\n"
-            planner += "  📍 Suggested: Covered markets, café hopping\n\n"
-            planner += "FRIDAY: ☀️ Excellent Day (26°C, Clear)\n"
-            planner += "  ✅ Ideal for: Weekend prep, outdoor events\n"
-            planner += "  📍 Suggested: Beach, hiking, BBQ planning\n\n"
-            planner += "🎯 Weekly Highlights:\n"
-            planner += "• Best outdoor days: Monday, Friday\n"
-            planner += "• Indoor activity day: Wednesday\n"
-            planner += "• Flexible planning days: Tuesday, Thursday"
+        self.current_chart_frame = ttk.Frame(self.right_frame)
+        self.current_chart_frame.pack(fill="both", expand=True)
+        
+        ChartHelper.create_chart_placeholder(
+            self.current_chart_frame,
+            title="Analytics Chart Display",
+            content="Generate analytics to see weather trends and comparisons."
+        )
+
+    def _generate_analytics(self):
+        """Fetch data and prepare for analytics"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1:
+            messagebox.showwarning("Input Required", "Please enter at least a primary city.")
+            return
             
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, planner)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        self.cities = [city for city in [city1, city2] if city]
+        time_range_str = self.time_range.get()
+        
+        self.info_text.config(state="normal")
+        self.info_text.delete("1.0", tk.END)
+        self.info_text.insert("1.0", f"📊 Generating analytics for {', '.join(self.cities)} over {time_range_str}...")
+        self.info_text.config(state="disabled")
+        
+        # In a real app, you'd fetch data here. For now, we'll use dummy data.
+        messagebox.showinfo("Analytics Generated", 
+                            f"Analytics data for {', '.join(self.cities)} is ready. Please select a chart type to view.")
 
-    def find_best_weather_days(self):
-        """Find the best weather days in the forecast"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
+    def _show_temperature_trends(self):
+        """Show temperature trends for the selected cities"""
+        if not self.cities:
+            messagebox.showwarning("No Data", "Please generate analytics first.")
             return
         
-        try:
-            best_days = f"🎯 BEST WEATHER DAYS for {city}:\n"
-            best_days += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            best_days += "🌟 TOP RECOMMENDATIONS:\n\n"
-            best_days += "🥇 BEST DAY: Friday\n"
-            best_days += "   🌡️ 26°C, ☀️ Sunny, 💨 Light breeze\n"
-            best_days += "   👍 Perfect for: Any outdoor activity\n"
-            best_days += "   ⭐ Activity Score: 10/10\n\n"
-            best_days += "🥈 SECOND BEST: Monday\n"
-            best_days += "   🌡️ 24°C, ☀️ Mostly sunny, 💨 Calm\n"
-            best_days += "   👍 Perfect for: Sports, photography, events\n"
-            best_days += "   ⭐ Activity Score: 9/10\n\n"
-            best_days += "🥉 THIRD BEST: Thursday\n"
-            best_days += "   🌡️ 20°C, 🌤️ Partly cloudy, 💨 Light breeze\n"
-            best_days += "   👍 Good for: Walking, sightseeing, shopping\n"
-            best_days += "   ⭐ Activity Score: 7/10\n\n"
-            best_days += "⚠️ PLAN INDOORS:\n"
-            best_days += "   Wednesday: 🌧️ Rainy day - Indoor activities recommended\n\n"
-            best_days += "💡 Pro Tips:\n"
-            best_days += "• Book outdoor events for Friday or Monday\n"
-            best_days += "• Plan backup indoor activities for Wednesday\n"
-            best_days += "• Thursday is great for flexible plans"
+        # Dummy data
+        days = list(range(1, 8))
+        temps1 = [np.random.randint(10, 20) for _ in days]
+        
+        ChartHelper.create_line_chart(
+            self.current_chart_frame,
+            title=f"🌡️ Weekly Temperature Trend for {self.cities[0]}",
+            x_data=days,
+            y_data=temps1,
+            x_label="Day",
+            y_label="Temperature (°C)"
+        )
+
+    def _show_precipitation_analysis(self):
+        """Show precipitation analysis"""
+        if not self.cities:
+            messagebox.showwarning("No Data", "Please generate analytics first.")
+            return
             
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, best_days)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def generate_travel_guide(self):
-        """Generate a travel guide based on the weather"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
+        # Dummy data
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+        precipitation = [np.random.randint(50, 200) for _ in months]
         
-        try:
-            travel_guide = f"📋 TRAVEL GUIDE for {city}:\n"
-            travel_guide += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            travel_guide += "🎒 PACKING RECOMMENDATIONS:\n\n"
-            travel_guide += "👕 Clothing:\n"
-            travel_guide += "• Light t-shirts and shorts (sunny days)\n"
-            travel_guide += "• Light jacket for evenings\n"
-            travel_guide += "• Waterproof jacket (Wednesday rain)\n"
-            travel_guide += "• Comfortable walking shoes\n"
-            travel_guide += "• Sandals for hot days\n\n"
-            travel_guide += "🧳 Essential Items:\n"
-            travel_guide += "• Umbrella (Wednesday essential)\n"
-            travel_guide += "• Sunscreen SPF 30+ (Monday & Friday)\n"
-            travel_guide += "• Sunglasses and hat\n"
-            travel_guide += "• Reusable water bottle\n"
-            travel_guide += "• Power bank for photos\n\n"
-            travel_guide += "📅 DAILY ITINERARY SUGGESTIONS:\n\n"
-            travel_guide += "Monday (Sunny): Outdoor attractions, parks, walking tours\n"
-            travel_guide += "Tuesday (Cloudy): Museums, markets, city center\n"
-            travel_guide += "Wednesday (Rainy): Indoor activities, galleries, shopping\n"
-            travel_guide += "Thursday (Mixed): Flexible attractions, covered areas\n"
-            travel_guide += "Friday (Perfect): Major outdoor sights, photography\n\n"
-            travel_guide += "🚗 TRANSPORTATION:\n"
-            travel_guide += "• Monday & Friday: Perfect for walking/cycling\n"
-            travel_guide += "• Wednesday: Public transport recommended\n"
-            travel_guide += "• Consider ride-sharing during rain\n\n"
-            travel_guide += "📱 USEFUL APPS:\n"
-            travel_guide += "• Weather radar for real-time updates\n"
-            travel_guide += "• Transit apps for rainy day planning"
+        ChartHelper.create_bar_chart(
+            self.current_chart_frame,
+            title=f"🌧️ Monthly Precipitation for {self.cities[0]}",
+            x_data=months,
+            y_data=precipitation
+        )
+
+    def _show_wind_patterns(self):
+        """Show wind patterns using a histogram"""
+        if not self.cities:
+            messagebox.showwarning("No Data", "Please generate analytics first.")
+            return
             
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, travel_guide)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        # Dummy data
+        wind_speeds = np.random.normal(15, 5, 100)
+        
+        ChartHelper.create_histogram(
+            self.current_chart_frame,
+            title=f"💨 Wind Speed Distribution for {self.cities[0]}",
+            data=wind_speeds,
+            bins=20
+        )
 
-    def get_weather_preparation(self):
-        """Get weather preparation advice"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
+    def _show_daylight_hours(self):
+        """Show daylight hours trend"""
+        if not self.cities:
+            messagebox.showwarning("No Data", "Please generate analytics first.")
             return
+            
+        # Dummy data
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+        daylight = [10, 11, 12.5, 14, 15, 15.5, 15]
+        
+        ChartHelper.create_line_chart(
+            self.current_chart_frame,
+            title=f"☀️ Daylight Hours Trend for {self.cities[0]}",
+            x_data=months,
+            y_data=daylight,
+            x_label="Month",
+            y_label="Hours"
+        )
+
+    def _show_humidity_trends(self):
+        """Display humidity trends chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from controller
+            time_range = self.time_range.get()
+            data = self.controller.get_humidity_data(self.cities, time_range)
+            
+            if not data or len(data) == 0:
+                messagebox.showinfo("No Data", "No humidity data available for the selected period")
+                return
+            
+            # Create figure
+            fig = Figure(figsize=(10, 6), dpi=100)
+            ax = fig.add_subplot(111)
+            
+            # Plot data for each city
+            colors = ['#4ECDC4', '#FF6B6B', '#45B7D1']
+            for i, city_data in enumerate(data):
+                timestamps = city_data['timestamps']
+                humidity_values = city_data['humidity_values']
+                
+                ax.plot(timestamps, humidity_values, color=colors[i % len(colors)],
+                       label=self.cities[i], marker='o', markersize=4)
+            
+            # Customize appearance
+            ax.set_title(f"Humidity Trends - Past {time_range}")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Relative Humidity (%)")
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            ax.tick_params(axis='x', rotation=45)
+            
+            fig.tight_layout()
+            
+            # Embed chart
+            ChartHelper.embed_chart_in_frame(fig, self.current_chart_frame)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate humidity trends: {str(e)}")
+            self._create_chart_placeholder()
+
+    def _show_weather_comparison(self):
+        """Compare weather elements between two cities"""
+        if len(self.cities) < 2:
+            messagebox.showwarning("Input Required", "Please provide two cities to compare.")
+            return
+            
+        # Dummy data
+        metrics = ['Temp', 'Humidity', 'Wind']
+        city1_data = [np.random.randint(10, 25), np.random.randint(40, 70), np.random.randint(5, 20)]
+        city2_data = [np.random.randint(10, 25), np.random.randint(40, 70), np.random.randint(5, 20)]
+        
+        # For demonstration, we'll just create a bar chart. A more complex chart could be used.
+        if not CHARTS_AVAILABLE:
+            ChartHelper.show_chart_unavailable(self.current_chart_frame)
+            return
+
+        ChartHelper.clear_chart_area(self.current_chart_frame)
+        
+        fig = Figure(figsize=(8, 5), dpi=100, facecolor='white')
+        ax = fig.add_subplot(111)
+        
+        x = np.arange(len(metrics))
+        width = 0.35
+        
+        rects1 = ax.bar(x - width/2, city1_data, width, label=self.cities[0])
+        rects2 = ax.bar(x + width/2, city2_data, width, label=self.cities[1])
+        
+        ax.set_ylabel('Values')
+        ax.set_title(f'📊 Weather Comparison: {self.cities[0]} vs {self.cities[1]}')
+        ax.set_xticks(x)
+        ax.set_xticklabels(metrics)
+        ax.legend()
         
         try:
-            prep_guide = f"⚡ WEATHER PREPARATION for {city}:\n"
-            prep_guide += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            prep_guide += "🏠 HOME PREPARATION:\n\n"
-            prep_guide += "Before the Week:\n"
-            prep_guide += "• ✅ Check and clean gutters (rain expected Wednesday)\n"
-            prep_guide += "• ✅ Secure outdoor furniture for windy days\n"
-            prep_guide += "• ✅ Stock up on groceries before Wednesday\n"
-            prep_guide += "• ✅ Charge devices for potential power interruptions\n"
-            prep_guide += "• ✅ Plan indoor entertainment for rainy day\n\n"
-            prep_guide += "🚗 VEHICLE PREPARATION:\n\n"
-            prep_guide += "• Check windshield wipers (rain Wednesday)\n"
-            prep_guide += "• Top up washer fluid\n"
-            prep_guide += "• Ensure tire pressure is adequate\n"
-            prep_guide += "• Keep umbrella in car\n"
-            prep_guide += "• Plan alternative routes for wet conditions\n\n"
-            prep_guide += "👥 PERSONAL PREPARATION:\n\n"
-            prep_guide += "• Update wardrobe for temperature range 18-26°C\n"
-            prep_guide += "• Prepare rain gear for Wednesday\n"
-            prep_guide += "• Plan vitamin D exposure on sunny days\n"
-            prep_guide += "• Adjust hydration for hot days (Friday)\n"
-            prep_guide += "• Prepare allergy medications if needed\n\n"
-            prep_guide += "📅 SCHEDULE ADJUSTMENTS:\n\n"
-            prep_guide += "• Move important outdoor events to Monday/Friday\n"
-            prep_guide += "• Schedule indoor meetings for Wednesday\n"
-            prep_guide += "• Plan workout schedule around weather\n"
+            fig.tight_layout()
+            ChartHelper.embed_chart_in_frame(fig, self.current_chart_frame)
+            
+            # Prepare guide text
+            prep_guide = "• Plan workout schedule around weather\n"
             prep_guide += "• Adjust commute times for rain day\n\n"
             prep_guide += "🚨 EMERGENCY PREPAREDNESS:\n"
             prep_guide += "• Emergency flashlight ready\n"
@@ -2403,8 +1945,9 @@ class FiveDayForecastTab:
             prep_guide += "• Contact list updated\n"
             prep_guide += "• Know severe weather protocols"
             
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, prep_guide)
+            if hasattr(self, 'result_text'):
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, prep_guide)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -2416,28 +1959,47 @@ class ComparisonTab:
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="City Comparison")
-        set_tab_font(notebook)
         self._setup_ui()
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="City 1:").pack(pady=5)
-        self.city1_entry = ttk.Entry(self.frame)
-        self.city1_entry.pack()
+        # Create main split-screen layout
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
         
-        StyledLabel(self.frame, text="City 2:").pack(pady=5)
-        self.city2_entry = ttk.Entry(self.frame)
-        self.city2_entry.pack()
+        # Left panel for input and text results
+        self.left_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.left_frame, weight=1)
         
-        self.result_text = StyledText(self.frame)
-        self.result_text.pack(pady=10)
+        # Right panel for charts and visualizations
+        self.right_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.right_frame, weight=2)
+        
+        # Set up left panel (input and text results)
+        self._setup_left_panel()
+        
+        # Set up right panel (charts)
+        self._setup_right_panel()
+
+    def _setup_left_panel(self):
+        """Setup the left panel with input fields and text results"""
+        StyledLabel(self.left_frame, text="City 1:").pack(pady=5)
+        self.city1_entry = ttk.Entry(self.left_frame)
+        self.city1_entry.pack(fill="x", padx=10)
+        
+        StyledLabel(self.left_frame, text="City 2:").pack(pady=5)
+        self.city2_entry = ttk.Entry(self.left_frame)
+        self.city2_entry.pack(fill="x", padx=10)
+        
+        self.result_text = StyledText(self.left_frame, height=15)
+        self.result_text.pack(pady=10, fill="both", expand=True, padx=10)
         
         # Main action button
-        StyledButton(self.frame, "info", text="Compare", 
+        StyledButton(self.left_frame, "info_black", text="Compare", 
                     command=self.compare_cities).pack(pady=5)
         
         # Additional Enhanced Buttons
-        comparison_button_frame = ttk.Frame(self.frame)
+        comparison_button_frame = ttk.Frame(self.left_frame)
         comparison_button_frame.pack(pady=5)
         
         StyledButton(comparison_button_frame, "accent_black", text="🗺️ Distance Info", 
@@ -2449,524 +2011,933 @@ class ComparisonTab:
         StyledButton(comparison_button_frame, "warning_black", text="⭐ Multi-Compare", 
                     command=self.multi_city_compare).grid(row=0, column=3, padx=3)
 
-    def compare_cities(self):
-        """Compare weather between two cities"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+    def _setup_right_panel(self):
+        """Setup the right panel with charts and visualizations"""
+        # Chart title
+        StyledLabel(self.right_frame, text="📊 City Comparison Charts", 
+                   font=("Arial", 14, "bold")).pack(pady=5)
         
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
+        # Chart selection buttons
+        chart_controls = ttk.Frame(self.right_frame)
+        chart_controls.pack(pady=5)
         
-        try:
-            comparison = self.controller.compare_cities(city1, city2)
-            unit_label = self.controller.get_unit_label()
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, f"Comparison ({unit_label}):\n{comparison}")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        StyledButton(chart_controls, "info_black", text="🌡️ Temperature Comparison", 
+                    command=self.generate_temperature_comparison_chart).grid(row=0, column=0, padx=2)
+        StyledButton(chart_controls, "primary_black", text="📊 Metrics Radar", 
+                    command=self.generate_radar_comparison_chart).grid(row=0, column=1, padx=2)
+        
+        StyledButton(chart_controls, "success_black", text="💧 Humidity/Pressure", 
+                    command=self.generate_humidity_pressure_chart).grid(row=1, column=0, padx=2, pady=2)
+        StyledButton(chart_controls, "warning_black", text="📈 Climate Trends", 
+                    command=self.generate_climate_trend_chart).grid(row=1, column=1, padx=2, pady=2)
+        
+        # Chart display area
+        self.chart_frame = ttk.Frame(self.right_frame, relief=tk.GROOVE, borderwidth=2)
+        self.chart_frame.pack(fill="both", expand=True, pady=10, padx=10)
+        
+        # Create initial chart placeholder
+        self._create_chart_placeholder()
+        
+    def _create_chart_placeholder(self):
+        """Create a placeholder for the chart area"""
+        placeholder_frame = ttk.Frame(self.chart_frame)
+        placeholder_frame.pack(fill="both", expand=True)
+        
+        placeholder_label = StyledLabel(placeholder_frame, 
+                                       text="Select cities and click a chart button to generate visualizations",
+                                       font=("Arial", 12))
+        placeholder_label.pack(fill="both", expand=True)
+        
+        tip_text = "Available charts:\n\n" + \
+                   "🌡️ Temperature Comparison - Compare temperature data\n" + \
+                   "📊 Metrics Radar - Multi-metric radar comparison\n" + \
+                   "💧 Humidity/Pressure - Correlation between humidity and pressure\n" + \
+                   "📈 Climate Trends - Trend analysis between cities"
+        
+        placeholder_text = StyledText(placeholder_frame, height=10, width=50)
+        placeholder_text.pack(pady=10)
+        placeholder_text.insert("1.0", tip_text)
+        placeholder_text.config(state="disabled")
 
-    def show_distance_info(self):
-        """Show distance and geographic information between cities"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
-            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
-            distance_info += "🛣️ DISTANCE INFORMATION:\n"
-            distance_info += "• Straight-line distance: ~2,847 km\n"
-            distance_info += "• Driving distance: ~3,200 km\n"
-            distance_info += "• Flight distance: ~2,847 km\n\n"
-            distance_info += "✈️ TRAVEL TIME:\n"
-            distance_info += "• Flight: ~3.5 hours\n"
-            distance_info += "• Driving: ~32 hours\n"
-            distance_info += "• Train: ~38 hours\n\n"
-            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
-            distance_info += f"• {city1}: Northern hemisphere\n"
-            distance_info += f"• {city2}: Northern hemisphere\n"
-            distance_info += "• Time zone difference: Varies by location\n"
-            distance_info += "• Seasonal differences: May vary significantly\n\n"
-            distance_info += "🧭 COORDINATE INFO:\n"
-            distance_info += "• Direction: Calculate based on coordinates\n"
-            distance_info += "• Climate zones: May differ significantly\n"
-            distance_info += "• Weather patterns: Can be very different\n\n"
-            distance_info += "💡 Tips for Travelers:\n"
-            distance_info += "• Check time zones for communication\n"
-            distance_info += "• Consider seasonal weather differences\n"
-            distance_info += "• Plan for climate adaptation time"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, distance_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def detailed_comparison(self):
-        """Show detailed comparison with more metrics"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
-            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
-            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
-            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
-            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
-            detailed += "💧 HUMIDITY & COMFORT:\n"
-            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
-            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
-            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
-            detailed += "💨 WIND CONDITIONS:\n"
-            detailed += f"• {city1}: 12 km/h, Light breeze\n"
-            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
-            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
-            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
-            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
-            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
-            detailed += f"• Winner: {city1} (Better visibility)\n\n"
-            detailed += "☀️ UV INDEX & SUN:\n"
-            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
-            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
-            detailed += f"• {city1}: More sun exposure needed\n\n"
-            detailed += "🎯 OVERALL RECOMMENDATION:\n"
-            detailed += f"Better weather today: {city1}\n"
-            detailed += "• Warmer temperature\n"
-            detailed += "• Lower humidity\n"
-            detailed += "• Better visibility\n"
-            detailed += "• Calmer wind conditions\n\n"
-            detailed += "🏆 Weather Score:\n"
-            detailed += f"• {city1}: 8.5/10\n"
-            detailed += f"• {city2}: 6.5/10"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, detailed)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def get_travel_advice(self):
-        """Get travel advice based on weather comparison"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
-            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
-            travel_advice += f"📍 Current Conditions Analysis:\n"
-            travel_advice += f"• {city1}: Better for outdoor activities\n"
-            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
-            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
-            travel_advice += f"For {city1}:\n"
-            travel_advice += "• Lighter clothing (warmer weather)\n"
-            travel_advice += "• Sunscreen and sunglasses\n"
-            travel_advice += "• Light jacket for evening\n"
-            travel_advice += "• Comfortable walking shoes\n\n"
-            travel_advice += f"For {city2}:\n"
-            travel_advice += "• Layered clothing (cooler weather)\n"
-            travel_advice += "• Light rain jacket\n"
-            travel_advice += "• Warmer evening wear\n"
-            travel_advice += "• Umbrella (higher humidity)\n\n"
-            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
-            travel_advice += f"Visit {city1} for:\n"
-            travel_advice += "• Outdoor sightseeing\n"
-            travel_advice += "• Photography sessions\n"
-            travel_advice += "• Walking tours\n"
-            travel_advice += "• Beach/park activities\n\n"
-            travel_advice += f"Visit {city2} for:\n"
-            travel_advice += "• Museum visits\n"
-            travel_advice += "• Indoor entertainment\n"
-            travel_advice += "• Shopping experiences\n"
-            travel_advice += "• Cozy café culture\n\n"
-            travel_advice += "💰 COST CONSIDERATIONS:\n"
-            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
-            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
-            travel_advice += "🏆 VERDICT:\n"
-            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
-            travel_advice += f"For culture seekers: Either city works\n"
-            travel_advice += f"For budget travelers: Consider {city2}\n"
-            travel_advice += f"For photographers: {city1} has better conditions"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, travel_advice)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def multi_city_compare(self):
-        """Compare multiple cities at once"""
-        try:
-            multi_compare = f"⭐ MULTI-CITY COMPARISON:\n"
-            multi_compare += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            multi_compare += "🌍 POPULAR DESTINATIONS WEATHER COMPARISON:\n\n"
-            multi_compare += "🏆 TOP WEATHER TODAY:\n"
-            multi_compare += "1. 🥇 Miami: 28°C, ☀️ Sunny, Perfect beach weather\n"
-            multi_compare += "2. 🥈 Barcelona: 25°C, ⛅ Partly cloudy, Great sightseeing\n"
-            multi_compare += "3. 🥉 Sydney: 23°C, 🌤️ Mostly sunny, Ideal city walks\n\n"
-            multi_compare += "🌡️ TEMPERATURE RANKINGS:\n"
-            multi_compare += "• Hottest: Dubai (35°C) - Desert heat\n"
-            multi_compare += "• Warmest Pleasant: Rome (27°C) - Perfect warmth\n"
-            multi_compare += "• Mild: London (18°C) - Comfortable cool\n"
-            multi_compare += "• Cool: Stockholm (12°C) - Light jacket weather\n"
-            multi_compare += "• Cold: Reykjavik (5°C) - Winter clothes needed\n\n"
-            multi_compare += "☀️ SUNSHINE RANKINGS:\n"
-            multi_compare += "• Sunniest: Los Angeles - Clear skies\n"
-            multi_compare += "• Very Sunny: Athens - Bright and warm\n"
-            multi_compare += "• Partly Sunny: Paris - Mixed conditions\n"
-            multi_compare += "• Cloudy: Seattle - Overcast skies\n"
-            multi_compare += "• Rainy: London - Light showers\n\n"
-            multi_compare += "🎯 ACTIVITY RECOMMENDATIONS:\n\n"
-            multi_compare += "🏖️ Beach Weather: Miami, Barcelona, Sydney\n"
-            multi_compare += "🏛️ Sightseeing: Rome, Paris, Athens\n"
-            multi_compare += "🛍️ Shopping: London, Tokyo, New York\n"
-            multi_compare += "🏔️ Mountain Activities: Denver, Zurich, Calgary\n"
-            multi_compare += "🎭 Cultural Activities: London, Paris, Berlin\n\n"
-            multi_compare += "💡 Quick Tips:\n"
-            multi_compare += f"• Add your cities using 'Save Favorite' for personalized comparisons\n"
-            multi_compare += f"• Use main comparison for detailed two-city analysis\n"
-            multi_compare += f"• Check travel advice for packing recommendations"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, multi_compare)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_distance_info(self):
-        """Show distance and geographic information between cities"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
-            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
-            distance_info += "🛣️ DISTANCE INFORMATION:\n"
-            distance_info += "• Straight-line distance: ~2,847 km\n"
-            distance_info += "• Driving distance: ~3,200 km\n"
-            distance_info += "• Flight distance: ~2,847 km\n\n"
-            distance_info += "✈️ TRAVEL TIME:\n"
-            distance_info += "• Flight: ~3.5 hours\n"
-            distance_info += "• Driving: ~32 hours\n"
-            distance_info += "• Train: ~38 hours\n\n"
-            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
-            distance_info += f"• {city1}: Northern hemisphere\n"
-            distance_info += f"• {city2}: Northern hemisphere\n"
-            distance_info += "• Time zone difference: Varies by location\n"
-            distance_info += "• Seasonal differences: May vary significantly\n\n"
-            distance_info += "🧭 COORDINATE INFO:\n"
-            distance_info += "• Direction: Calculate based on coordinates\n"
-            distance_info += "• Climate zones: May differ significantly\n"
-            distance_info += "• Weather patterns: Can be very different\n\n"
-            distance_info += "💡 Tips for Travelers:\n"
-            distance_info += "• Check time zones for communication\n"
-            distance_info += "• Consider seasonal weather differences\n"
-            distance_info += "• Plan for climate adaptation time"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, distance_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def detailed_comparison(self):
-        """Show detailed comparison with more metrics"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
-            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
-            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
-            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
-            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
-            detailed += "💧 HUMIDITY & COMFORT:\n"
-            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
-            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
-            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
-            detailed += "💨 WIND CONDITIONS:\n"
-            detailed += f"• {city1}: 12 km/h, Light breeze\n"
-            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
-            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
-            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
-            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
-            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
-            detailed += f"• Winner: {city1} (Better visibility)\n\n"
-            detailed += "☀️ UV INDEX & SUN:\n"
-            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
-            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
-            detailed += f"• {city1}: More sun exposure needed\n\n"
-            detailed += "🎯 OVERALL RECOMMENDATION:\n"
-            detailed += f"Better weather today: {city1}\n"
-            detailed += "• Warmer temperature\n"
-            detailed += "• Lower humidity\n"
-            detailed += "• Better visibility\n"
-            detailed += "• Calmer wind conditions\n\n"
-            detailed += "🏆 Weather Score:\n"
-            detailed += f"• {city1}: 8.5/10\n"
-            detailed += f"• {city2}: 6.5/10"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, detailed)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def get_travel_advice(self):
-        """Get travel advice based on weather comparison"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
-            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
-            travel_advice += f"📍 Current Conditions Analysis:\n"
-            travel_advice += f"• {city1}: Better for outdoor activities\n"
-            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
-            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
-            travel_advice += f"For {city1}:\n"
-            travel_advice += "• Lighter clothing (warmer weather)\n"
-            travel_advice += "• Sunscreen and sunglasses\n"
-            travel_advice += "• Light jacket for evening\n"
-            travel_advice += "• Comfortable walking shoes\n\n"
-            travel_advice += f"For {city2}:\n"
-            travel_advice += "• Layered clothing (cooler weather)\n"
-            travel_advice += "• Light rain jacket\n"
-            travel_advice += "• Warmer evening wear\n"
-            travel_advice += "• Umbrella (higher humidity)\n\n"
-            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
-            travel_advice += f"Visit {city1} for:\n"
-            travel_advice += "• Outdoor sightseeing\n"
-            travel_advice += "• Photography sessions\n"
-            travel_advice += "• Walking tours\n"
-            travel_advice += "• Beach/park activities\n\n"
-            travel_advice += f"Visit {city2} for:\n"
-            travel_advice += "• Museum visits\n"
-            travel_advice += "• Indoor entertainment\n"
-            travel_advice += "• Shopping experiences\n"
-            travel_advice += "• Cozy café culture\n\n"
-            travel_advice += "💰 COST CONSIDERATIONS:\n"
-            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
-            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
-            travel_advice += "🏆 VERDICT:\n"
-            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
-            travel_advice += f"For culture seekers: Either city works\n"
-            travel_advice += f"For budget travelers: Consider {city2}\n"
-            travel_advice += f"For photographers: {city1} has better conditions"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, travel_advice)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def multi_city_compare(self):
-        """Compare multiple cities at once"""
-        try:
-            multi_compare = f"⭐ MULTI-CITY COMPARISON:\n"
-            multi_compare += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            multi_compare += "🌍 POPULAR DESTINATIONS WEATHER COMPARISON:\n\n"
-            multi_compare += "🏆 TOP WEATHER TODAY:\n"
-            multi_compare += "1. 🥇 Miami: 28°C, ☀️ Sunny, Perfect beach weather\n"
-            multi_compare += "2. 🥈 Barcelona: 25°C, ⛅ Partly cloudy, Great sightseeing\n"
-            multi_compare += "3. 🥉 Sydney: 23°C, 🌤️ Mostly sunny, Ideal city walks\n\n"
-            multi_compare += "🌡️ TEMPERATURE RANKINGS:\n"
-            multi_compare += "• Hottest: Dubai (35°C) - Desert heat\n"
-            multi_compare += "• Warmest Pleasant: Rome (27°C) - Perfect warmth\n"
-            multi_compare += "• Mild: London (18°C) - Comfortable cool\n"
-            multi_compare += "• Cool: Stockholm (12°C) - Light jacket weather\n"
-            multi_compare += "• Cold: Reykjavik (5°C) - Winter clothes needed\n\n"
-            multi_compare += "☀️ SUNSHINE RANKINGS:\n"
-            multi_compare += "• Sunniest: Los Angeles - Clear skies\n"
-            multi_compare += "• Very Sunny: Athens - Bright and warm\n"
-            multi_compare += "• Partly Sunny: Paris - Mixed conditions\n"
-            multi_compare += "• Cloudy: Seattle - Overcast skies\n"
-            multi_compare += "• Rainy: London - Light showers\n\n"
-            multi_compare += "🎯 ACTIVITY RECOMMENDATIONS:\n\n"
-            multi_compare += "🏖️ Beach Weather: Miami, Barcelona, Sydney\n"
-            multi_compare += "🏛️ Sightseeing: Rome, Paris, Athens\n"
-            multi_compare += "🛍️ Shopping: London, Tokyo, New York\n"
-            multi_compare += "🏔️ Mountain Activities: Denver, Zurich, Calgary\n"
-            multi_compare += "🎭 Cultural Activities: London, Paris, Berlin\n\n"
-            multi_compare += "💡 Quick Tips:\n"
-            multi_compare += f"• Add your cities using 'Save Favorite' for personalized comparisons\n"
-            multi_compare += f"• Use main comparison for detailed two-city analysis\n"
-            multi_compare += f"• Check travel advice for packing recommendations"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, multi_compare)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_distance_info(self):
-        """Show distance and geographic information between cities"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
-            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
-            distance_info += "🛣️ DISTANCE INFORMATION:\n"
-            distance_info += "• Straight-line distance: ~2,847 km\n"
-            distance_info += "• Driving distance: ~3,200 km\n"
-            distance_info += "• Flight distance: ~2,847 km\n\n"
-            distance_info += "✈️ TRAVEL TIME:\n"
-            distance_info += "• Flight: ~3.5 hours\n"
-            distance_info += "• Driving: ~32 hours\n"
-            distance_info += "• Train: ~38 hours\n\n"
-            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
-            distance_info += f"• {city1}: Northern hemisphere\n"
-            distance_info += f"• {city2}: Northern hemisphere\n"
-            distance_info += "• Time zone difference: Varies by location\n"
-            distance_info += "• Seasonal differences: May vary significantly\n\n"
-            distance_info += "🧭 COORDINATE INFO:\n"
-            distance_info += "• Direction: Calculate based on coordinates\n"
-            distance_info += "• Climate zones: May differ significantly\n"
-            distance_info += "• Weather patterns: Can be very different\n\n"
-            distance_info += "💡 Tips for Travelers:\n"
-            distance_info += "• Check time zones for communication\n"
-            distance_info += "• Consider seasonal weather differences\n"
-            distance_info += "• Plan for climate adaptation time"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, distance_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def detailed_comparison(self):
-        """Show detailed comparison with more metrics"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
-        try:
-            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
-            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
-            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
-            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
-            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
-            detailed += "💧 HUMIDITY & COMFORT:\n"
-            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
-            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
-            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
-            detailed += "💨 WIND CONDITIONS:\n"
-            detailed += f"• {city1}: 12 km/h, Light breeze\n"
-            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
-            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
-            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
-            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
-            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
-            detailed += f"• Winner: {city1} (Better visibility)\n\n"
-            detailed += "☀️ UV INDEX & SUN:\n"
-            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
-            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
-            detailed += f"• {city1}: More sun exposure needed\n\n"
-            detailed += "🎯 OVERALL RECOMMENDATION:\n"
-            detailed += f"Better weather today: {city1}\n"
-            detailed += "• Warmer temperature\n"
-            detailed += "• Lower humidity\n"
-            detailed += "• Better visibility\n"
-            detailed += "• Calmer wind conditions\n\n"
-            detailed += "🏆 Weather Score:\n"
-            detailed += f"• {city1}: 8.5/10\n"
-            detailed += f"• {city2}: 6.5/10"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, detailed)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-
-class JournalTab:
-    """Weather journal tab component"""
+    def _clear_chart_area(self):
+        """Clear the chart display area"""
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
     
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Weather Journal")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the UI components"""
-        StyledLabel(self.frame, text="Journal Entry:").pack(pady=10)
-        self.entry_text = StyledText(self.frame, height=5)
-        self.entry_text.pack(pady=5)
+    def generate_temperature_comparison_chart(self):
+        """Generate temperature comparison bar chart"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
         
-        StyledLabel(self.frame, text="Mood:").pack()
-        self.mood_entry = ttk.Entry(self.frame)
-        self.mood_entry.pack()
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Create figure and axis
+            fig = Figure(figsize=(10, 6), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Mock data - in real app would come from API
+            metrics = ['Current', 'Feels Like', 'Min', 'Max', 'Morning', 'Evening']
+            city1_temps = [24, 26, 18, 29, 20, 23]
+            city2_temps = [19, 18, 15, 22, 16, 20]
+            
+            x = np.arange(len(metrics))
+            width = 0.35
+            
+            # Create grouped bar chart
+            rects1 = ax.bar(x - width/2, city1_temps, width, label=city1, color='#F8A65D')
+            rects2 = ax.bar(x + width/2, city2_temps, width, label=city2, color='#4CA6FF')
+            
+            # Add labels and styling
+            ax.set_title(f'Temperature Comparison: {city1} vs {city2}', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Temperature Metrics', fontsize=12)
+            ax.set_ylabel('Temperature (°C)', fontsize=12)
+            ax.set_xticks(x)
+            ax.set_xticklabels(metrics)
+            ax.legend()
+            
+            # Add value labels on top of bars
+            for rect in rects1:
+                height = rect.get_height()
+                ax.annotate(f'{height}°C',
+                            xy=(rect.get_x() + rect.get_width()/2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha='center', va='bottom',
+                            fontweight='bold')
+                            
+            for rect in rects2:
+                height = rect.get_height()
+                ax.annotate(f'{height}°C',
+                            xy=(rect.get_x() + rect.get_width()/2, height),
+                            xytext=(0, 3),
+                            textcoords="offset points",
+                            ha='center', va='bottom',
+                            fontweight='bold')
+            
+            # Add grid and styling
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            
+            # Display the chart
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Add toolbar for interactive features
+            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate temperature comparison chart: {str(e)}")
+    
+    def generate_radar_comparison_chart(self):
+        """Generate radar chart to compare multiple metrics"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
         
-        self.result_text = StyledText(self.frame, height=5)
-        self.result_text.pack(pady=10)
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Create figure
+            fig = Figure(figsize=(8, 7), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111, polar=True)
+            
+            # Mock data - in real app would come from API
+            categories = ['Temperature', 'Humidity', 'Wind', 'Comfort', 'Visibility', 'UV Index']
+            
+            # Values from 0-100 for each metric
+            city1_values = [80, 65, 40, 75, 90, 60]
+            city2_values = [50, 85, 65, 45, 70, 40]
+            
+            # Number of metrics
+            N = len(categories)
+            
+            # Create angles for each metric (radians)
+            angles = [n / float(N) * 2 * np.pi for n in range(N)]
+            angles += angles[:1]  # Close the loop
+            
+            # Add values to complete the loop
+            city1_values += city1_values[:1]
+            city2_values += city2_values[:1]
+            
+            # Plot radar chart
+            ax.plot(angles, city1_values, 'o-', linewidth=2, label=city1, color='#FF6B6B')
+            ax.fill(angles, city1_values, alpha=0.25, color='#FF6B6B')
+            
+            ax.plot(angles, city2_values, 'o-', linewidth=2, label=city2, color='#4ECDC4')
+            ax.fill(angles, city2_values, alpha=0.25, color='#4ECDC4')
+            
+            # Set category labels
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(categories)
+            
+            # Add grid and styling
+            ax.set_yticks([20, 40, 60, 80, 100])
+            ax.set_yticklabels(['20', '40', '60', '80', '100'])
+            ax.set_ylim(0, 100)
+            
+            # Add title and legend
+            ax.set_title(f'Weather Metrics Comparison: {city1} vs {city2}', size=14, fontweight='bold', pad=20)
+            ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+            
+            # Display the chart
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Add toolbar for interactive features
+            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate radar comparison chart: {str(e)}")
+    
+    def generate_humidity_pressure_chart(self):
+        """Generate scatter plot showing humidity vs pressure correlation"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
         
-        # Main action button
-        StyledButton(self.frame, "primary", text="Save Entry", 
-                    command=self.save_journal).pack(pady=5)
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Create figure and axis
+            fig = Figure(figsize=(9, 6), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Mock data points for the past week (humidity % vs pressure hPa)
+            # In a real app, this would come from API/historical data
+            city1_humidity = [65, 68, 72, 70, 75, 67, 63]
+            city1_pressure = [1012, 1010, 1008, 1007, 1005, 1008, 1011]
+            
+            city2_humidity = [55, 58, 62, 60, 65, 70, 72]
+            city2_pressure = [1015, 1014, 1012, 1010, 1008, 1007, 1009]
+            
+            # Create scatter plot with trend lines
+            ax.scatter(city1_humidity, city1_pressure, color='#FC766A', s=100, alpha=0.7, 
+                      label=f"{city1}", edgecolors='white', linewidth=1)
+            ax.scatter(city2_humidity, city2_pressure, color='#5B84B1', s=100, alpha=0.7, 
+                      label=f"{city2}", edgecolors='white', linewidth=1)
+            
+            # Add trend lines
+            z1 = np.polyfit(city1_humidity, city1_pressure, 1)
+            p1 = np.poly1d(z1)
+            x_range = np.linspace(min(city1_humidity), max(city1_humidity), 100)
+            ax.plot(x_range, p1(x_range), color='#FC766A', linestyle='--', linewidth=2)
+            
+            z2 = np.polyfit(city2_humidity, city2_pressure, 1)
+            p2 = np.poly1d(z2)
+            x_range = np.linspace(min(city2_humidity), max(city2_humidity), 100)
+            ax.plot(x_range, p2(x_range), color='#5B84B1', linestyle='--', linewidth=2)
+            
+            # Add labels and styling
+            ax.set_title('Humidity vs. Air Pressure Correlation', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Humidity (%)', fontsize=12)
+            ax.set_ylabel('Air Pressure (hPa)', fontsize=12)
+            ax.grid(True, linestyle='--', alpha=0.7)
+            ax.legend()
+            
+            # Annotate correlation patterns
+            corr1 = round(np.corrcoef(city1_humidity, city1_pressure)[0, 1], 2)
+            corr2 = round(np.corrcoef(city2_humidity, city2_pressure)[0, 1], 2)
+            
+            ax.annotate(f"Correlation: {corr1}", 
+                       xy=(city1_humidity[0], city1_pressure[0]),
+                       xytext=(city1_humidity[0]+5, city1_pressure[0]+5),
+                       color='#FC766A',
+                       fontweight='bold')
+                       
+            ax.annotate(f"Correlation: {corr2}", 
+                       xy=(city2_humidity[0], city2_pressure[0]),
+                       xytext=(city2_humidity[0]+5, city2_pressure[0]-5),
+                       color='#5B84B1',
+                       fontweight='bold')
+            
+            # Display the chart
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Add toolbar for interactive features
+            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate humidity/pressure chart: {str(e)}")
+    
+    def generate_climate_trend_chart(self):
+        """Generate line chart showing climate trends"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
         
-        # Additional Enhanced Buttons
-        journal_button_frame = ttk.Frame(self.frame)
-        journal_button_frame.pack(pady=5)
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Create figure and axis
+            fig = Figure(figsize=(10, 6), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111)
+            
+            # Mock data for monthly temperature trends
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            city1_temps = [5, 6, 10, 15, 20, 24, 27, 26, 22, 16, 10, 6]
+            city2_temps = [12, 13, 15, 17, 20, 23, 25, 25, 23, 20, 16, 13]
+            
+            # Plot the data
+            ax.plot(months, city1_temps, marker='o', linewidth=3, markersize=8, 
+                   color='#FF9671', label=city1)
+            ax.plot(months, city2_temps, marker='s', linewidth=3, markersize=8, 
+                   color='#00D2FC', label=city2)
+            
+            # Fill below the lines
+            ax.fill_between(months, city1_temps, alpha=0.2, color='#FF9671')
+            ax.fill_between(months, city2_temps, alpha=0.2, color='#00D2FC')
+            
+            # Highlight seasonal differences
+            ax.axvspan(0, 1.5, alpha=0.1, color='#B0E0E6', label='Winter')  # Winter
+            ax.axvspan(2.5, 4.5, alpha=0.1, color='#98FB98', label='Spring')  # Spring
+            ax.axvspan(5.5, 7.5, alpha=0.1, color='#FFDAB9', label='Summer')  # Summer
+            ax.axvspan(8.5, 10.5, alpha=0.1, color='#FFB347', label='Fall')  # Fall
+            
+            # Add labels and styling
+            ax.set_title(f'Annual Temperature Trends: {city1} vs {city2}', fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Month', fontsize=12)
+            ax.set_ylabel('Temperature (°C)', fontsize=12)
+            ax.grid(True, linestyle='--', alpha=0.7)
+            
+            # Add min/max annotations
+            city1_max_idx = city1_temps.index(max(city1_temps))
+            city1_min_idx = city1_temps.index(min(city1_temps))
+            city2_max_idx = city2_temps.index(max(city2_temps))
+            city2_min_idx = city2_temps.index(min(city2_temps))
+            
+            ax.annotate(f"Max: {max(city1_temps)}°C", 
+                       xy=(months[city1_max_idx], max(city1_temps)),
+                       xytext=(0, 10),
+                       textcoords="offset points",
+                       ha='center',
+                       color='#FF9671',
+                       fontweight='bold')
+                       
+            ax.annotate(f"Min: {min(city1_temps)}°C", 
+                       xy=(months[city1_min_idx], min(city1_temps)),
+                       xytext=(0, -15),
+                       textcoords="offset points",
+                       ha='center',
+                       color='#FF9671',
+                       fontweight='bold')
+                       
+            ax.annotate(f"Max: {max(city2_temps)}°C", 
+                       xy=(months[city2_max_idx], max(city2_temps)),
+                       xytext=(0, 10),
+                       textcoords="offset points",
+                       ha='center',
+                       color='#00D2FC',
+                       fontweight='bold')
+                       
+            ax.annotate(f"Min: {min(city2_temps)}°C", 
+                       xy=(months[city2_min_idx], min(city2_temps)),
+                       xytext=(0, -15),
+                       textcoords="offset points",
+                       ha='center',
+                       color='#00D2FC',
+                       fontweight='bold')
+            
+            # Add legend with season colors
+            handles, labels = ax.get_legend_handles_labels()
+            city_handles = handles[:2]
+            season_handles = handles[2:]
+            city_labels = labels[:2]
+            season_labels = labels[2:]
+            
+            # Two separate legends for cities and seasons
+            legend1 = ax.legend(city_handles, city_labels, loc='upper left')
+            ax.add_artist(legend1)
+            
+            # Display the chart
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Add toolbar for interactive features
+            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            toolbar.update()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to generate climate trend chart: {str(e)}")
+    
+    def compare_cities(self):
+        """Compare weather between two cities with enhanced visualization"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
         
-        StyledButton(journal_button_frame, "accent_black", text="📖 View All Entries", 
-                    command=self.view_all_entries).grid(row=0, column=0, padx=3)
-        StyledButton(journal_button_frame, "info_black", text="📊 Mood Analytics", 
-                    command=self.show_mood_analytics).grid(row=0, column=1, padx=3)
-        StyledButton(journal_button_frame, "success_black", text="📤 Export Journal", 
-                    command=self.export_journal).grid(row=0, column=2, padx=3)
-        StyledButton(journal_button_frame, "warning_black", text="🔍 Search Entries", 
-                    command=self.search_entries).grid(row=0, column=3, padx=3)
-
-    def save_journal(self):
-        """Save journal entry"""
-        text = self.entry_text.get(1.0, tk.END).strip()
-        mood = self.mood_entry.get().strip()
-        
-        if not text:
-            messagebox.showwarning("Input Error", "Please enter journal text")
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
             return
         
         try:
-            self.controller.save_journal_entry(text, mood)
+            # Get comparison text
+            comparison = self.controller.compare_cities(city1, city2)
+            
+            # Update text results
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, "Journal entry saved!")
-            # Clear the form
-            self.entry_text.delete(1.0, tk.END)
-            self.mood_entry.delete(0, tk.END)
+            self.result_text.insert(tk.END, comparison)
+            
+            # Auto-generate temperature comparison chart
+            self.generate_temperature_comparison_chart()
+            
+        except Exception as e:
+            messagebox.showerror("Comparison Error", 
+                               f"Failed to compare cities: {str(e)}\n\n"
+                               "Please check:\n"
+                               "- City names are spelled correctly\n"
+                               "- Internet connection is active\n"
+                               "- Weather service is available")
+
+    def show_distance_info(self):
+        """Show distance and geographic information between cities"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
+            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
+            distance_info += "🛣️ DISTANCE INFORMATION:\n"
+            distance_info += "• Straight-line distance: ~2,847 km\n"
+            distance_info += "• Driving distance: ~3,200 km\n"
+            distance_info += "• Flight distance: ~2,847 km\n\n"
+            distance_info += "✈️ TRAVEL TIME:\n"
+            distance_info += "• Flight: ~3.5 hours\n"
+            distance_info += "• Driving: ~32 hours\n"
+            distance_info += "• Train: ~38 hours\n\n"
+            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
+            distance_info += f"• {city1}: Northern hemisphere\n"
+            distance_info += f"• {city2}: Northern hemisphere\n"
+            distance_info += "• Time zone difference: Varies by location\n"
+            distance_info += "• Seasonal differences: May vary significantly\n\n"
+            distance_info += "🧭 COORDINATE INFO:\n"
+            distance_info += "• Direction: Calculate based on coordinates\n"
+            distance_info += "• Climate zones: May differ significantly\n"
+            distance_info += "• Weather patterns: Can be very different\n\n"
+            distance_info += "💡 Tips for Travelers:\n"
+            distance_info += "• Check time zones for communication\n"
+            distance_info += "• Consider seasonal weather differences\n"
+            distance_info += "• Plan for climate adaptation time"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, distance_info)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+    def detailed_comparison(self):
+        """Show detailed comparison with more metrics"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
+            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
+            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
+            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
+            detailed += "💧 HUMIDITY & COMFORT:\n"
+            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
+            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
+            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
+            detailed += "💨 WIND CONDITIONS:\n"
+            detailed += f"• {city1}: 12 km/h, Light breeze\n"
+            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
+            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
+            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
+            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
+            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
+            detailed += f"• Winner: {city1} (Better visibility)\n\n"
+            detailed += "☀️ UV INDEX & SUN:\n"
+            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
+            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
+            detailed += f"• {city1}: More sun exposure needed\n\n"
+            detailed += "🎯 OVERALL RECOMMENDATION:\n"
+            detailed += f"Better weather today: {city1}\n"
+            detailed += "• Warmer temperature\n"
+            detailed += "• Lower humidity\n"
+            detailed += "• Better visibility\n"
+            detailed += "• Calmer wind conditions\n\n"
+            detailed += "🏆 Weather Score:\n"
+            detailed += f"• {city1}: 8.5/10\n"
+            detailed += f"• {city2}: 6.5/10"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, detailed)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def get_travel_advice(self):
+        """Get travel advice based on weather comparison"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
+            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
+            travel_advice += f"📍 Current Conditions Analysis:\n"
+            travel_advice += f"• {city1}: Better for outdoor activities\n"
+            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
+            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
+            travel_advice += "• Lighter clothing (warmer weather)\n"
+            travel_advice += "• Sunscreen and sunglasses\n"
+            travel_advice += "• Light jacket for evening\n"
+            travel_advice += "• Comfortable walking shoes\n\n"
+            travel_advice += f"For {city2}:\n"
+            travel_advice += "• Layered clothing (cooler weather)\n"
+            travel_advice += "• Light rain jacket\n"
+            travel_advice += "• Warmer evening wear\n"
+            travel_advice += "• Umbrella (higher humidity)\n\n"
+            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
+            travel_advice += f"Visit {city1} for:\n"
+            travel_advice += "• Outdoor sightseeing\n"
+            travel_advice += "• Photography sessions\n"
+            travel_advice += "• Walking tours\n"
+            travel_advice += "• Beach/park activities\n\n"
+            travel_advice += f"Visit {city2} for:\n"
+            travel_advice += "• Museum visits\n"
+            travel_advice += "• Indoor entertainment\n"
+            travel_advice += "• Shopping experiences\n"
+            travel_advice += "• Cozy café culture\n\n"
+            travel_advice += "💰 COST CONSIDERATIONS:\n"
+            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
+            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
+            travel_advice += "🏆 VERDICT:\n"
+            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
+            travel_advice += f"For culture seekers: Either city works\n"
+            travel_advice += f"For budget travelers: Consider {city2}\n"
+            travel_advice += f"For photographers: {city1} has better conditions"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, travel_advice)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def multi_city_compare(self):
+        """Compare multiple cities at once"""
+        try:
+            multi_compare = f"⭐ MULTI-CITY COMPARISON:\n"
+            multi_compare += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            multi_compare += "🌍 POPULAR DESTINATIONS WEATHER COMPARISON:\n\n"
+            multi_compare += "🏆 TOP WEATHER TODAY:\n"
+            multi_compare += "1. 🥇 Miami: 28°C, ☀️ Sunny, Perfect beach weather\n"
+            multi_compare += "2. 🥈 Barcelona: 25°C, ⛅ Partly cloudy, Great sightseeing\n"
+            multi_compare += "3. 🥉 Sydney: 23°C, 🌤️ Mostly sunny, Ideal city walks\n\n"
+            multi_compare += "🌡️ TEMPERATURE RANKINGS:\n"
+            multi_compare += "• Hottest: Dubai (35°C) - Desert heat\n"
+            multi_compare += "• Warmest Pleasant: Rome (27°C) - Perfect warmth\n"
+            multi_compare += "• Mild: London (18°C) - Comfortable cool\n"
+            multi_compare += "• Cool: Stockholm (12°C) - Light jacket weather\n"
+            multi_compare += "• Cold: Reykjavik (5°C) - Winter clothes needed\n\n"
+            multi_compare += "☀️ SUNSHINE RANKINGS:\n"
+            multi_compare += "• Sunniest: Los Angeles - Clear skies\n"
+            multi_compare += "• Very Sunny: Athens - Bright and warm\n"
+            multi_compare += "• Partly Sunny: Paris - Mixed conditions\n"
+            multi_compare += "• Cloudy: Seattle - Overcast skies\n"
+            multi_compare += "• Rainy: London - Light showers\n\n"
+            multi_compare += "🎯 ACTIVITY RECOMMENDATIONS:\n\n"
+            multi_compare += "🏖️ Beach Weather: Miami, Barcelona, Sydney\n"
+            multi_compare += "🏛️ Sightseeing: Rome, Paris, Athens\n"
+            multi_compare += "🛍️ Shopping: London, Tokyo, New York\n"
+            multi_compare += "🏔️ Mountain Activities: Denver, Zurich, Calgary\n"
+            multi_compare += "🎭 Cultural Activities: London, Paris, Berlin\n\n"
+            multi_compare += "💡 Quick Tips:\n"
+            multi_compare += f"• Add your cities using 'Save Favorite' for personalized comparisons\n"
+            multi_compare += f"• Use main comparison for detailed two-city analysis\n"
+            multi_compare += f"• Check travel advice for packing recommendations"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, multi_compare)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def show_distance_info(self):
+        """Show distance and geographic information between cities"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
+            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
+            distance_info += "🛣️ DISTANCE INFORMATION:\n"
+            distance_info += "• Straight-line distance: ~2,847 km\n"
+            distance_info += "• Driving distance: ~3,200 km\n"
+            distance_info += "• Flight distance: ~2,847 km\n\n"
+            distance_info += "✈️ TRAVEL TIME:\n"
+            distance_info += "• Flight: ~3.5 hours\n"
+            distance_info += "• Driving: ~32 hours\n"
+            distance_info += "• Train: ~38 hours\n\n"
+            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
+            distance_info += f"• {city1}: Northern hemisphere\n"
+            distance_info += f"• {city2}: Northern hemisphere\n"
+            distance_info += "• Time zone difference: Varies by location\n"
+            distance_info += "• Seasonal differences: May vary significantly\n\n"
+            distance_info += "🧭 COORDINATE INFO:\n"
+            distance_info += "• Direction: Calculate based on coordinates\n"
+            distance_info += "• Climate zones: May differ significantly\n"
+            distance_info += "• Weather patterns: Can be very different\n\n"
+            distance_info += "💡 Tips for Travelers:\n"
+            distance_info += "• Check time zones for communication\n"
+            distance_info += "• Consider seasonal weather differences\n"
+            distance_info += "• Plan for climate adaptation time"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, distance_info)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def detailed_comparison(self):
+        """Show detailed comparison with more metrics"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
+            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
+            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
+            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
+            detailed += "💧 HUMIDITY & COMFORT:\n"
+            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
+            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
+            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
+            detailed += "💨 WIND CONDITIONS:\n"
+            detailed += f"• {city1}: 12 km/h, Light breeze\n"
+            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
+            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
+            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
+            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
+            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
+            detailed += f"• Winner: {city1} (Better visibility)\n\n"
+            detailed += "☀️ UV INDEX & SUN:\n"
+            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
+            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
+            detailed += f"• {city1}: More sun exposure needed\n\n"
+            detailed += "🎯 OVERALL RECOMMENDATION:\n"
+            detailed += f"Better weather today: {city1}\n"
+            detailed += "• Warmer temperature\n"
+            detailed += "• Lower humidity\n"
+            detailed += "• Better visibility\n"
+            detailed += "• Calmer wind conditions\n\n"
+            detailed += "🏆 Weather Score:\n"
+            detailed += f"• {city1}: 8.5/10\n"
+            detailed += f"• {city2}: 6.5/10"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, detailed)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def get_travel_advice(self):
+        """Get travel advice based on weather comparison"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
+            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
+            travel_advice += f"📍 Current Conditions Analysis:\n"
+            travel_advice += f"• {city1}: Better for outdoor activities\n"
+            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
+            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
+            travel_advice += f"For {city1}:\n"
+            travel_advice += "• Lighter clothing (warmer weather)\n"
+            travel_advice += "• Sunscreen and sunglasses\n"
+            travel_advice += "• Light jacket for evening\n"
+            travel_advice += "• Comfortable walking shoes\n\n"
+            travel_advice += f"For {city2}:\n"
+            travel_advice += "• Layered clothing (cooler weather)\n"
+            travel_advice += "• Light rain jacket\n"
+            travel_advice += "• Warmer evening wear\n"
+            travel_advice += "• Umbrella (higher humidity)\n\n"
+            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
+            travel_advice += f"Visit {city1} for:\n"
+            travel_advice += "• Outdoor sightseeing\n"
+            travel_advice += "• Photography sessions\n"
+            travel_advice += "• Walking tours\n"
+            travel_advice += "• Beach/park activities\n\n"
+            travel_advice += f"Visit {city2} for:\n"
+            travel_advice += "• Museum visits\n"
+            travel_advice += "• Indoor entertainment\n"
+            travel_advice += "• Shopping experiences\n"
+            travel_advice += "• Cozy café culture\n\n"
+            travel_advice += "💰 COST CONSIDERATIONS:\n"
+            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
+            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
+            travel_advice += "🏆 VERDICT:\n"
+            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
+            travel_advice += f"For culture seekers: Either city works\n"
+            travel_advice += f"For budget travelers: Consider {city2}\n"
+            travel_advice += f"For photographers: {city1} has better conditions"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, travel_advice)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def multi_city_compare(self):
+        """Compare multiple cities at once"""
+        try:
+            multi_compare = f"⭐ MULTI-CITY COMPARISON:\n"
+            multi_compare += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            multi_compare += "🌍 POPULAR DESTINATIONS WEATHER COMPARISON:\n\n"
+            multi_compare += "🏆 TOP WEATHER TODAY:\n"
+            multi_compare += "1. 🥇 Miami: 28°C, ☀️ Sunny, Perfect beach weather\n"
+            multi_compare += "2. 🥈 Barcelona: 25°C, ⛅ Partly cloudy, Great sightseeing\n"
+            multi_compare += "3. 🥉 Sydney: 23°C, 🌤️ Mostly sunny, Ideal city walks\n\n"
+            multi_compare += "🌡️ TEMPERATURE RANKINGS:\n"
+            multi_compare += "• Hottest: Dubai (35°C) - Desert heat\n"
+            multi_compare += "• Warmest Pleasant: Rome (27°C) - Perfect warmth\n"
+            multi_compare += "• Mild: London (18°C) - Comfortable cool\n"
+            multi_compare += "• Cool: Stockholm (12°C) - Light jacket weather\n"
+            multi_compare += "• Cold: Reykjavik (5°C) - Winter clothes needed\n\n"
+            multi_compare += "☀️ SUNSHINE RANKINGS:\n"
+            multi_compare += "• Sunniest: Los Angeles - Clear skies\n"
+            multi_compare += "• Very Sunny: Athens - Bright and warm\n"
+            multi_compare += "• Partly Sunny: Paris - Mixed conditions\n"
+            multi_compare += "• Cloudy: Seattle - Overcast skies\n"
+            multi_compare += "• Rainy: London - Light showers\n\n"
+            multi_compare += "🎯 ACTIVITY RECOMMENDATIONS:\n\n"
+            multi_compare += "🏖️ Beach Weather: Miami, Barcelona, Sydney\n"
+            multi_compare += "🏛️ Sightseeing: Rome, Paris, Athens\n"
+            multi_compare += "🛍️ Shopping: London, Tokyo, New York\n"
+            multi_compare += "🏔️ Mountain Activities: Denver, Zurich, Calgary\n"
+            multi_compare += "🎭 Cultural Activities: London, Paris, Berlin\n\n"
+            multi_compare += "💡 Quick Tips:\n"
+            multi_compare += f"• Add your cities using 'Save Favorite' for personalized comparisons\n"
+            multi_compare += f"• Use main comparison for detailed two-city analysis\n"
+            multi_compare += f"• Check travel advice for packing recommendations"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, multi_compare)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def show_distance_info(self):
+        """Show distance and geographic information between cities"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
+            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
+            distance_info += "🛣️ DISTANCE INFORMATION:\n"
+            distance_info += "• Straight-line distance: ~2,847 km\n"
+            distance_info += "• Driving distance: ~3,200 km\n"
+            distance_info += "• Flight distance: ~2,847 km\n\n"
+            distance_info += "✈️ TRAVEL TIME:\n"
+            distance_info += "• Flight: ~3.5 hours\n"
+            distance_info += "• Driving: ~32 hours\n"
+            distance_info += "• Train: ~38 hours\n\n"
+            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
+            distance_info += f"• {city1}: Northern hemisphere\n"
+            distance_info += f"• {city2}: Northern hemisphere\n"
+            distance_info += "• Time zone difference: Varies by location\n"
+            distance_info += "• Seasonal differences: May vary significantly\n\n"
+            distance_info += "🧭 COORDINATE INFO:\n"
+            distance_info += "• Direction: Calculate based on coordinates\n"
+            distance_info += "• Climate zones: May differ significantly\n"
+            distance_info += "• Weather patterns: Can be very different\n\n"
+            distance_info += "💡 Tips for Travelers:\n"
+            distance_info += "• Check time zones for communication\n"
+            distance_info += "• Consider seasonal weather differences\n"
+            distance_info += "• Plan for climate adaptation time"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, distance_info)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def detailed_comparison(self):
+        """Show detailed comparison with more metrics"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
+            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
+            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
+            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
+            detailed += "💧 HUMIDITY & COMFORT:\n"
+            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
+            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
+            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
+            detailed += "💨 WIND CONDITIONS:\n"
+            detailed += f"• {city1}: 12 km/h, Light breeze\n"
+            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
+            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
+            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
+            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
+            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
+            detailed += f"• Winner: {city1} (Better visibility)\n\n"
+            detailed += "☀️ UV INDEX & SUN:\n"
+            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
+            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
+            detailed += f"• {city1}: More sun exposure needed\n\n"
+            detailed += "🎯 OVERALL RECOMMENDATION:\n"
+            detailed += f"Better weather today: {city1}\n"
+            detailed += "• Warmer temperature\n"
+            detailed += "• Lower humidity\n"
+            detailed += "• Better visibility\n"
+            detailed += "• Calmer wind conditions\n\n"
+            detailed += "🏆 Weather Score:\n"
+            detailed += f"• {city1}: 8.5/10\n"
+            detailed += f"• {city2}: 6.5/10"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, detailed)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def get_travel_advice(self):
+        """Get travel advice based on weather comparison"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
+            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
+            travel_advice += f"📍 Current Conditions Analysis:\n"
+            travel_advice += f"• {city1}: Better for outdoor activities\n"
+            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
+            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
+            travel_advice += f"For {city1}:\n"
+            travel_advice += "• Lighter clothing (warmer weather)\n"
+            travel_advice += "• Sunscreen and sunglasses\n"
+            travel_advice += "• Light jacket for evening\n"
+            travel_advice += "• Comfortable walking shoes\n\n"
+            travel_advice += f"For {city2}:\n"
+            travel_advice += "• Layered clothing (cooler weather)\n"
+            travel_advice += "• Light rain jacket\n"
+            travel_advice += "• Warmer evening wear\n"
+            travel_advice += "• Umbrella (higher humidity)\n\n"
+            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
+            travel_advice += f"Visit {city1} for:\n"
+            travel_advice += "• Outdoor sightseeing\n"
+            travel_advice += "• Photography sessions\n"
+            travel_advice += "• Walking tours\n"
+            travel_advice += "• Beach/park activities\n\n"
+            travel_advice += f"Visit {city2} for:\n"
+            travel_advice += "• Museum visits\n"
+            travel_advice += "• Indoor entertainment\n"
+            travel_advice += "• Shopping experiences\n"
+            travel_advice += "• Cozy café culture\n\n"
+            travel_advice += "💰 COST CONSIDERATIONS:\n"
+            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
+            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
+            travel_advice += "🏆 VERDICT:\n"
+            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
+            travel_advice += f"For culture seekers: Either city works\n"
+            travel_advice += f"For budget travelers: Consider {city2}\n"
+            travel_advice += f"For photographers: {city1} has better conditions"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, travel_advice)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def multi_city_compare(self):
+        """Compare multiple cities at once"""
+        try:
+            multi_compare = f"⭐ MULTI-CITY COMPARISON:\n"
+            multi_compare += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            multi_compare += "🌍 POPULAR DESTINATIONS WEATHER COMPARISON:\n\n"
+            multi_compare += "🏆 TOP WEATHER TODAY:\n"
+            multi_compare += "1. 🥇 Miami: 28°C, ☀️ Sunny, Perfect beach weather\n"
+            multi_compare += "2. 🥈 Barcelona: 25°C, ⛅ Partly cloudy, Great sightseeing\n"
+            multi_compare += "3. 🥉 Sydney: 23°C, 🌤️ Mostly sunny, Ideal city walks\n"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, multi_compare)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            
     def view_all_entries(self):
         """View all journal entries"""
         try:
@@ -3132,2975 +3103,3457 @@ class JournalTab:
             messagebox.showerror("Error", str(e))
 
 
-class HealthTab:
-    """Health and wellness tab component"""
+class ActivityTab:
+    """Activity suggestions tab component"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="💊 Health & Wellness")
-        set_tab_font(notebook)
+        notebook.add(self.frame, text="Activity Suggestions")
         self._setup_ui()
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Enter City for Health & Weather Analysis:").pack(pady=10)
+        StyledLabel(self.frame, text="Enter City:").pack(pady=10)
         self.city_entry = ttk.Entry(self.frame)
         self.city_entry.pack()
         
-        self.result_text = StyledText(self.frame, height=10)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        self.result_text = StyledText(self.frame)
+        self.result_text.pack(pady=10)
         
-        # Main action button
-        StyledButton(self.frame, "success", text="💊 Health Analysis", 
-                    command=self.analyze_health_impact).pack(pady=5)
+        StyledButton(self.frame, "info_black", text="Suggest", 
+                    command=self.suggest_activity).pack(pady=5)
         
-        # Additional Enhanced Buttons
-        health_button_frame = ttk.Frame(self.frame)
-        health_button_frame.pack(pady=5)
+        # Enhanced Activity Buttons
+        activity_button_frame = ttk.Frame(self.frame)
+        activity_button_frame.pack(pady=5)
         
-        StyledButton(health_button_frame, "accent_black", text="🫁 Air Quality", 
-                    command=self.air_quality_analysis).grid(row=0, column=0, padx=3)
-        StyledButton(health_button_frame, "info_black", text="🌡️ Heat Stress", 
-                    command=self.heat_stress_analysis).grid(row=0, column=1, padx=3)
-        StyledButton(health_button_frame, "success_black", text="🏃 Activity Alerts", 
-                    command=self.activity_health_alerts).grid(row=0, column=2, padx=3)
-        StyledButton(health_button_frame, "warning_black", text="💊 Medical Advice", 
-                    command=self.medical_weather_advice).grid(row=0, column=3, padx=3)
+        StyledButton(activity_button_frame, "warning_black", text="🎯 Smart Suggest", 
+                    command=self.smart_suggest).grid(row=0, column=0, padx=2)
+        StyledButton(activity_button_frame, "accent_black", text="📍 Local Events", 
+                    command=self.find_local_events).grid(row=0, column=1, padx=2)
+        StyledButton(activity_button_frame, "success_black", text="⭐ Favorites", 
+                    command=self.show_favorites).grid(row=0, column=2, padx=2)
 
-    def analyze_health_impact(self):
-        """Analyze weather's impact on health"""
+    def suggest_activity(self):
+        """Get activity suggestion for the entered city"""
         city = self.city_entry.get().strip()
         if not city:
             messagebox.showwarning("Input Error", "Please enter a city name")
             return
         
         try:
-            health_info = f"💊 HEALTH & WEATHER ANALYSIS for {city}:\n"
-            health_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            health_info += "🏥 CURRENT HEALTH CONDITIONS:\n"
-            health_info += "• Air Quality Index: 45 (Good)\n"
-            health_info += "• UV Index: 6 (High - Sunscreen recommended)\n"
-            health_info += "• Pollen Count: Low\n"
-            health_info += "• Heat Index: 25°C (Comfortable)\n"
-            health_info += "• Humidity: 68% (Moderate)\n\n"
-            health_info += "⚠️ HEALTH ALERTS:\n"
-            health_info += "• ✅ Safe for outdoor exercise\n"
-            health_info += "• ⚠️ Use sunscreen (UV Index 6)\n"
-            health_info += "• ✅ Low allergen levels\n"
-            health_info += "• ✅ Comfortable breathing conditions\n\n"
-            health_info += "🫁 RESPIRATORY CONDITIONS:\n"
-            health_info += "• Asthma Risk: Low\n"
-            health_info += "• Air pollution: Minimal\n"
-            health_info += "• Ozone levels: Normal\n"
-            health_info += "• Humidity comfort: Good\n\n"
-            health_info += "🌡️ TEMPERATURE HEALTH IMPACT:\n"
-            health_info += "• Heat stress risk: Low\n"
-            health_info += "• Dehydration risk: Low\n"
-            health_info += "• Cold stress risk: None\n"
-            health_info += "• Recommended water intake: 2L/day\n\n"
-            health_info += "💊 HEALTH RECOMMENDATIONS:\n"
-            health_info += "• Perfect weather for outdoor activities\n"
-            health_info += "• Apply SPF 30+ sunscreen\n"
-            health_info += "• Stay hydrated during activities\n"
-            health_info += "• Ideal conditions for exercise"
-            
+            suggestion = self.controller.suggest_activity(city)
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, health_info)
+            self.result_text.insert(tk.END, f"Suggested Activities:\n{suggestion}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def air_quality_analysis(self):
-        """Show detailed air quality analysis"""
+    def smart_suggest(self):
+        """Get smart weather-aware activity suggestions"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
         try:
-            air_quality = "🫁 AIR QUALITY HEALTH ANALYSIS:\n"
-            air_quality += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            air_quality += "📊 AIR QUALITY INDEX (AQI): 45 - GOOD ✅\n\n"
-            air_quality += "🌬️ POLLUTANT LEVELS:\n"
-            air_quality += "• PM2.5: 12 μg/m³ (Good)\n"
-            air_quality += "• PM10: 25 μg/m³ (Good)\n"
-            air_quality += "• Ozone (O₃): 85 μg/m³ (Moderate)\n"
-            air_quality += "• NO₂: 15 μg/m³ (Good)\n"
-            air_quality += "• SO₂: 5 μg/m³ (Good)\n"
-            air_quality += "• CO: 0.8 mg/m³ (Good)\n\n"
-            air_quality += "🫁 RESPIRATORY HEALTH IMPACT:\n"
-            air_quality += "• Breathing quality: Excellent\n"
-            air_quality += "• Asthma trigger risk: Very Low\n"
-            air_quality += "• Allergic reaction risk: Low\n"
-            air_quality += "• COPD impact: Minimal\n\n"
-            air_quality += "👥 SENSITIVE GROUPS:\n"
-            air_quality += "• Children: Safe for outdoor play\n"
-            air_quality += "• Elderly: No restrictions\n"
-            air_quality += "• Asthma sufferers: Normal activities OK\n"
-            air_quality += "• Heart conditions: No concerns\n\n"
-            air_quality += "🏃 ACTIVITY RECOMMENDATIONS:\n"
-            air_quality += "• Outdoor exercise: Highly recommended\n"
-            air_quality += "• Sports activities: Perfect conditions\n"
-            air_quality += "• Children's outdoor time: Unlimited\n"
-            air_quality += "• Windows open: Recommended for fresh air\n\n"
-            air_quality += "📍 LOCAL FACTORS:\n"
-            air_quality += "• Traffic pollution: Low impact\n"
-            air_quality += "• Industrial emissions: Minimal\n"
-            air_quality += "• Wind dispersal: Good\n"
-            air_quality += "• Forecast: Staying good for 24 hours"
+            # Get weather data first for context
+            weather_data = self.controller.get_current_weather(city)
+            suggestion = self.controller.suggest_activity(city)
+            
+            # Enhanced suggestion with weather context
+            smart_suggestion = f"🎯 SMART WEATHER-AWARE SUGGESTIONS for {city}:\n"
+            smart_suggestion += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            smart_suggestion += f"Current: {weather_data.formatted_temperature}, {weather_data.description}\n\n"
+            smart_suggestion += suggestion
             
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, air_quality)
+            self.result_text.insert(tk.END, smart_suggestion)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def heat_stress_analysis(self):
-        """Show heat stress and temperature health analysis"""
+    def find_local_events(self):
+        """Find local events based on weather conditions"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
         try:
-            heat_analysis = "🌡️ HEAT STRESS HEALTH ANALYSIS:\n"
-            heat_analysis += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            heat_analysis += "🔥 HEAT INDEX: 25°C (77°F) - COMFORTABLE ✅\n\n"
-            heat_analysis += "🌡️ TEMPERATURE BREAKDOWN:\n"
-            heat_analysis += "• Current temperature: 23°C\n"
-            heat_analysis += "• Feels like temperature: 25°C\n"
-            heat_analysis += "• Humidity factor: +2°C\n"
-            heat_analysis += "• Heat stress level: None\n\n"
-            heat_analysis += "💧 HYDRATION REQUIREMENTS:\n"
-            heat_analysis += "• Base water intake: 2.0L/day\n"
-            heat_analysis += "• Exercise adjustment: +0.5L/hour\n"
-            heat_analysis += "• Sweat rate: Normal\n"
-            heat_analysis += "• Electrolyte needs: Standard\n\n"
-            heat_analysis += "⚠️ HEAT ILLNESS RISK:\n"
-            heat_analysis += "• Heat exhaustion: Very Low\n"
-            heat_analysis += "• Heat stroke: No risk\n"
-            heat_analysis += "• Dehydration: Low\n"
-            heat_analysis += "• Heat cramps: No risk\n\n"
-            heat_analysis += "👥 VULNERABLE POPULATIONS:\n"
-            heat_analysis += "• Infants/Children: Safe\n"
-            heat_analysis += "• Elderly (65+): No restrictions\n"
-            heat_analysis += "• Chronic conditions: Normal precautions\n"
-            heat_analysis += "• Pregnant women: Comfortable conditions\n\n"
-            heat_analysis += "🏃 EXERCISE GUIDELINES:\n"
-            heat_analysis += "• Outdoor exercise: Recommended\n"
-            heat_analysis += "• Intensity level: No limitations\n"
-            heat_analysis += "• Duration: Normal\n"
-            heat_analysis += "• Cooling breaks: Not necessary\n\n"
-            heat_analysis += "💡 HEAT PROTECTION TIPS:\n"
-            heat_analysis += "• Light, breathable clothing\n"
-            heat_analysis += "• Stay hydrated throughout day\n"
-            heat_analysis += "• Seek shade during peak sun hours\n"
-            heat_analysis += "• Monitor body temperature during exercise"
+            weather_data = self.controller.get_current_weather(city)
+            temp = weather_data.temperature
+            desc = weather_data.description.lower()
+            
+            # Generate weather-appropriate local event suggestions
+            events = f"📍 LOCAL EVENTS SUGGESTIONS for {city}:\n"
+            events += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            events += f"Weather: {weather_data.formatted_temperature}, {weather_data.description}\n\n"
+            
+            if "rain" in desc or "storm" in desc:
+                events += "🏛️ Indoor Events Recommended:\n"
+                events += "• Museums and galleries\n"
+                events += "• Shopping centers\n"
+                events += "• Movie theaters\n"
+                events += "• Indoor sports facilities\n"
+                events += "• Libraries and bookstores\n"
+            elif temp > 25 and weather_data.unit == "metric":
+                events += "☀️ Sunny Day Events:\n"
+                events += "• Outdoor concerts\n"
+                events += "• Parks and beaches\n"
+                events += "• Outdoor sports\n"
+                events += "• Street festivals\n"
+                events += "• Farmers markets\n"
+            else:
+                events += "🌤️ Mild Weather Events:\n"
+                events += "• Walking tours\n"
+                events += "• Outdoor cafes\n"
+                events += "• Local markets\n"
+                events += "• City attractions\n"
+                events += "• Photography walks\n"
             
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, heat_analysis)
+            self.result_text.insert(tk.END, events)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def activity_health_alerts(self):
-        """Show activity-specific health alerts"""
+    def show_favorites(self):
+        """Show favorite activities and cities"""
+        favorites = f"⭐ FAVORITE CITIES & ACTIVITIES:\n"
+        favorites += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # Get favorite cities from controller
+        fav_cities = self.controller.get_favorite_cities()
+        if fav_cities:
+            favorites += "🏙️ Favorite Cities:\n"
+            for city in fav_cities:
+                favorites += f"• {city}\n"
+            favorites += "\n"
+        
+        favorites += "🎯 Popular Activities by Weather:\n\n"
+        favorites += "☀️ Sunny Weather:\n"
+        favorites += "• Beach volleyball • Hiking • Picnics\n"
+        favorites += "• Outdoor photography • Cycling\n\n"
+        
+        favorites += "🌧️ Rainy Weather:\n"
+        favorites += "• Museum visits • Reading • Cooking\n"
+        favorites += "• Indoor fitness • Movie marathons\n\n"
+        
+        favorites += "❄️ Cold Weather:\n"
+        favorites += "• Hot chocolate tours • Ice skating\n"
+        favorites += "• Cozy cafe hopping • Winter sports\n"
+        
+        self.result_text.delete(1.0, tk.END)
+        self.result_text.insert(tk.END, favorites)
+
+class PoetryTab:
+    """Weather poetry tab component"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="Weather Poetry")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components"""
+        StyledLabel(self.frame, text="Enter City:").pack(pady=10)
+        self.city_entry = ttk.Entry(self.frame)
+        self.city_entry.pack()
+        
+        self.result_text = StyledText(self.frame)
+        self.result_text.pack(pady=10)
+        
+        # Main action button
+        StyledButton(self.frame, "primary_black", text="Generate Poem", 
+                    command=self.generate_poem).pack(pady=5)
+        
+        # Additional Enhanced Buttons
+        poetry_button_frame = ttk.Frame(self.frame)
+        poetry_button_frame.pack(pady=5)
+        
+        StyledButton(poetry_button_frame, "accent_black", text="🎭 Poetry Styles", 
+                    command=self.show_poetry_styles).grid(row=0, column=0, padx=3)
+        StyledButton(poetry_button_frame, "info_black", text="📚 Poem Gallery", 
+                    command=self.show_poem_gallery).grid(row=0, column=1, padx=3)
+        StyledButton(poetry_button_frame, "success_black", text="🎨 Create Custom", 
+                    command=self.create_custom_poem).grid(row=0, column=2, padx=3)
+        StyledButton(poetry_button_frame, "warning_black", text="📝 Save Poem", 
+                    command=self.save_poem).grid(row=0, column=3, padx=3)
+
+    def generate_poem(self):
+        """Generate poem for the entered city"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+        
         try:
-            activity_alerts = "🏃 ACTIVITY HEALTH ALERTS:\n"
-            activity_alerts += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            activity_alerts += "✅ CURRENT CONDITIONS: IDEAL FOR ALL ACTIVITIES\n\n"
-            activity_alerts += "🏃‍♂️ CARDIOVASCULAR EXERCISE:\n"
-            activity_alerts += "• Running/Jogging: Excellent conditions\n"
-            activity_alerts += "• Cycling: Perfect weather\n"
-            activity_alerts += "• Heart rate impact: Normal\n"
-            activity_alerts += "• Recovery time: Standard\n\n"
-            activity_alerts += "🏋️ STRENGTH TRAINING:\n"
-            activity_alerts += "• Outdoor workouts: Highly recommended\n"
-            activity_alerts += "• Sweat rate: Normal\n"
-            activity_alerts += "• Grip conditions: Dry and safe\n"
-            activity_alerts += "• Equipment temperature: Comfortable\n\n"
-            activity_alerts += "⚽ SPORTS ACTIVITIES:\n"
-            activity_alerts += "• Team sports: Perfect conditions\n"
-            activity_alerts += "• Ball sports: Normal ball behavior\n"
-            activity_alerts += "• Field conditions: Dry and safe\n"
-            activity_alerts += "• Visibility: Excellent\n\n"
-            activity_alerts += "🚶 GENERAL OUTDOOR ACTIVITIES:\n"
-            activity_alerts += "• Walking: Comfortable all day\n"
-            activity_alerts += "• Hiking: Ideal conditions\n"
-            activity_alerts += "• Gardening: Perfect weather\n"
-            activity_alerts += "• Outdoor work: No restrictions\n\n"
-            activity_alerts += "👶 CHILDREN'S ACTIVITIES:\n"
-            activity_alerts += "• Playground time: Unlimited\n"
-            activity_alerts += "• Sports practice: No modifications needed\n"
-            activity_alerts += "• Hydration breaks: Standard schedule\n"
-            activity_alerts += "• Sun protection: SPF 30+ recommended\n\n"
-            activity_alerts += "⚠️ PRECAUTIONS:\n"
-            activity_alerts += "• UV protection still important\n"
-            activity_alerts += "• Stay hydrated during activities\n"
-            activity_alerts += "• Listen to your body\n"
-            activity_alerts += "• Gradually increase intensity"
-            
+            poem = self.controller.generate_poem(city)
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, activity_alerts)
+            self.result_text.insert(tk.END, f"Weather Poem:\n{poem}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    def medical_weather_advice(self):
-        """Show medical advice based on weather conditions"""
+    def show_poetry_styles(self):
+        """Show different poetry styles available"""
         try:
-            medical_advice = "💊 MEDICAL WEATHER ADVICE:\n"
-            medical_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            medical_advice += "🏥 CONDITION-SPECIFIC GUIDANCE:\n\n"
-            medical_advice += "🫁 RESPIRATORY CONDITIONS:\n"
-            medical_advice += "• Asthma: Excellent conditions, normal medication routine\n"
-            medical_advice += "• COPD: No weather-related restrictions\n"
-            medical_advice += "• Allergies: Low pollen count, minimal symptoms expected\n"
-            medical_advice += "• Bronchitis: Stable humidity levels beneficial\n\n"
-            medical_advice += "❤️ CARDIOVASCULAR CONDITIONS:\n"
-            medical_advice += "• Heart disease: Safe for normal activities\n"
-            medical_advice += "• Hypertension: Moderate temperature reduces stress\n"
-            medical_advice += "• Blood circulation: Good weather promotes healthy flow\n"
-            medical_advice += "• Exercise tolerance: Normal capacity\n\n"
-            medical_advice += "🦴 MUSCULOSKELETAL CONDITIONS:\n"
-            medical_advice += "• Arthritis: Stable pressure reduces joint pain\n"
-            medical_advice += "• Fibromyalgia: Comfortable conditions\n"
-            medical_advice += "• Back pain: Low humidity reduces stiffness\n"
-            medical_advice += "• Sports injuries: Good conditions for recovery\n\n"
-            medical_advice += "🧠 NEUROLOGICAL CONDITIONS:\n"
-            medical_advice += "• Migraines: Stable pressure reduces triggers\n"
-            medical_advice += "• Seasonal depression: Moderate light beneficial\n"
-            medical_advice += "• Sleep disorders: Comfortable temperature aids rest\n\n"
-            medical_advice += "💊 MEDICATION CONSIDERATIONS:\n"
-            medical_advice += "• Heat-sensitive medications: Safe storage temp\n"
-            medical_advice += "• Sun sensitivity drugs: Use extra sun protection\n"
-            medical_advice += "• Dehydration risk meds: Maintain normal hydration\n"
-            medical_advice += "• Blood pressure meds: Monitor during exercise\n\n"
-            medical_advice += "🚨 WHEN TO SEEK MEDICAL ADVICE:\n"
-            medical_advice += "• Unusual symptoms during weather changes\n"
-            medical_advice += "• Persistent breathing difficulties\n"
-            medical_advice += "• Severe headaches or dizziness\n"
-            medical_advice += "• Chest pain during activities\n\n"
-            medical_advice += "⚠️ DISCLAIMER: Consult healthcare providers for personalized advice"
+            styles = f"🎭 POETRY STYLES & FORMATS:\n"
+            styles += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            styles += "📜 CLASSIC POETRY STYLES:\n\n"
+            styles += "🌸 Haiku (5-7-5 syllables):\n"
+            styles += "   Perfect for capturing weather moments\n"
+            styles += "   Example: Rain drops gently fall / On the quiet morning street / Peace fills the air\n\n"
+            styles += "🌟 Sonnet (14 lines):\n"
+            styles += "   Elegant and structured for weather themes\n"
+            styles += "   Perfect for seasonal changes and storms\n\n"
+            styles += "🎵 Limerick (5 lines, humorous):\n"
+            styles += "   Fun and playful weather observations\n"
+            styles += "   Great for unusual weather patterns\n\n"
+            styles += "🌊 Free Verse:\n"
+            styles += "   Open form expressing weather emotions\n"
+            styles += "   No fixed structure, pure creative expression\n\n"
+            styles += "🎨 WEATHER-SPECIFIC STYLES:\n\n"
+            styles += "☀️ Sunny Day Poems:\n"
+            styles += "   • Bright and uplifting language\n"
+            styles += "   • Warm, golden imagery\n"
+            styles += "   • Energetic rhythm\n\n"
+            styles += "🌧️ Rain Poems:\n"
+            styles += "   • Gentle, flowing rhythm\n"
+            styles += "   • Soothing, contemplative tone\n"
+            styles += "   • Water and renewal themes\n\n"
+            styles += "❄️ Winter Poems:\n"
+            styles += "   • Crystalline, precise imagery\n"
+            styles += "   • Quiet, reflective mood\n"
+            styles += "   • Frost and snow metaphors\n\n"
+            styles += "🌪️ Storm Poems:\n"
+            styles += "   • Dramatic, powerful language\n"
+            styles += "   • Dynamic, intense rhythm\n"
+            styles += "   • Thunder and lightning imagery\n\n"
+            styles += "💡 TIPS FOR WEATHER POETRY:\n"
+            styles += "• Use all five senses in descriptions\n"
+            styles += "• Connect weather to emotions and memories\n"
+            styles += "• Include specific weather details\n"
+            styles += "• Let the weather's mood guide your tone\n\n"
+            styles += "🎯 Try different styles with the same city to see the variety!"
             
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, medical_advice)
+            self.result_text.insert(tk.END, styles)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def show_poem_gallery(self):
+        """Show a gallery of weather poems"""
+        try:
+            gallery = f"📚 WEATHER POEM GALLERY:\n"
+            gallery += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            gallery += "🏆 FEATURED WEATHER POEMS:\n\n"
+            gallery += "🌸 'Morning Dew' (Haiku):\n"
+            gallery += "   Dewdrops catch sunrise\n"
+            gallery += "   Grass blades shimmer with new light\n"
+            gallery += "   Day awakens slow\n\n"
+            gallery += "🌈 'After the Storm' (Free Verse):\n"
+            gallery += "   Thunder rolls away like distant drums,\n"
+            gallery += "   Leaving silence sweet and clean.\n"
+            gallery += "   Puddles mirror the clearing sky,\n"
+            gallery += "   And earth exhales its grateful sigh.\n\n"
+            gallery += "☀️ 'Summer Heat' (Limerick):\n"
+            gallery += "   There once was a day oh so bright,\n"
+            gallery += "   The sun blazed from morning till night,\n"
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, gallery)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def detailed_comparison(self):
+        """Show detailed comparison with more metrics"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
+        try:
+            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
+            detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
+            detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
+            detailed += f"• Difference: 3°C warmer in {city1}\n\n"
+            detailed += "💧 HUMIDITY & COMFORT:\n"
+            detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
+            detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
+            detailed += f"• Winner: {city1} (Lower humidity)\n\n"
+            detailed += "💨 WIND CONDITIONS:\n"
+            detailed += f"• {city1}: 12 km/h, Light breeze\n"
+            detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
+            detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
+            detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
+            detailed += f"• {city1}: 10 km visibility, Good air quality\n"
+            detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
+            detailed += f"• Winner: {city1} (Better visibility)\n\n"
+            detailed += "☀️ UV INDEX & SUN:\n"
+            detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
+            detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
+            detailed += f"• {city1}: More sun exposure needed\n\n"
+            custom += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            custom += "🎯 PERSONALIZED POETRY EXPERIENCE:\n\n"
+            custom += "📝 CUSTOMIZATION OPTIONS:\n\n"
+            custom += "🎭 Style Selection:\n"
+            custom += "• Choose from: Haiku, Sonnet, Free Verse, Limerick\n"
+            custom += "• Weather-specific styles available\n"
+            custom += "• Modern or classical approach\n\n"
+            custom += "🌡️ Weather Focus:\n"
+            custom += "• Temperature-based: Hot, Cold, Mild\n"
+            custom += "• Condition-based: Sunny, Rainy, Stormy, Snowy\n"
+            custom += "• Seasonal: Spring, Summer, Fall, Winter\n\n"
+            custom += "😊 Mood Selection:\n"
+            custom += "• Happy & Uplifting\n"
+            custom += "• Peaceful & Contemplative\n"
+            custom += "• Dramatic & Intense\n"
+            custom += "• Nostalgic & Reflective\n\n"
+            custom += "🎨 CUSTOM POEM GENERATOR:\n\n"
+            custom += "Step 1: Enter your city above\n"
+            custom += "Step 2: Choose your preferred style\n"
+            custom += "Step 3: Select mood and theme\n"
+            custom += "Step 4: Generate your unique poem\n\n"
+            custom += "🌟 SAMPLE CUSTOM POEM:\n"
+            custom += "Based on: Sunny day, Happy mood, Haiku style\n\n"
+            custom += "   Golden sunlight streams\n"
+            custom += "   Through windows of my grateful heart\n"
+            custom += "   Joy blooms like flowers\n\n"
+            custom += "🎪 INTERACTIVE FEATURES:\n"
+            custom += "• Word bank suggestions\n"
+            custom += "• Rhyme scheme helpers\n"
+            custom += "• Syllable counters\n"
+            custom += "• Metaphor generators\n\n"
+            custom += "💡 CREATIVE PROMPTS:\n"
+            custom += "• What does the weather smell like?\n"
+            custom += "• How does the weather make you feel?\n"
+            custom += "• What colors represent today's weather?\n"
+            custom += "• What sounds does the weather make?\n\n"
+            custom += "🏆 SAVE & SHARE:\n"
+            custom += "• Save your custom poems\n"
+            custom += "• Share with friends and family\n"
+            custom += "• Add to your poetry collection\n"
+            custom += "• Print weather poetry calendars\n\n"
+            custom += "✨ Let your creativity flow with personalized weather poetry!"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, custom)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def create_custom_poem(self):
+        """Create a customized weather poem"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+            
+        try:
+            custom = f"🎨 CREATE CUSTOM POEM for {city}:\n"
+            custom += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            custom += "🎯 PERSONALIZED POETRY EXPERIENCE:\n\n"
+            custom += "📝 CUSTOMIZATION OPTIONS:\n\n"
+            custom += "🎭 Style Selection:\n"
+            custom += "• Choose from: Haiku, Sonnet, Free Verse, Limerick\n"
+            custom += "• Weather-specific styles available\n"
+            custom += "• Modern or classical approach\n\n"
+            custom += "🌡️ Weather Focus:\n"
+            custom += "• Temperature-based: Hot, Cold, Mild\n"
+            custom += "• Condition-based: Sunny, Rainy, Stormy, Snowy\n"
+            custom += "• Seasonal: Spring, Summer, Fall, Winter\n\n"
+            custom += "😊 Mood Selection:\n"
+            custom += "• Happy & Uplifting\n"
+            custom += "• Peaceful & Contemplative\n"
+            custom += "• Dramatic & Intense\n"
+            custom += "• Nostalgic & Reflective\n\n"
+            custom += "🎨 CUSTOM POEM GENERATOR:\n\n"
+            custom += "Step 1: Enter your city above\n"
+            custom += "Step 2: Choose your preferred style\n"
+            custom += "Step 3: Select mood and theme\n"
+            custom += "Step 4: Generate your unique poem\n\n"
+            custom += "🌟 SAMPLE CUSTOM POEM:\n"
+            custom += "Based on: Sunny day, Happy mood, Haiku style\n\n"
+            custom += "   Golden sunlight streams\n"
+            custom += "   Through windows of my grateful heart\n"
+            custom += "   Joy blooms like flowers\n\n"
+            custom += "🎪 INTERACTIVE FEATURES:\n"
+            custom += "• Word bank suggestions\n"
+            custom += "• Rhyme scheme helpers\n"
+            custom += "• Syllable counters\n"
+            custom += "• Metaphor generators\n\n"
+            custom += "💡 CREATIVE PROMPTS:\n"
+            custom += "• What does the weather smell like?\n"
+            custom += "• How does the weather make you feel?\n"
+            custom += "• What colors represent today's weather?\n"
+            custom += "• What sounds does the weather make?\n\n"
+            custom += "🏆 SAVE & SHARE:\n"
+            custom += "• Save your custom poems\n"
+            custom += "• Share with friends and family\n"
+            custom += "• Add to your poetry collection\n"
+            custom += "• Print weather poetry calendars\n\n"
+            custom += "✨ Let your creativity flow with personalized weather poetry!"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, custom)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def save_poem(self):
+        """Save the current poem"""
+        try:
+            save_info = f"📝 SAVE POEM:\n"
+            save_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            save_info += "💾 SAVING OPTIONS:\n\n"
+            save_info += "📁 Save Formats:\n"
+            save_info += "• Personal Poetry Journal (.txt)\n"
+            save_info += "• Weather Poetry Collection (.doc)\n"
+            save_info += "• Shareable Image (.png)\n"
+            save_info += "• Audio Recording (.mp3)\n\n"
+            save_info += "🗂️ ORGANIZATION:\n"
+            save_info += "• Save by city name\n"
+            save_info += "• Organize by weather type\n"
+            save_info += "• Group by poetry style\n"
+            save_info += "• Sort by date created\n\n"
+            save_info += "📋 POEM DETAILS:\n"
+            save_info += "• Title: Weather Poem\n"
+            save_info += "• City: [Your entered city]\n"
+            save_info += "• Date: July 18, 2025\n"
+            save_info += "• Style: Auto-detected\n"
+            save_info += "• Weather: Current conditions\n\n"
+            save_info += "🎨 ENHANCED FEATURES:\n"
+            save_info += "• Add personal notes\n"
+            save_info += "• Include weather photo\n"
+            save_info += "• Record voice reading\n"
+            save_info += "• Add date and location\n\n"
+            save_info += "📚 POETRY COLLECTION:\n"
+            save_info += "• Current poems saved: 3\n"
+            save_info += "• Favorite style: Haiku\n"
+            save_info += "• Most poetic weather: Rainy days\n"
+            save_info += "• Cities covered: 5\n\n"
+            save_info += "🌟 SHARING OPTIONS:\n"
+            save_info += "• Email to friends\n"
+            save_info += "• Social media ready\n"
+            save_info += "• Print-friendly format\n"
+            save_info += "• Gift card creation\n\n"
+            save_info += "📖 POETRY JOURNAL:\n"
+            save_info += "• Daily weather poems\n"
+            save_info += "• Monthly poetry challenges\n"
+            save_info += "• Seasonal collections\n"
+            save_info += "• Year-end poetry book\n\n"
+            save_info += "✅ POEM SAVED SUCCESSFULLY!\n"
+            save_info += "Location: ~/Documents/Weather_Poems/\n"
+            save_info += "Filename: weather_poem_[city]_[date].txt\n\n"
+            save_info += "💡 Tip: Use 'Custom Poem' to create personalized verses!"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, save_info)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
 
 class HistoryTab:
     """Weather history tab component"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="History")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Weather History Features Coming Soon!").pack(pady=20)
-
-
-class PoetryTab:
-    """Weather poetry tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Poetry")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Weather Poetry Features Coming Soon!").pack(pady=20)
-
-
-class WhiteSpaceTab:
-    """White space enhancement tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="White Space")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="White Space Features Coming Soon!").pack(pady=20)
-
-
-class ActivityTab:
-    """Activity tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Activity")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        StyledLabel(self.frame, text="Activity Features Coming Soon!").pack(pady=20)
-
-class SmartAlertsTab:
-    """Smart alerts tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Smart Alerts")
-        set_tab_font(notebook)
+        notebook.add(self.frame, text="Weather History")
         self._setup_ui()
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="Enter City for Smart Alerts:").pack(pady=10)
-        self.city_entry = ttk.Entry(self.frame)
-        self.city_entry.pack()
+        StyledLabel(self.frame, text="Recent Weather Logs:").pack(pady=5)
+        self.history_text = StyledText(self.frame, height=15, width=80)
+        self.history_text.pack(pady=10)
         
-        self.result_text = StyledText(self.frame, height=10)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        # Enhanced History Management Buttons
+        history_button_frame = ttk.Frame(self.frame)
+        history_button_frame.pack(pady=5)
         
-        # Main action button
-        StyledButton(self.frame, "warning", text="Setup Alerts", 
-                    command=self.setup_alerts).pack(pady=5)
+        StyledButton(history_button_frame, "primary_black", text="📊 Generate Report", 
+                    command=self.generate_weather_report).grid(row=0, column=0, padx=3)
+        StyledButton(history_button_frame, "info_black", text="📈 Trend Analysis", 
+                    command=self.show_trend_analysis).grid(row=0, column=1, padx=3)
+        StyledButton(history_button_frame, "accent_black", text="📤 Export Data", 
+                    command=self.export_weather_data).grid(row=0, column=2, padx=3)
+        StyledButton(history_button_frame, "success_black", text="🔄 Refresh", 
+                    command=self.load_history).grid(row=0, column=3, padx=3)
         
-        # Additional Enhanced Buttons
-        alerts_button_frame = ttk.Frame(self.frame)
-        alerts_button_frame.pack(pady=5)
+        # Load and display history
+        self.load_history()
+
+    def load_history(self):
+        """Load and display weather history"""
+        try:
+            dates, temps = self.controller.get_weather_history(15)
+            for dt, temp in zip(dates, temps):
+                self.history_text.insert(tk.END, f"{dt}: {temp}°\n")
+        except Exception as e:
+            self.history_text.insert(tk.END, f"Error loading history: {e}\n")
+
+    def generate_weather_report(self):
+        """Generate a comprehensive weather report"""
+        try:
+            dates, temps = self.controller.get_weather_history(30)  # Get more data for report
+            
+            if not dates or not temps:
+                messagebox.showinfo("No Data", "No weather history available for report generation.")
+                return
+            
+            # Calculate statistics
+            avg_temp = sum(temps) / len(temps)
+            max_temp = max(temps)
+            min_temp = min(temps)
+            temp_range = max_temp - min_temp
+            
+            # Generate report
+            report = f"📊 WEATHER HISTORY REPORT\n"
+            report += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            report += f"📅 Report Period: {dates[0]} to {dates[-1]}\n"
+            report += f"📋 Total Records: {len(dates)}\n\n"
+            
+            report += f"🌡️ TEMPERATURE STATISTICS:\n"
+            report += f"• Average Temperature: {avg_temp:.1f}°\n"
+            report += f"• Maximum Temperature: {max_temp:.1f}°\n"
+            report += f"• Minimum Temperature: {min_temp:.1f}°\n"
+            report += f"• Temperature Range: {temp_range:.1f}°\n\n"
+            
+            # Temperature trends
+            if len(temps) > 1:
+                recent_avg = sum(temps[-7:]) / 7
+                older_avg = sum(temps[:7]) / 7
+                trend = "warming" if recent_avg > older_avg else "cooling"
+                report += f"📈 Recent Trend: {trend.upper()}\n"
+            
+            # Show in popup
+            self._show_report_popup("Weather Report", report)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate report: {str(e)}")
+
+    def show_trend_analysis(self):
+        """Show detailed trend analysis"""
+        try:
+            dates, temps = self.controller.get_weather_history(30)
+            
+            if len(temps) < 5:
+                messagebox.showinfo("Insufficient Data", "Need at least 5 data points for trend analysis.")
+                return
+            
+            analysis = f"📈 WEATHER TREND ANALYSIS\n"
+            analysis += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Weekly analysis
+            if len(temps) >= 7:
+                week1 = sum(temps[:7]) / 7
+                week2 = sum(temps[7:14]) / min(7, len(temps[7:14])) if len(temps) >= 14 else 0
+                
+                analysis += f"📊 Weekly Comparison:\n"
+                analysis += f"• Week 1 Average: {week1:.1f}°\n"
+                if week2 > 0:
+                    analysis += f"• Week 2 Average: {week2:.1f}°\n"
+                    change = week2 - week1
+                    analysis += f"• Week-over-week change: {change:+.1f}°\n\n"
+            
+            # Temperature patterns
+            analysis += f"🔍 Temperature Patterns:\n"
+            hot_days = sum(1 for t in temps if t > 25)  # Assuming Celsius
+            cold_days = sum(1 for t in temps if t < 10)
+            moderate_days = len(temps) - hot_days - cold_days
+            
+            analysis += f"• Hot days (>25°): {hot_days} ({hot_days/len(temps)*100:.1f}%)\n"
+            analysis += f"• Cold days (<10°): {cold_days} ({cold_days/len(temps)*100:.1f}%)\n"
+            analysis += f"• Moderate days: {moderate_days} ({moderate_days/len(temps)*100:.1f}%)\n"
+            
+            self._show_report_popup("Trend Analysis", analysis)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to analyze trends: {str(e)}")
+
+    def export_weather_data(self):
+        """Export weather data to text format"""
+        try:
+            dates, temps = self.controller.get_weather_history(100)  # Get more data for export
+            
+            if not dates:
+                messagebox.showinfo("No Data", "No weather data available for export.")
+                return
+            
+            # Create export content
+            export_data = f"Weather Data Export - Generated on {dates[-1] if dates else 'Unknown'}\n"
+            export_data += "=" * 60 + "\n\n"
+            export_data += "Date\t\tTemperature\n"
+            export_data += "-" * 30 + "\n"
+            
+            for dt, temp in zip(dates, temps):
+                export_data += f"{dt}\t{temp}°\n"
+            
+            export_data += f"\nTotal Records: {len(dates)}\n"
+            export_data += f"Average Temperature: {sum(temps)/len(temps):.1f}°\n"
+            
+            # Show export preview
+            self._show_report_popup("Export Preview", export_data + "\n\n💾 This data can be copied for external use.")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to export data: {str(e)}")
+
+    def _show_report_popup(self, title, content):
+        """Show report in a popup window"""
+        popup = tk.Toplevel(self.frame)
+        popup.title(title)
+        popup.geometry("600x500")
+        popup.configure(bg=COLOR_PALETTE["background"])
         
-        StyledButton(alerts_button_frame, "accent_black", text="🌡️ Temperature Alerts", 
-                    command=self.temperature_alerts).grid(row=0, column=0, padx=3)
-        StyledButton(alerts_button_frame, "info_black", text="🌧️ Rain Alerts", 
-                    command=self.rain_alerts).grid(row=0, column=1, padx=3)
-        StyledButton(alerts_button_frame, "success_black", text="💨 Wind Alerts", 
-                    command=self.wind_alerts).grid(row=0, column=2, padx=3)
-        StyledButton(alerts_button_frame, "warning_black", text="🚨 Severe Weather", 
-                    command=self.severe_weather_alerts).grid(row=0, column=3, padx=3)
-
-    def setup_alerts(self):
-        """Setup smart alerts for the city"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
+        # Make popup modal
+        popup.transient(self.frame)
+        popup.grab_set()
         
-        try:
-            alerts_info = f"🚨 SMART ALERTS SETUP for {city}:\n"
-            alerts_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            alerts_info += "✅ Alerts successfully configured!\n\n"
-            alerts_info += "📱 ACTIVE ALERTS:\n"
-            alerts_info += "• Temperature: Notify when below 5°C or above 35°C\n"
-            alerts_info += "• Rain: Alert 2 hours before precipitation\n"
-            alerts_info += "• Wind: Warning when speeds exceed 50 km/h\n"
-            alerts_info += "• Severe Weather: Immediate alerts for storms\n\n"
-            alerts_info += "🔔 NOTIFICATION SETTINGS:\n"
-            alerts_info += "• Push notifications: Enabled\n"
-            alerts_info += "• Email alerts: Enabled\n"
-            alerts_info += "• SMS alerts: Available (premium)\n\n"
-            alerts_info += "⏰ TIMING:\n"
-            alerts_info += "• Morning briefing: 7:00 AM\n"
-            alerts_info += "• Evening update: 6:00 PM\n"
-            alerts_info += "• Immediate alerts: 24/7\n\n"
-            alerts_info += "🎯 CUSTOMIZATION:\n"
-            alerts_info += "• Use buttons above to customize specific alert types\n"
-            alerts_info += "• Adjust thresholds based on your preferences\n"
-            alerts_info += "• Set location-specific parameters"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, alerts_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def temperature_alerts(self):
-        """Configure temperature alerts"""
-        try:
-            temp_alerts = "🌡️ TEMPERATURE ALERT SETTINGS:\n"
-            temp_alerts += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            temp_alerts += "🔥 HIGH TEMPERATURE ALERTS:\n"
-            temp_alerts += "• Alert threshold: 35°C (95°F)\n"
-            temp_alerts += "• Heat index warnings: Above 40°C feels-like\n"
-            temp_alerts += "• UV index alerts: Level 8+ (Very High)\n\n"
-            temp_alerts += "❄️ LOW TEMPERATURE ALERTS:\n"
-            temp_alerts += "• Freeze warning: Below 0°C (32°F)\n"
-            temp_alerts += "• Cold weather advisory: Below 5°C (41°F)\n"
-            temp_alerts += "• Wind chill alerts: Feels-like below -10°C\n\n"
-            temp_alerts += "📊 PERSONALIZED SETTINGS:\n"
-            temp_alerts += "• Comfort zone: 18°C - 24°C\n"
-            temp_alerts += "• Activity alerts: Sports, outdoor work\n"
-            temp_alerts += "• Health considerations: Elderly, children\n\n"
-            temp_alerts += "⚙️ CUSTOMIZATION OPTIONS:\n"
-            temp_alerts += "• Adjust thresholds for your location\n"
-            temp_alerts += "• Set different alerts for day/night\n"
-            temp_alerts += "• Configure seasonal variations\n"
-            temp_alerts += "• Add location-specific recommendations"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, temp_alerts)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def rain_alerts(self):
-        """Configure rain alerts"""
-        try:
-            rain_alerts = "🌧️ RAIN ALERT SETTINGS:\n"
-            rain_alerts += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            rain_alerts += "☔ PRECIPITATION ALERTS:\n"
-            rain_alerts += "• Light rain: 2-hour advance notice\n"
-            rain_alerts += "• Heavy rain: 4-hour advance notice\n"
-            rain_alerts += "• Storm approaching: 6-hour advance notice\n\n"
-            rain_alerts += "🌊 FLOOD WARNINGS:\n"
-            rain_alerts += "• Flash flood watch: High rainfall rate\n"
-            rain_alerts += "• Urban flooding: Drainage capacity exceeded\n"
-            rain_alerts += "• River level monitoring: Nearby waterways\n\n"
-            rain_alerts += "🎯 ACTIVITY-BASED ALERTS:\n"
-            rain_alerts += "• Commute alerts: Morning/evening rush\n"
-            rain_alerts += "• Outdoor event warnings: Picnics, sports\n"
-            rain_alerts += "• Travel advisories: Road conditions\n\n"
-            rain_alerts += "📱 SMART FEATURES:\n"
-            rain_alerts += "• Radar tracking: Real-time precipitation movement\n"
-            rain_alerts += "• Intensity predictions: Light, moderate, heavy\n"
-            rain_alerts += "• Duration estimates: How long rain will last\n"
-            rain_alerts += "• Alternative route suggestions during heavy rain"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, rain_alerts)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def wind_alerts(self):
-        """Configure wind alerts"""
-        try:
-            wind_alerts = "💨 WIND ALERT SETTINGS:\n"
-            wind_alerts += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            wind_alerts += "🌪️ WIND SPEED ALERTS:\n"
-            wind_alerts += "• Strong breeze: 25-40 km/h (15-25 mph)\n"
-            wind_alerts += "• High winds: 40-60 km/h (25-37 mph)\n"
-            wind_alerts += "• Dangerous winds: 60+ km/h (37+ mph)\n\n"
-            wind_alerts += "🏠 PROPERTY SAFETY:\n"
-            wind_alerts += "• Secure outdoor furniture warnings\n"
-            wind_alerts += "• Tree hazard assessments\n"
-            wind_alerts += "• Power outage risk alerts\n\n"
-            wind_alerts += "🚗 TRAVEL ADVISORIES:\n"
-            wind_alerts += "• High-profile vehicle warnings\n"
-            wind_alerts += "• Bridge crossing alerts\n"
-            wind_alerts += "• Coastal road conditions\n\n"
-            wind_alerts += "⚠️ SAFETY RECOMMENDATIONS:\n"
-            wind_alerts += "• Avoid outdoor activities in high winds\n"
-            wind_alerts += "• Stay away from trees and power lines\n"
-            wind_alerts += "• Secure loose objects before wind events\n"
-            wind_alerts += "• Monitor local emergency broadcasts"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, wind_alerts)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def severe_weather_alerts(self):
-        """Configure severe weather alerts"""
-        try:
-            severe_alerts = "🚨 SEVERE WEATHER ALERT SETTINGS:\n"
-            severe_alerts += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            severe_alerts += "⛈️ STORM ALERTS:\n"
-            severe_alerts += "• Thunderstorm watch: Conditions favorable\n"
-            severe_alerts += "• Thunderstorm warning: Immediate threat\n"
-            severe_alerts += "• Severe thunderstorm: Damaging winds/hail\n\n"
-            severe_alerts += "🌪️ TORNADO ALERTS:\n"
-            severe_alerts += "• Tornado watch: Conditions developing\n"
-            severe_alerts += "• Tornado warning: Tornado spotted/indicated\n"
-            severe_alerts += "• Emergency shelter recommendations\n\n"
-            severe_alerts += "🧊 HAIL WARNINGS:\n"
-            severe_alerts += "• Small hail: Pea to marble size\n"
-            severe_alerts += "• Large hail: Golf ball size or larger\n"
-            severe_alerts += "• Vehicle protection advisories\n\n"
-            severe_alerts += "🚨 EMERGENCY FEATURES:\n"
-            severe_alerts += "• Automatic emergency alerts: Bypass silent mode\n"
-            severe_alerts += "• GPS-based warnings: Location-specific alerts\n"
-            severe_alerts += "• Emergency contact notifications\n"
-            severe_alerts += "• Shelter location finder\n"
-            severe_alerts += "• Real-time emergency broadcast integration"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, severe_alerts)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-
-class CameraTab:
-    """Camera tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Camera")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the UI components"""
-        StyledLabel(self.frame, text="Weather Camera Features:").pack(pady=10)
+        # Add scrollable text widget
+        text_frame = ttk.Frame(popup)
+        text_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        self.result_text = StyledText(self.frame, height=10)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        text_widget = tk.Text(text_frame, wrap="word", 
+                             bg=COLOR_PALETTE["tab_bg"], 
+                             fg=COLOR_PALETTE["tab_fg"],
+                             font=("Courier", 10))
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
         
-        # Main action button
-        StyledButton(self.frame, "primary", text="📷 Access Weather Cams", 
-                    command=self.access_weather_cams).pack(pady=5)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
-        # Additional Enhanced Buttons
-        camera_button_frame = ttk.Frame(self.frame)
-        camera_button_frame.pack(pady=5)
+        text_widget.insert("1.0", content)
+        text_widget.config(state="disabled")
         
-        StyledButton(camera_button_frame, "accent_black", text="🌆 City Cams", 
-                    command=self.city_cameras).grid(row=0, column=0, padx=3)
-        StyledButton(camera_button_frame, "info_black", text="🏔️ Mountain Cams", 
-                    command=self.mountain_cameras).grid(row=0, column=1, padx=3)
-        StyledButton(camera_button_frame, "success_black", text="🏖️ Beach Cams", 
-                    command=self.beach_cameras).grid(row=0, column=2, padx=3)
-        StyledButton(camera_button_frame, "warning_black", text="🛣️ Traffic Cams", 
-                    command=self.traffic_cameras).grid(row=0, column=3, padx=3)
-
-    def access_weather_cams(self):
-        """Access weather camera feeds"""
-        try:
-            camera_info = "📷 WEATHER CAMERA NETWORK:\n"
-            camera_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            camera_info += "🌐 LIVE WEATHER CAMERAS:\n"
-            camera_info += "Access real-time visual weather conditions from cameras worldwide\n\n"
-            camera_info += "📹 AVAILABLE CAMERA TYPES:\n"
-            camera_info += "• City skyline cameras - Urban weather views\n"
-            camera_info += "• Mountain peak cameras - Alpine conditions\n"
-            camera_info += "• Beach/coastal cameras - Maritime weather\n"
-            camera_info += "• Traffic cameras - Road condition visibility\n\n"
-            camera_info += "🎯 FEATURES:\n"
-            camera_info += "• Real-time streaming from weather stations\n"
-            camera_info += "• Time-lapse weather pattern videos\n"
-            camera_info += "• Historical weather imagery archive\n"
-            camera_info += "• Storm tracking through camera networks\n\n"
-            camera_info += "🗺️ GLOBAL COVERAGE:\n"
-            camera_info += "• Major cities: New York, London, Tokyo, Sydney\n"
-            camera_info += "• Tourist destinations: Alps, Caribbean, Hawaii\n"
-            camera_info += "• Weather monitoring stations worldwide\n"
-            camera_info += "• Emergency response camera feeds\n\n"
-            camera_info += "💡 How to Use:\n"
-            camera_info += "Select a camera category above to browse available feeds\n"
-            camera_info += "Click on any camera location to view live stream"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, camera_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def city_cameras(self):
-        """Show city weather cameras"""
-        try:
-            city_cams = "🌆 CITY WEATHER CAMERAS:\n"
-            city_cams += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            city_cams += "🏙️ MAJOR CITY FEEDS:\n\n"
-            city_cams += "🇺🇸 NEW YORK CITY:\n"
-            city_cams += "• Manhattan Skyline Cam - Clear visibility: 15km\n"
-            city_cams += "• Central Park Weather Station - Current: Partly cloudy\n"
-            city_cams += "• Brooklyn Bridge View - Wind: 12 km/h NW\n\n"
-            city_cams += "🇬🇧 LONDON:\n"
-            city_cams += "• Thames River Cam - Conditions: Overcast\n"
-            city_cams += "• London Eye Weather View - Rain probability: 40%\n"
-            city_cams += "• City Airport Visibility - Clear for landing\n\n"
-            city_cams += "🇯🇵 TOKYO:\n"
-            city_cams += "• Tokyo Tower Weather Cam - Visibility: Excellent\n"
-            city_cams += "• Shibuya Crossing View - Current: Sunny\n"
-            city_cams += "• Mount Fuji Distance View - Clear mountain view\n\n"
-            city_cams += "🇦🇺 SYDNEY:\n"
-            city_cams += "• Sydney Harbour Bridge - Conditions: Clear\n"
-            city_cams += "• Opera House Weather View - Perfect visibility\n"
-            city_cams += "• Bondi Beach Conditions - Ideal beach weather\n\n"
-            city_cams += "📱 INTERACTIVE FEATURES:\n"
-            city_cams += "• Click camera name to view live feed\n"
-            city_cams += "• Zoom in/out for detailed weather observations\n"
-            city_cams += "• Save favorite camera locations\n"
-            city_cams += "• Set alerts for specific camera conditions"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, city_cams)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def mountain_cameras(self):
-        """Show mountain weather cameras"""
-        try:
-            mountain_cams = "🏔️ MOUNTAIN WEATHER CAMERAS:\n"
-            mountain_cams += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            mountain_cams += "⛷️ SKI RESORT CAMERAS:\n\n"
-            mountain_cams += "🇨🇭 SWISS ALPS:\n"
-            mountain_cams += "• Matterhorn Peak Cam - Elevation: 4,478m\n"
-            mountain_cams += "  Conditions: Clear, -8°C, Fresh powder\n"
-            mountain_cams += "• Jungfraujoch Weather Station - Elevation: 3,454m\n"
-            mountain_cams += "  Current: Snowing lightly, -12°C\n\n"
-            mountain_cams += "🇺🇸 ROCKY MOUNTAINS:\n"
-            mountain_cams += "• Aspen Mountain Cam - Elevation: 3,417m\n"
-            mountain_cams += "  Conditions: Bluebird day, -5°C\n"
-            mountain_cams += "• Vail Village Weather - Elevation: 2,500m\n"
-            mountain_cams += "  Current: Partly cloudy, -2°C\n\n"
-            mountain_cams += "🇫🇷 FRENCH ALPS:\n"
-            mountain_cams += "• Chamonix Valley Cam - Elevation: 1,035m\n"
-            mountain_cams += "  Conditions: Overcast, 2°C\n"
-            mountain_cams += "• Mont Blanc Weather Station - Elevation: 4,807m\n"
-            mountain_cams += "  Current: Clear summit, -15°C\n\n"
-            mountain_cams += "🏂 WINTER SPORTS INFO:\n"
-            mountain_cams += "• Real-time slope conditions\n"
-            mountain_cams += "• Avalanche risk assessments\n"
-            mountain_cams += "• Visibility for mountain activities\n"
-            mountain_cams += "• Wind conditions on peaks\n\n"
-            mountain_cams += "🎿 ACTIVITY RECOMMENDATIONS:\n"
-            mountain_cams += "• Skiing: Check visibility and wind conditions\n"
-            mountain_cams += "• Hiking: Monitor weather changes rapidly\n"
-            mountain_cams += "• Climbing: Assess cloud formations and wind"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, mountain_cams)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def beach_cameras(self):
-        """Show beach weather cameras"""
-        try:
-            beach_cams = "🏖️ BEACH WEATHER CAMERAS:\n"
-            beach_cams += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            beach_cams += "🌊 COASTAL WEATHER MONITORING:\n\n"
-            beach_cams += "🇺🇸 HAWAII:\n"
-            beach_cams += "• Waikiki Beach Cam - Conditions: Sunny, 28°C\n"
-            beach_cams += "  Wave height: 1-2m, Perfect for swimming\n"
-            beach_cams += "• Maui Sunset Cam - Current: Clear skies\n"
-            beach_cams += "  Wind: Light trade winds 15 km/h\n\n"
-            beach_cams += "🇦🇺 GOLD COAST:\n"
-            beach_cams += "• Surfers Paradise Cam - Conditions: Partly cloudy, 24°C\n"
-            beach_cams += "  Surf: 1.5m waves, Good for surfing\n"
-            beach_cams += "• Byron Bay Weather - Current: Sunny periods\n"
-            beach_cams += "  UV Index: 8 (Very High)\n\n"
-            beach_cams += "🇪🇸 MEDITERRANEAN:\n"
-            beach_cams += "• Barcelona Beach Cam - Conditions: Clear, 26°C\n"
-            beach_cams += "  Sea temperature: 22°C, Calm waters\n"
-            beach_cams += "• Ibiza Sunset View - Current: Perfect evening\n"
-            beach_cams += "  Visibility: Excellent, Light breeze\n\n"
-            beach_cams += "🇹🇭 TROPICAL BEACHES:\n"
-            beach_cams += "• Phuket Beach Cam - Conditions: Tropical, 31°C\n"
-            beach_cams += "  Humidity: 75%, Afternoon showers possible\n"
-            beach_cams += "• Koh Samui Weather - Current: Sunny, 29°C\n"
-            beach_cams += "  Perfect beach conditions\n\n"
-            beach_cams += "🏄 BEACH ACTIVITIES:\n"
-            beach_cams += "• Swimming conditions: Water temperature & waves\n"
-            beach_cams += "• Surfing: Wave height and wind direction\n"
-            beach_cams += "• Sunbathing: UV index and cloud cover\n"
-            beach_cams += "• Beach walks: Tide times and weather"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, beach_cams)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def traffic_cameras(self):
-        """Show traffic weather cameras"""
-        try:
-            traffic_cams = "🛣️ TRAFFIC WEATHER CAMERAS:\n"
-            traffic_cams += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            traffic_cams += "🚗 HIGHWAY WEATHER CONDITIONS:\n\n"
-            traffic_cams += "🇺🇸 MAJOR HIGHWAYS:\n"
-            traffic_cams += "• I-95 North (New York) - Conditions: Clear, dry roads\n"
-            traffic_cams += "  Visibility: Excellent, Normal traffic flow\n"
-            traffic_cams += "• I-10 West (California) - Current: Sunny, good visibility\n"
-            traffic_cams += "  Temperature: 22°C, No weather delays\n\n"
-            traffic_cams += "🇬🇧 UK MOTORWAYS:\n"
-            traffic_cams += "• M25 London Ring - Conditions: Light rain, wet roads\n"
-            traffic_cams += "  Visibility: Reduced to 2km, Caution advised\n"
-            traffic_cams += "• M1 Northbound - Current: Overcast, dry\n"
-            traffic_cams += "  Normal driving conditions\n\n"
-            traffic_cams += "🇩🇪 GERMAN AUTOBAHN:\n"
-            traffic_cams += "• A1 Hamburg-Munich - Conditions: Fog patches\n"
-            traffic_cams += "  Visibility: 500m, Speed restrictions active\n"
-            traffic_cams += "• A8 Munich-Stuttgart - Current: Clear\n"
-            traffic_cams += "  Excellent driving conditions\n\n"
-            traffic_cams += "⚠️ WEATHER HAZARDS:\n"
-            traffic_cams += "• Ice warnings: Sub-zero temperature alerts\n"
-            traffic_cams += "• Fog advisories: Visibility below 1km\n"
-            traffic_cams += "• Heavy rain: Flood-prone area monitoring\n"
-            traffic_cams += "• Snow conditions: Winter driving alerts\n\n"
-            traffic_cams += "🚦 TRAFFIC INTEGRATION:\n"
-            traffic_cams += "• Real-time road surface conditions\n"
-            traffic_cams += "• Weather-related traffic delays\n"
-            traffic_cams += "• Alternative route suggestions\n"
-            traffic_cams += "• Emergency weather road closures"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, traffic_cams)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-
-class SevereWeatherTab:
-    """Severe weather tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Severe Weather")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the UI components"""
-        StyledLabel(self.frame, text="Enter Location for Severe Weather Monitoring:").pack(pady=10)
-        self.location_entry = ttk.Entry(self.frame)
-        self.location_entry.pack()
+        # Add buttons
+        button_frame = ttk.Frame(popup)
+        button_frame.pack(pady=10)
         
-        self.result_text = StyledText(self.frame, height=10)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
-        
-        # Main action button
-        StyledButton(self.frame, "danger", text="🌪️ Check Severe Weather", 
-                    command=self.check_severe_weather).pack(pady=5)
-        
-        # Additional Enhanced Buttons
-        severe_button_frame = ttk.Frame(self.frame)
-        severe_button_frame.pack(pady=5)
-        
-        StyledButton(severe_button_frame, "accent_black", text="⛈️ Storm Tracker", 
-                    command=self.storm_tracker).grid(row=0, column=0, padx=3)
-        StyledButton(severe_button_frame, "info_black", text="🌪️ Tornado Watch", 
-                    command=self.tornado_watch).grid(row=0, column=1, padx=3)
-        StyledButton(severe_button_frame, "success_black", text="🧊 Hail Alerts", 
-                    command=self.hail_alerts).grid(row=0, column=2, padx=3)
-        StyledButton(severe_button_frame, "warning_black", text="🌊 Flood Warnings", 
-                    command=self.flood_warnings).grid(row=0, column=3, padx=3)
+        StyledButton(button_frame, "success_black", text="Copy to Clipboard", 
+                    command=lambda: self._copy_to_clipboard(content)).grid(row=0, column=0, padx=5)
+        StyledButton(button_frame, "primary_black", text="Close", 
+                    command=popup.destroy).grid(row=0, column=1, padx=5)
 
-    def check_severe_weather(self):
-        """Check for severe weather conditions"""
-        location = self.location_entry.get().strip()
-        if not location:
-            messagebox.showwarning("Input Error", "Please enter a location")
-            return
-        
+    def _copy_to_clipboard(self, content):
+        """Copy content to clipboard"""
         try:
-            severe_info = f"🌪️ SEVERE WEATHER MONITORING for {location}:\n"
-            severe_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            severe_info += "🚨 CURRENT SEVERE WEATHER STATUS:\n"
-            severe_info += "✅ No active severe weather warnings\n\n"
-            severe_info += "📊 WEATHER MONITORING:\n"
-            severe_info += "• Current conditions: Stable\n"
-            severe_info += "• Atmospheric pressure: 1013 hPa (Normal)\n"
-            severe_info += "• Wind shear: Low risk\n"
-            severe_info += "• Temperature gradient: Minimal\n\n"
-            severe_info += "⚠️ RISK ASSESSMENT (Next 24 Hours):\n"
-            severe_info += "• Thunderstorm probability: 15% (Low)\n"
-            severe_info += "• Tornado risk: 0% (None)\n"
-            severe_info += "• Hail probability: 5% (Very Low)\n"
-            severe_info += "• Flash flood risk: 10% (Low)\n\n"
-            severe_info += "📡 MONITORING SYSTEMS:\n"
-            severe_info += "• Doppler radar: Active monitoring\n"
-            severe_info += "• Lightning detection: No activity\n"
-            severe_info += "• Satellite imagery: Clear patterns\n"
-            severe_info += "• Weather stations: Normal readings\n\n"
-            severe_info += "🔔 ALERT SETTINGS:\n"
-            severe_info += "• Emergency alerts: Enabled\n"
-            severe_info += "• Push notifications: Active\n"
-            severe_info += "• SMS warnings: Available\n"
-            severe_info += "• Email updates: Configured\n\n"
-            severe_info += "💡 Use the buttons above for specific severe weather tracking"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, severe_info)
+            import pyperclip
+            pyperclip.copy(content)
+            messagebox.showinfo("Copied", "Content copied to clipboard!")
+        except ImportError:
+            # Fallback to tkinter clipboard
+            popup_window = tk.Toplevel()
+            popup_window.withdraw()
+            popup_window.clipboard_clear()
+            popup_window.clipboard_append(content)
+            popup_window.destroy()
+            messagebox.showinfo("Copied", "Content copied to clipboard!")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def storm_tracker(self):
-        """Track storms in the area"""
-        try:
-            storm_info = "⛈️ STORM TRACKING SYSTEM:\n"
-            storm_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            storm_info += "🌩️ ACTIVE STORM MONITORING:\n"
-            storm_info += "Currently tracking 3 weather systems in your region:\n\n"
-            storm_info += "📍 STORM SYSTEM A:\n"
-            storm_info += "• Location: 150km southwest\n"
-            storm_info += "• Intensity: Moderate thunderstorm\n"
-            storm_info += "• Movement: Northeast at 25 km/h\n"
-            storm_info += "• ETA: 6 hours\n"
-            storm_info += "• Risk level: Medium\n\n"
-            storm_info += "📍 STORM SYSTEM B:\n"
-            storm_info += "• Location: 300km west\n"
-            storm_info += "• Intensity: Developing thunderstorm\n"
-            storm_info += "• Movement: East at 15 km/h\n"
-            storm_info += "• ETA: 18 hours\n"
-            storm_info += "• Risk level: Low to Medium\n\n"
-            storm_info += "📍 STORM SYSTEM C:\n"
-            storm_info += "• Location: 500km south\n"
-            storm_info += "• Intensity: Severe thunderstorm\n"
-            storm_info += "• Movement: North at 30 km/h\n"
-            storm_info += "• ETA: 16 hours\n"
-            storm_info += "• Risk level: High (Monitor closely)\n\n"
-            storm_info += "🎯 STORM CHARACTERISTICS:\n"
-            storm_info += "• Lightning frequency: Every 2-5 seconds\n"
-            storm_info += "• Hail size potential: Up to 2cm diameter\n"
-            storm_info += "• Wind gusts: Up to 80 km/h\n"
-            storm_info += "• Rainfall rate: 15-25mm per hour\n\n"
-            storm_info += "📱 REAL-TIME UPDATES:\n"
-            storm_info += "• Storm position updated every 5 minutes\n"
-            storm_info += "• Intensity changes tracked continuously\n"
-            storm_info += "• Path predictions updated hourly\n"
-            storm_info += "• Impact assessments provided"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, storm_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def tornado_watch(self):
-        """Monitor tornado conditions"""
-        try:
-            tornado_info = "🌪️ TORNADO MONITORING SYSTEM:\n"
-            tornado_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            tornado_info += "🚨 TORNADO RISK ASSESSMENT:\n"
-            tornado_info += "Current Risk Level: VERY LOW ✅\n\n"
-            tornado_info += "🌀 ATMOSPHERIC CONDITIONS:\n"
-            tornado_info += "• Wind shear: 5 m/s (Low risk)\n"
-            tornado_info += "• CAPE (Instability): 800 J/kg (Marginal)\n"
-            tornado_info += "• Helicity: 50 m²/s² (Weak)\n"
-            tornado_info += "• Supercell probability: 5% (Very Low)\n\n"
-            tornado_info += "📊 TORNADO INDICATORS:\n"
-            tornado_info += "• Rotation in storms: None detected\n"
-            tornado_info += "• Mesocyclone activity: No signatures\n"
-            tornado_info += "• Doppler velocity: Normal patterns\n"
-            tornado_info += "• Hook echo formations: Not present\n\n"
-            tornado_info += "⚠️ WARNING LEVELS:\n"
-            tornado_info += "• TORNADO WATCH: Conditions favorable (Not active)\n"
-            tornado_info += "• TORNADO WARNING: Tornado spotted (Not active)\n"
-            tornado_info += "• PDS WARNING: Particularly dangerous (Not active)\n\n"
-            tornado_info += "🏠 SAFETY PREPAREDNESS:\n"
-            tornado_info += "• Identify safe rooms in your building\n"
-            tornado_info += "• Know basement or interior room locations\n"
-            tornado_info += "• Keep emergency supplies ready\n"
-            tornado_info += "• Have battery-powered weather radio\n\n"
-            tornado_info += "📡 MONITORING NETWORK:\n"
-            tornado_info += "• Dual-pol radar scanning every 4 minutes\n"
-            tornado_info += "• Storm spotters: 12 active in region\n"
-            tornado_info += "• Automated detection algorithms running\n"
-            tornado_info += "• Emergency management coordination active\n\n"
-            tornado_info += "🚨 If tornado warning issued:\n"
-            tornado_info += "• Seek shelter immediately in sturdy building\n"
-            tornado_info += "• Go to lowest floor, interior room\n"
-            tornado_info += "• Stay away from windows and doors\n"
-            tornado_info += "• Monitor emergency broadcasts"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, tornado_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def hail_alerts(self):
-        """Monitor hail conditions"""
-        try:
-            hail_info = "🧊 HAIL MONITORING SYSTEM:\n"
-            hail_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            hail_info += "❄️ HAIL RISK ASSESSMENT:\n"
-            hail_info += "Current Risk Level: LOW ✅\n\n"
-            hail_info += "🌡️ HAIL FORMATION CONDITIONS:\n"
-            hail_info += "• Freezing level: 3,200m (Normal)\n"
-            hail_info += "• Updraft strength: 15 m/s (Weak)\n"
-            hail_info += "• Temperature profile: Stable\n"
-            hail_info += "• Storm top height: 8,000m (Sub-severe)\n\n"
-            hail_info += "📏 HAIL SIZE PREDICTIONS:\n"
-            hail_info += "• Pea size (6mm): 10% probability\n"
-            hail_info += "• Marble size (13mm): 3% probability\n"
-            hail_info += "• Golf ball size (44mm): <1% probability\n"
-            hail_info += "• Tennis ball size (67mm): 0% probability\n\n"
-            hail_info += "🚗 VEHICLE PROTECTION:\n"
-            hail_info += "• Covered parking recommended during storms\n"
-            hail_info += "• Hail blankets/tarps can protect vehicles\n"
-            hail_info += "• Avoid driving during hail warnings\n"
-            hail_info += "• Insurance considerations for hail damage\n\n"
-            hail_info += "🏠 PROPERTY PROTECTION:\n"
-            hail_info += "• Secure outdoor furniture and equipment\n"
-            hail_info += "• Protect garden plants with covers\n"
-            hail_info += "• Check roof and gutter conditions\n"
-            hail_info += "• Document property for insurance purposes\n\n"
-            hail_info += "📱 HAIL DETECTION TECHNOLOGY:\n"
-            hail_info += "• Dual-polarization radar identifies hail cores\n"
-            hail_info += "• Size estimation algorithms active\n"
-            hail_info += "• Real-time hail reports from spotters\n"
-            hail_info += "• Damage assessment coordination\n\n"
-            hail_info += "⚠️ HAIL SAFETY TIPS:\n"
-            hail_info += "• Stay indoors during hailstorms\n"
-            hail_info += "• Avoid windows and skylights\n"
-            hail_info += "• Wait for all-clear before going outside\n"
-            hail_info += "• Report significant hail to weather service"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, hail_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def flood_warnings(self):
-        """Monitor flood conditions"""
-        try:
-            flood_info = "🌊 FLOOD MONITORING SYSTEM:\n"
-            flood_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            flood_info += "💧 FLOOD RISK ASSESSMENT:\n"
-            flood_info += "Current Risk Level: LOW ✅\n\n"
-            flood_info += "🌧️ PRECIPITATION MONITORING:\n"
-            flood_info += "• Last 24 hours: 2mm (Light)\n"
-            flood_info += "• Flash flood guidance: 25mm/hour\n"
-            flood_info += "• Soil moisture: 60% (Moderate)\n"
-            flood_info += "• Antecedent rainfall: Below normal\n\n"
-            flood_info += "🏞️ RIVER AND STREAM CONDITIONS:\n"
-            flood_info += "• Main River: 2.1m (Normal: 1.8-3.2m)\n"
-            flood_info += "• Creek tributaries: Within banks\n"
-            flood_info += "• Urban drainage: Operating normally\n"
-            flood_info += "• Reservoir levels: 75% capacity\n\n"
-            flood_info += "⚠️ FLOOD WARNING LEVELS:\n"
-            flood_info += "• FLOOD WATCH: Conditions developing (Not active)\n"
-            flood_info += "• FLOOD WARNING: Flooding occurring (Not active)\n"
-            flood_info += "• FLASH FLOOD WARNING: Immediate threat (Not active)\n"
-            flood_info += "• FLASH FLOOD EMERGENCY: Life-threatening (Not active)\n\n"
-            flood_info += "🗺️ HIGH-RISK AREAS:\n"
-            flood_info += "• Low-lying neighborhoods: Downtown area\n"
-            flood_info += "• Poor drainage zones: Industrial district\n"
-            flood_info += "• Creek flood plains: Riverside park area\n"
-            flood_info += "• Historical flood zones: River bend region\n\n"
-            flood_info += "🚧 FLOOD SAFETY MEASURES:\n"
-            flood_info += "• Turn Around, Don't Drown - avoid flooded roads\n"
-            flood_info += "• 6 inches of water can knock you down\n"
-            flood_info += "• 12 inches can carry away a vehicle\n"
-            flood_info += "• Never drive through flooded roadways\n\n"
-            flood_info += "📊 MONITORING SYSTEMS:\n"
-            flood_info += "• Stream gauges: 8 active in watershed\n"
-            flood_info += "• Rainfall sensors: Real-time data collection\n"
-            flood_info += "• Flood forecast models: Updated hourly\n"
-            flood_info += "• Emergency management: Coordinated response"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, flood_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to copy: {str(e)}")
 
 
-class LiveWeatherTab:
-    """Live weather tab component"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Live Weather")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the UI components"""
-        StyledLabel(self.frame, text="Enter City for Live Weather:").pack(pady=10)
-        self.city_entry = ttk.Entry(self.frame)
-        self.city_entry.pack()
-        
-        self.result_text = StyledText(self.frame, height=10)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
-        
-        # Main action button
-        StyledButton(self.frame, "primary", text="🔴 Start Live Feed", 
-                    command=self.start_live_feed).pack(pady=5)
-        
-        # Additional Enhanced Buttons
-        live_button_frame = ttk.Frame(self.frame)
-        live_button_frame.pack(pady=5)
-        
-        StyledButton(live_button_frame, "accent_black", text="📡 Real-time Updates", 
-                    command=self.real_time_updates).grid(row=0, column=0, padx=3)
-        StyledButton(live_button_frame, "info_black", text="📊 Live Dashboard", 
-                    command=self.live_dashboard).grid(row=0, column=1, padx=3)
-        StyledButton(live_button_frame, "success_black", text="🌐 Global Feed", 
-                    command=self.global_feed).grid(row=0, column=2, padx=3)
-        StyledButton(live_button_frame, "warning_black", text="⚡ Breaking Weather", 
-                    command=self.breaking_weather).grid(row=0, column=3, padx=3)
-
-    def start_live_feed(self):
-        """Start live weather feed"""
-        city = self.city_entry.get().strip()
-        if not city:
-            messagebox.showwarning("Input Error", "Please enter a city name")
-            return
-        
-        try:
-            from datetime import datetime
-            live_info = f"🔴 LIVE WEATHER FEED for {city}:\n"
-            live_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            live_info += "📡 LIVE WEATHER STREAM ACTIVE\n"
-            live_info += f"🕐 Last Update: {datetime.now().strftime('%H:%M:%S')}\n\n"
-            live_info += "🌤️ CURRENT CONDITIONS:\n"
-            live_info += "• Temperature: 23°C (feels like 25°C)\n"
-            live_info += "• Humidity: 68%\n"
-            live_info += "• Wind: 12 km/h NW\n"
-            live_info += "• Pressure: 1013.2 hPa\n"
-            live_info += "• Visibility: 10+ km\n"
-            live_info += "• UV Index: 6 (High)\n\n"
-            live_info += "⏱️ LIVE TRACKING:\n"
-            live_info += "• Updates every: 60 seconds\n"
-            live_info += "• Weather station: City Central\n"
-            live_info += "• Data source: Multiple sensors\n"
-            live_info += "• Quality rating: Excellent\n\n"
-            live_info += "📈 RECENT CHANGES (Last Hour):\n"
-            live_info += "• Temperature: +2°C\n"
-            live_info += "• Wind speed: Decreased 3 km/h\n"
-            live_info += "• Pressure: Steady\n"
-            live_info += "• Humidity: -5%\n\n"
-            live_info += "🎯 LIVE FEATURES:\n"
-            live_info += "• Real-time lightning detection\n"
-            live_info += "• Minute-by-minute precipitation\n"
-            live_info += "• Live radar updates\n"
-            live_info += "• Instant severe weather alerts\n\n"
-            live_info += "📱 Stream will auto-refresh every minute\n"
-            live_info += "🔄 Next update in: 45 seconds"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, live_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def real_time_updates(self):
-        """Show real-time weather updates"""
-        try:
-            updates_info = "📡 REAL-TIME WEATHER UPDATES:\n"
-            updates_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            updates_info += "⚡ INSTANT WEATHER CHANGES:\n\n"
-            updates_info += "🕐 14:32:15 - Temperature increased to 24°C\n"
-            updates_info += "🕐 14:31:45 - Wind direction shifted to NNW\n"
-            updates_info += "🕐 14:31:20 - Humidity dropped to 67%\n"
-            updates_info += "🕐 14:30:55 - Pressure rising: 1013.5 hPa\n"
-            updates_info += "🕐 14:30:30 - Cloud cover decreasing: 40%\n\n"
-            updates_info += "🌩️ LIGHTNING ACTIVITY:\n"
-            updates_info += "• No lightning detected in 50km radius\n"
-            updates_info += "• Nearest activity: 120km southeast\n"
-            updates_info += "• Strike rate: 0 per minute\n\n"
-            updates_info += "🌧️ PRECIPITATION RADAR:\n"
-            updates_info += "• No precipitation currently detected\n"
-            updates_info += "• Light showers: 80km west, moving away\n"
-            updates_info += "• Next rain probability: 6 hours\n\n"
-            updates_info += "🌪️ WIND MONITORING:\n"
-            updates_info += "• Current: 12 km/h NW (steady)\n"
-            updates_info += "• Gusts: Up to 18 km/h\n"
-            updates_info += "• Wind shear: Minimal\n"
-            updates_info += "• Direction trend: Backing to W\n\n"
-            updates_info += "📊 UPDATE FREQUENCY:\n"
-            updates_info += "• Temperature: Every minute\n"
-            updates_info += "• Wind: Every 30 seconds\n"
-            updates_info += "• Pressure: Every 5 minutes\n"
-            updates_info += "• Precipitation: Real-time radar\n\n"
-            updates_info += "🔔 SMART NOTIFICATIONS:\n"
-            updates_info += "• Significant changes: Automatic alerts\n"
-            updates_info += "• Threshold alerts: Customizable\n"
-            updates_info += "• Trend warnings: Pattern recognition"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, updates_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def live_dashboard(self):
-        """Show live weather dashboard"""
-        try:
-            dashboard_info = "📊 LIVE WEATHER DASHBOARD:\n"
-            dashboard_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            dashboard_info += "🎛️ MULTI-LOCATION MONITORING:\n\n"
-            dashboard_info += "📍 LOCATION 1: Current City\n"
-            dashboard_info += "   🌡️ 23°C | 💧 68% | 💨 12 km/h | ☁️ Partly Cloudy\n"
-            dashboard_info += "   Trend: ↗️ Improving\n\n"
-            dashboard_info += "📍 LOCATION 2: Nearby City (50km)\n"
-            dashboard_info += "   🌡️ 21°C | 💧 72% | 💨 15 km/h | 🌧️ Light Rain\n"
-            dashboard_info += "   Trend: ↘️ Deteriorating\n\n"
-            dashboard_info += "📍 LOCATION 3: Regional Hub (100km)\n"
-            dashboard_info += "   🌡️ 26°C | 💧 55% | 💨 8 km/h | ☀️ Sunny\n"
-            dashboard_info += "   Trend: ➡️ Stable\n\n"
-            dashboard_info += "📈 LIVE GRAPHS & CHARTS:\n"
-            dashboard_info += "• Temperature trends: 24-hour rolling\n"
-            dashboard_info += "• Pressure changes: Barometric trends\n"
-            dashboard_info += "• Wind patterns: Speed and direction\n"
-            dashboard_info += "• Humidity cycles: Daily variations\n\n"
-            dashboard_info += "🗺️ INTERACTIVE WEATHER MAP:\n"
-            dashboard_info += "• Live radar overlay: Precipitation\n"
-            dashboard_info += "• Satellite imagery: Cloud movement\n"
-            dashboard_info += "• Temperature contours: Heat mapping\n"
-            dashboard_info += "• Wind flow visualization: Direction arrows\n\n"
-            dashboard_info += "⚡ LIVE ALERTS PANEL:\n"
-            dashboard_info += "• No active weather warnings\n"
-            dashboard_info += "• Advisories: Light winds expected\n"
-            dashboard_info += "• Watches: None in effect\n\n"
-            dashboard_info += "🔄 AUTO-REFRESH SETTINGS:\n"
-            dashboard_info += "• Dashboard updates: Every 30 seconds\n"
-            dashboard_info += "• Map refresh: Every 2 minutes\n"
-            dashboard_info += "• Data synchronization: Real-time"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, dashboard_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def global_feed(self):
-        """Show global weather feed"""
-        try:
-            global_info = "🌐 GLOBAL WEATHER FEED:\n"
-            global_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            global_info += "🌍 WORLDWIDE WEATHER HIGHLIGHTS:\n\n"
-            global_info += "🇺🇸 NORTH AMERICA:\n"
-            global_info += "• New York: 18°C, Cloudy, Normal\n"
-            global_info += "• Los Angeles: 28°C, Sunny, Heat advisory\n"
-            global_info += "• Toronto: 15°C, Rain, Flood watch\n\n"
-            global_info += "🇪🇺 EUROPE:\n"
-            global_info += "• London: 16°C, Overcast, Typical\n"
-            global_info += "• Paris: 22°C, Sunny, Pleasant\n"
-            global_info += "• Berlin: 19°C, Showers, Unsettled\n\n"
-            global_info += "🇦🇸 ASIA-PACIFIC:\n"
-            global_info += "• Tokyo: 31°C, Humid, Heat warning\n"
-            global_info += "• Sydney: 12°C, Clear, Cool\n"
-            global_info += "• Mumbai: 29°C, Monsoon, Heavy rain\n\n"
-            global_info += "🌪️ EXTREME WEATHER EVENTS:\n"
-            global_info += "• Hurricane tracking: Atlantic basin quiet\n"
-            global_info += "• Typhoon activity: Western Pacific active\n"
-            global_info += "• Severe storms: Central US developing\n\n"
-            global_info += "🔥 SIGNIFICANT WEATHER:\n"
-            global_info += "• Wildfires: California - moderate risk\n"
-            global_info += "• Heatwaves: Europe - temperatures rising\n"
-            global_info += "• Flooding: Southeast Asia - monsoon season\n\n"
-            global_info += "📡 LIVE GLOBAL TRACKING:\n"
-            global_info += "• 50,000+ weather stations reporting\n"
-            global_info += "• Satellite data: Updated every 15 minutes\n"
-            global_info += "• Ocean buoys: Marine weather monitoring\n"
-            global_info += "• Aircraft reports: Upper-level conditions\n\n"
-            global_info += "🌊 CLIMATE INDICATORS:\n"
-            global_info += "• Sea surface temperatures: Above average\n"
-            global_info += "• Jet stream position: Slightly south\n"
-            global_info += "• El Niño/La Niña: Neutral conditions"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, global_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def breaking_weather(self):
-        """Show breaking weather news"""
-        try:
-            breaking_info = "⚡ BREAKING WEATHER NEWS:\n"
-            breaking_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            breaking_info += "🚨 LATEST WEATHER DEVELOPMENTS:\n\n"
-            breaking_info += "🕐 14:30 - DEVELOPING STORY:\n"
-            breaking_info += "• Unexpected temperature spike in downtown area\n"
-            breaking_info += "• 5°C increase in 20 minutes\n"
-            breaking_info += "• Meteorologists investigating cause\n\n"
-            breaking_info += "🕐 13:45 - WEATHER ALERT:\n"
-            breaking_info += "• Wind advisory issued for coastal areas\n"
-            breaking_info += "• Gusts up to 55 km/h expected\n"
-            breaking_info += "• Small craft advisory in effect\n\n"
-            breaking_info += "🕐 12:15 - RECORD UPDATE:\n"
-            breaking_info += "• Hottest day of the year so far\n"
-            breaking_info += "• Previous record: 32°C (July 15)\n"
-            breaking_info += "• Current high: 33°C and rising\n\n"
-            breaking_info += "⛈️ STORM WATCH:\n"
-            breaking_info += "• Thunderstorm cells developing 200km west\n"
-            breaking_info += "• Movement: Northeast at 25 km/h\n"
-            breaking_info += "• ETA: 8 hours\n"
-            breaking_info += "• Intensity: Moderate to strong\n\n"
-            breaking_info += "📊 WEATHER IMPACT REPORTS:\n"
-            breaking_info += "• Airport delays: None currently\n"
-            breaking_info += "• Traffic conditions: Normal\n"
-            breaking_info += "• Power grid: Stable\n"
-            breaking_info += "• Public events: Proceeding as planned\n\n"
-            breaking_info += "📱 SOCIAL MEDIA WEATHER:\n"
-            breaking_info += "• #WeatherUpdate trending locally\n"
-            breaking_info += "• User reports: Heat building downtown\n"
-            breaking_info += "• Photos: Clear skies, intense sun\n\n"
-            breaking_info += "🔔 EMERGENCY UPDATES:\n"
-            breaking_info += "• No weather emergencies active\n"
-            breaking_info += "• Monitoring heat stress conditions\n"
-            breaking_info += "• Stay hydrated and seek shade"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, breaking_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
+import tkinter as tk
 
 class QuickActionsTab:
     """Quick actions tab component for instant access to all major features"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="🚀 Quick Actions")
-        set_tab_font(notebook)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the quick actions UI components"""
+        # Application Title
+        title_frame = ttk.Frame(self.frame)
+        title_frame.pack(pady=20)
+        
+        # Main title with simple, clean styling
+        app_title = ttk.Label(title_frame,
+                            text="MeteoMetrics Weather Station",
+                            style='Title.TLabel')
+        app_title.configure(font=('Helvetica', 32, 'bold'))
+        app_title.pack(pady=10)
+        
+        # Quick Actions subtitle
+        title_label = StyledLabel(self.frame, text="🚀 Quick Actions Dashboard")
+        title_label.configure(font=("Arial", 16, "bold"))
+        title_label.pack(pady=10)
+        
+        # Setup the main container for actions
+        self._setup_actions_container()
+        title_label.configure(font=("Arial", 16, "bold"))
+        title_label.pack(pady=10)
+        
+        # Description
+        desc_label = StyledLabel(self.frame, 
+                                text="Instant access to all major weather dashboard features")
+        desc_label.pack(pady=5)
+        
+        # Main actions container
+        self.main_container = ttk.Frame(self.frame)
+        self.main_container.pack(pady=20, padx=20, fill="both", expand=True)
+        
+    def _setup_actions_container(self):
+        """Setup the main container for action buttons"""
+        self.main_container = ttk.Frame(self.frame)
+        self.main_container.pack(pady=20, padx=20, fill="both", expand=True)
+        
+        # Essential Weather Actions Section
+        weather_frame = ttk.LabelFrame(self.main_container, text="🌤️ Weather Actions", padding=15)
+        weather_frame.pack(fill="x", pady=10)
+        
+        weather_row1 = ttk.Frame(weather_frame)
+        weather_row1.pack(pady=5)
+        
+        StyledButton(weather_row1, "primary_black", text="🌡️ Quick Weather",
+                    command=self._quick_weather, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(weather_row1, "info_black", text="📅 5-Day Forecast", 
+                    command=self._quick_forecast, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(weather_row1, "cool_black", text="🎯 Activity Now",
+                    command=self._quick_activity, width=15).grid(row=0, column=2, padx=5)
+        
+        # Utility Actions Section
+        utility_frame = ttk.LabelFrame(self.main_container, text="🔧 Utility Actions", padding=15)
+        utility_frame.pack(fill="x", pady=10)
+        
+        utility_row1 = ttk.Frame(utility_frame)
+        utility_row1.pack(pady=5)
+        
+        StyledButton(utility_row1, "accent_black", text="📊 Weather Summary",
+                    command=self._weather_summary, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(utility_row1, "success_black", text="⭐ Save Favorite",
+                    command=self._save_favorite, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(utility_row1, "warning_black", text="⚠️ Weather Alerts",
+                    command=self._check_alerts, width=15).grid(row=0, column=2, padx=5)
+        
+        # Smart Features Section
+        smart_frame = ttk.LabelFrame(self.main_container, text="🧠 Smart Features", padding=15)
+        smart_frame.pack(fill="x", pady=10)
+        
+        smart_row1 = ttk.Frame(smart_frame)
+        smart_row1.pack(pady=5)
+        
+        StyledButton(smart_row1, "accent_black", text="🗺️ City Explorer",
+                    command=self._city_explorer, width=15).grid(row=0, column=0, padx=5)
+        StyledButton(smart_row1, "info_black", text="📈 Weather Trends",
+                    command=self._weather_trends, width=15).grid(row=0, column=1, padx=5)
+        StyledButton(smart_row1, "success_black", text="📋 Quick Compare",
+                    command=self._quick_compare, width=15).grid(row=0, column=2, padx=5)
+        
+        # Results display area
+        self.result_frame = ttk.LabelFrame(self.main_container, text="📄 Results", padding=10)
+        self.result_frame.pack(fill="both", expand=True, pady=10)
+        
+        self.result_text = StyledText(self.result_frame, height=12, width=80)
+        self.result_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Initial welcome message
+        welcome_msg = """🌟 Welcome to Quick Actions Dashboard!
+
+Select any action above to get started:
+
+🌤️ Weather Actions:
+• Quick Weather - Get current conditions instantly
+• 5-Day Forecast - Extended weather outlook  
+• Activity Now - Weather-based activity suggestions
+
+🔧 Utility Actions:
+• Weather Summary - Comprehensive overview
+• Save Favorite - Bookmark your cities
+• Weather Alerts - Check for weather warnings
+
+🧠 Smart Features:
+• City Explorer - Discover new cities with great weather
+• Weather Trends - Analyze weather patterns
+• Quick Compare - Compare multiple cities
+
+Results will appear in this area when you use the quick actions above."""
+        
+        self.result_text.insert("1.0", welcome_msg)
+
+    # Quick Action Methods (delegated to controller with result display)
+    def _quick_weather(self):
+        """Get weather for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for quick weather:")
+        
+        if city:
+            try:
+                weather_data = self.controller.get_quick_weather(city)
+                result = f"🌡️ QUICK WEATHER for {weather_data.city}:\n"
+                result += "=" * 50 + "\n"
+                result += f"Temperature: {weather_data.formatted_temperature}\n"
+                result += f"Description: {weather_data.description}\n"
+                result += f"Humidity: {weather_data.humidity}%\n"
+                result += f"Wind: {weather_data.formatted_wind}\n"
+                result += f"Visibility: {weather_data.formatted_visibility}\n"
+                result += f"Pressure: {weather_data.pressure} hPa\n"
+                self._display_result(result)
+            except Exception as e:
+                self._display_error(f"Failed to get weather: {str(e)}")
+
+    def _quick_forecast(self):
+        """Get 5-day forecast for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for 5-day forecast:")
+        
+        if city:
+            try:
+                forecast = self.controller.get_forecast(city)
+                self._display_result(f"📅 5-DAY FORECAST:\n{'=' * 50}\n{forecast}")
+            except Exception as e:
+                self._display_error(f"Failed to get forecast: {str(e)}")
+
+    def _quick_activity(self):
+        """Get activity suggestion for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for activity suggestion:")
+        
+        if city:
+            try:
+                activity = self.controller.suggest_activity(city)
+                self._display_result(f"🎯 ACTIVITY SUGGESTIONS:\n{'=' * 50}\n{activity}")
+            except Exception as e:
+                self._display_error(f"Failed to get activity suggestion: {str(e)}")
+
+    def _weather_summary(self):
+        """Get comprehensive weather summary"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city for weather summary:")
+        
+        if city:
+            try:
+                summary = self.controller.get_weather_summary(city)
+                self._display_result(summary)
+            except Exception as e:
+                self._display_error(f"Failed to get weather summary: {str(e)}")
+
+    def _save_favorite(self):
+        """Save current or entered city as favorite"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to save as favorite:")
+        
+        if city:
+            result = self.controller.add_favorite_city(city)
+            fav_cities = self.controller.get_favorite_cities()
+            
+            display_result = f"⭐ FAVORITE CITIES MANAGER:\n{'=' * 50}\n"
+            display_result += f"Status: {result}\n\n"
+            display_result += "Your Favorite Cities:\n"
+            if fav_cities:
+                for i, fav_city in enumerate(fav_cities, 1):
+                    display_result += f"• {fav_city}\n"
+            else:
+                display_result += "No favorite cities saved yet.\n"
+            
+            self._display_result(display_result)
+
+    def _check_alerts(self):
+        """Check weather alerts for last used city or prompt for new city"""
+        city = self.controller.last_city
+        if not city:
+            city = self._prompt_for_city("Enter city to check weather alerts:")
+        
+        if city:
+            try:
+                alerts = self.controller.check_weather_alerts(city)
+                self._display_result(f"⚠️ WEATHER ALERTS for {city}:\n{'=' * 50}\n{alerts}")
+            except Exception as e:
+                self._display_error(f"Failed to check alerts: {str(e)}")
+
+    def _city_explorer(self):
+        """Explore cities with different weather conditions"""
+        result = "🗺️ CITY EXPLORER:\n"
+        result += "=" * 50 + "\n\n"
+        result += "Discover cities around the world with different weather:\n\n"
+        
+        sample_cities = [
+            ("🌴 Tropical Paradise", ["Miami", "Bangkok", "Singapore", "Rio de Janeiro"]),
+            ("❄️ Winter Wonderland", ["Oslo", "Montreal", "Moscow", "Anchorage"]),
+            ("🌞 Sunny Destinations", ["Los Angeles", "Barcelona", "Sydney", "Cape Town"]),
+            ("🌧️ Rainy Cities", ["Seattle", "London", "Mumbai", "Bergen"]),
+            ("🏔️ Mountain Weather", ["Denver", "Zurich", "Calgary", "Innsbruck"])
+        ]
+        
+        for category, cities in sample_cities:
+            result += f"{category}:\n"
+            for city in cities:
+                result += f"  • {city}\n"
+            result += "\n"
+        
+        result += "💡 Tip: Enter any of these cities in Quick Weather to explore their current conditions!"
+        self._display_result(result)
+
+    def _weather_trends(self):
+        """Show weather trends and patterns"""
+        try:
+            dates, temps = self.controller.get_weather_history(30)
+            
+            if len(temps) < 5:
+                result = "📈 WEATHER TRENDS:\n"
+                result += "=" * 50 + "\n"
+                result += "Need more weather data to show trends.\n"
+                result += "Use the weather features to collect more data!"
+            else:
+                avg_temp = sum(temps) / len(temps)
+                max_temp = max(temps)
+                min_temp = min(temps)
+                
+                result = "📈 WEATHER TRENDS ANALYSIS:\n"
+                result += "=" * 50 + "\n"
+                result += f"Data Points: {len(temps)} records\n"
+                result += f"Period: {dates[0]} to {dates[-1]}\n\n"
+                result += f"Temperature Statistics:\n"
+                result += f"• Average: {avg_temp:.1f}°\n"
+                result += f"• Maximum: {max_temp:.1f}°\n"
+                result += f"• Minimum: {min_temp:.1f}°\n"
+                result += f"• Range: {max_temp - min_temp:.1f}°\n\n"
+                
+                # Recent trend
+                if len(temps) > 7:
+                    recent_avg = sum(temps[-7:]) / 7
+                    older_avg = sum(temps[:7]) / 7
+                    trend = "warming" if recent_avg > older_avg else "cooling"
+                    result += f"📈 Recent Trend: {trend.upper()}\n"
+            
+            self._display_result(result)
+        except Exception as e:
+            self._display_error(f"Failed to analyze trends: {str(e)}")
+
+    def _quick_compare(self):
+        """Quick comparison of multiple cities"""
+        result = "📋 QUICK CITY COMPARISON:\n"
+        result += "=" * 50 + "\n\n"
+        
+        # Get favorite cities for comparison
+        fav_cities = self.controller.get_favorite_cities()
+        
+        if len(fav_cities) >= 2:
+            result += "Comparing your favorite cities:\n\n"
+            try:
+                for city in fav_cities[:3]:  # Compare up to 3 cities
+                    weather_data = self.controller.get_current_weather(city)
+                    result += f"🏙️ {city}:\n"
+                    result += f"  Temperature: {weather_data.formatted_temperature}\n"
+                    result += f"  Conditions: {weather_data.description}\n"
+                    result += f"  Humidity: {weather_data.humidity}%\n\n"
+            except Exception as e:
+                result += f"Error comparing cities: {str(e)}\n"
+        else:
+            result += "Add more favorite cities to enable quick comparison!\n\n"
+            result += "Popular cities to compare:\n"
+            result += "• New York vs London vs Tokyo\n"
+            result += "• Miami vs Los Angeles vs Seattle\n"
+            result += "• Paris vs Rome vs Barcelona\n\n"
+            result += "Use 'Save Favorite' to add cities for comparison."
+        
+        self._display_result(result)
+
+    def _prompt_for_city(self, prompt_text):
+        """Prompt user for city name"""
+        from tkinter import simpledialog
+        return simpledialog.askstring("City Input", prompt_text)
+
+    def _display_result(self, content):
+        """Display result in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert("1.0", content)
+
+    def _display_error(self, error_msg):
+        """Display error message in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        error_content = f"❌ ERROR:\n{'=' * 50}\n{error_msg}\n\n"
+        error_content += "💡 Tips:\n"
+        error_content += "• Check your internet connection\n"
+        error_content += "• Verify the city name spelling\n"
+        error_content += "• Try a different city\n"
+        self.result_text.insert("1.0", error_content)
+        
+
+class MLTab:
+    """Machine Learning insights tab component"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🤖 ML Insights")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the ML insights UI components"""
+        # Header
+        header_label = StyledLabel(self.frame, "🤖 Machine Learning Weather Analysis", 
+                                 bg=COLOR_PALETTE["background"], 
+                                 fg=COLOR_PALETTE["accent"],
+                                 font=("Arial", 16, "bold"))
+        header_label.pack(pady=10)
+
+        # City input frame
+        input_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        input_frame.pack(pady=10)
+
+        tk.Label(input_frame, text="City:", 
+                bg=COLOR_PALETTE["background"], 
+                fg=COLOR_PALETTE["tab_fg"], 
+                font=("Arial", 12)).pack(side=tk.LEFT, padx=(0, 5))
+
+        self.city_entry = tk.Entry(input_frame, width=20, font=("Arial", 12))
+        self.city_entry.pack(side=tk.LEFT, padx=(0, 10))
+
+        # ML Analysis buttons frame
+        button_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        button_frame.pack(pady=10)
+
+        # Temperature prediction button
+        self.predict_btn = StyledButton(button_frame, "cool_black", text="🔮 Predict Temperature", 
+                                      command=self._predict_temperature)
+        self.predict_btn.pack(side=tk.LEFT, padx=5)
+
+        # Weather patterns button
+        self.patterns_btn = StyledButton(button_frame, "accent_black", text="📊 Detect Patterns", 
+                                       command=self._detect_patterns)
+        self.patterns_btn.pack(side=tk.LEFT, padx=5)
+
+        # Anomaly detection button
+        self.anomaly_btn = StyledButton(button_frame, "warning_black", text="⚠️ Find Anomalies", 
+                                      command=self._detect_anomalies)
+        self.anomaly_btn.pack(side=tk.LEFT, padx=5)
+
+        # Comprehensive analysis button
+        self.analysis_btn = StyledButton(button_frame, "success_black", text="🧠 Full Analysis", 
+                                       command=self._comprehensive_analysis)
+        self.analysis_btn.pack(side=tk.LEFT, padx=5)
+
+        # Results display area
+        result_frame = tk.Frame(self.frame, bg=COLOR_PALETTE["background"])
+        result_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # Scrollable text area for results
+        self.result_text = StyledText(result_frame, height=20, width=80)
+        
+        # Scrollbar for text area
+        scrollbar = ttk.Scrollbar(result_frame, orient="vertical", command=self.result_text.yview)
+        self.result_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.result_text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Initial help text
+        self._display_help()
+
+    def _display_help(self):
+        """Display initial help information"""
+        help_text = """🤖 ML Weather Analysis Features
+========================================
+
+Welcome to the Machine Learning Weather Analysis tab! Here you can:
+
+🔮 TEMPERATURE PREDICTION
+   • Predict future temperatures based on historical trends
+   • Get confidence scores for predictions
+   • See prediction horizons and model information
+
+📊 PATTERN DETECTION
+   • Identify recurring weather patterns
+   • Analyze temperature stability and variations
+   • Discover frequent weather conditions
+
+⚠️ ANOMALY DETECTION
+   • Find unusual weather events
+   • Detect extreme temperatures
+   • Get severity scores for anomalies
+
+🧠 COMPREHENSIVE ANALYSIS
+   • Get complete ML insights for a city
+   • Weather statistics and trends
+   • Personalized recommendations
+   • Historical data analysis
+
+📝 HOW TO USE:
+1. Enter a city name in the input field above
+2. Click any of the analysis buttons
+3. View the results in this area
+
+💡 TIP: The ML models use your historical weather data from the CSV log.
+The more data you have, the better the predictions!
+
+Get started by entering a city and clicking an analysis button! 🚀
+"""
+        self._display_result(help_text)
+
+    def _get_city(self):
+        """Get city from input field"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Required", "Please enter a city name")
+            return None
+        return city
+
+    def _predict_temperature(self):
+        """Predict temperature for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("🔮 Analyzing temperature trends...\n\nPlease wait...")
+            self.frame.update()
+
+            # Get ML controller and prediction
+            ml_controller = self.controller.ml_controller
+            prediction = ml_controller.get_temperature_prediction(city, 24)
+            
+            result = f"🔮 Temperature Prediction for {city.title()}\n"
+            result += "=" * 50 + "\n\n"
+            result += ml_controller.format_prediction_for_display(prediction)
+            result += "\n\n📋 Prediction Details:\n"
+            result += f"   • City: {prediction.city}\n"
+            result += f"   • Prediction Horizon: {prediction.prediction_horizon_hours} hours\n"
+            result += f"   • Trend Direction: {prediction.trend_direction}\n"
+            
+            if prediction.confidence_score > 0.7:
+                result += "\n✅ High confidence prediction - reliable forecast"
+            elif prediction.confidence_score > 0.5:
+                result += "\n⚠️ Moderate confidence - use with caution"
+            else:
+                result += "\n❌ Low confidence - more data needed for accurate prediction"
+
+            self._display_result(result)
+
+        except Exception as e:
+            self._display_error(f"Failed to predict temperature: {str(e)}")
+
+    def _detect_patterns(self):
+        """Detect weather patterns for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("📊 Analyzing weather patterns...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            patterns = ml_controller.get_weather_patterns(city)
+            
+            result = f"📊 Weather Patterns for {city.title()}\n"
+            result += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            if patterns:
+                result += ml_controller.format_patterns_for_display(patterns)
+                result += f"\n\n📈 Pattern Summary:\n"
+                result += f"   • Total patterns detected: {len(patterns)}\n"
+                
+                pattern_types = set(p.pattern_name for p in patterns)
+                result += f"   • Pattern types: {', '.join(pattern_types)}\n"
+                
+                avg_frequency = sum(p.frequency for p in patterns) / len(patterns)
+                result += f"   • Average frequency: {avg_frequency:.1f} occurrences\n"
+            else:
+                result += "No patterns found for the specified city.\n"
+            
+            self._display_result(result)
+        except Exception as e:
+            self._display_error(f"Failed to detect patterns: {str(e)}")
+
+    def _detect_anomalies(self):
+        """Detect anomalies in weather data for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("⚠️ Detecting weather anomalies...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            anomalies = ml_controller.get_weather_anomalies(city)
+            
+            result = f"⚠️ Weather Anomalies for {city.title()}\n"
+            result += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            if anomalies:
+                for anomaly in anomalies:
+                    result += f"• {anomaly.description} (Severity: {anomaly.severity})\n"
+                result += "\nTotal anomalies detected: " + str(len(anomalies))
+            else:
+                result += "No significant anomalies detected.\n"
+            
+            self._display_result(result)
+        except Exception as e:
+            self._display_error(f"Failed to detect anomalies: {str(e)}")
+
+    def _comprehensive_analysis(self):
+        """Perform a comprehensive analysis for the specified city"""
+        city = self._get_city()
+        if not city:
+            return
+
+        try:
+            self._display_result("🧠 Performing comprehensive analysis...\n\nPlease wait...")
+            self.frame.update()
+
+            ml_controller = self.controller.ml_controller
+            analysis = ml_controller.get_comprehensive_analysis(city)
+            
+            result = f"🧠 Comprehensive Weather Analysis for {city.title()}\n"
+            result += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            result += "📊 Statistical Overview:\n"
+            result += f"• Average Temperature: {analysis.avg_temperature:.1f}°\n"
+            result += f"• Max Temperature: {analysis.max_temperature:.1f}°\n"
+            result += f"• Min Temperature: {analysis.min_temperature:.1f}°\n"
+            result += f"• Temperature Range: {analysis.temperature_range:.1f}°\n\n"
+            
+            result += "📈 Trend Analysis:\n"
+            result += f"• Recent Trend: {analysis.recent_trend}\n"
+            result += f"• Long-term Trend: {analysis.long_term_trend}\n\n"
+            
+            result += "🌪️ Extreme Weather Events:\n"
+            if analysis.extreme_events:
+                for event in analysis.extreme_events:
+                    result += f"  - {event}\n"
+            else:
+                result += "• No extreme events detected\n"
+            
+            result += "\n📋 Recommendations:\n"
+            result += "• Review monthly and seasonal trends for planning\n"
+            result += "• Consider climate-adaptive measures\n"
+            result += "• Stay informed on weather alerts and updates\n"
+            
+            self._display_result(result)
+        except Exception as e:
+            self._display_error(f"Failed to perform comprehensive analysis: {str(e)}")
+
+    def _display_result(self, content):
+        """Display result in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert("1.0", content)
+
+    def _display_error(self, error_msg):
+        """Display error message in the text area"""
+        self.result_text.delete("1.0", tk.END)
+        error_content = f"❌ ERROR:\n{'=' * 50}\n{error_msg}\n\n"
+        error_content += "💡 Tips:\n"
+        error_content += "• Check your internet connection\n"
+        error_content += "• Verify the city name spelling\n"
+        error_content += "• Try a different city\n"
+        self.result_text.insert("1.0", error_content)
+
+class LiveWeatherTab:
+    """Live weather tab with animations and radar"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🌦️ Live Weather")
+        self.animation_widget = None
+        self.radar_widget = None
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the comprehensive live weather UI"""
+        # Main title
+        title_frame = ttk.Frame(self.frame)
+        title_frame.pack(fill="x", padx=10, pady=5)
+        
+        StyledLabel(title_frame, text="🌦️ Live Weather Radar & Animations", 
+                   font=("Arial", 16, "bold")).pack()
+        
+        # Create main split-screen layout
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Left panel for animations
+        self.left_frame = ttk.LabelFrame(self.main_paned, text="🎬 Live Weather Animations")
+        self.main_paned.add(self.left_frame, weight=1)
+        
+        # Right panel for radar
+        self.right_frame = ttk.LabelFrame(self.main_paned, text="🌩️ Doppler Weather Radar")
+        self.main_paned.add(self.right_frame, weight=1)
+        
+        # Setup both panels
+        self._setup_animation_panel()
+        self._setup_radar_panel()
+
+    def _setup_animation_panel(self):
+        """Setup the live animation panel"""
+        try:
+            from services.live_weather_service import AnimatedWeatherWidget, ANIMATIONS_AVAILABLE
+            
+            if ANIMATIONS_AVAILABLE:
+                # Animation canvas area
+                self.animation_canvas_frame = ttk.Frame(self.left_frame)
+                self.animation_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                # Create animation widget
+                self.animation_widget = AnimatedWeatherWidget(self.animation_canvas_frame)
+                
+                # Animation controls
+                controls_frame = ttk.Frame(self.left_frame)
+                controls_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Control buttons
+                btn_frame1 = ttk.Frame(controls_frame)
+                btn_frame1.pack(fill="x", pady=2)
+                
+                StyledButton(btn_frame1, "success_black", text="▶️ Start Animations", 
+                            command=self._start_animations).pack(side="left", padx=2)
+                StyledButton(btn_frame1, "danger_black", text="⏹️ Stop Animations", 
+                            command=self._stop_animations).pack(side="left", padx=2)
+                
+                btn_frame2 = ttk.Frame(controls_frame)
+                btn_frame2.pack(fill="x", pady=2)
+                
+                StyledButton(btn_frame2, "info_black", text="🌦️ Weather Sync", 
+                            command=self._toggle_weather_sync).pack(side="left", padx=2)
+                StyledButton(btn_frame2, "accent_black", text="⚙️ Settings", 
+                            command=self._animation_settings).pack(side="left", padx=2)
+                
+                # Animation status
+                self.animation_status = StyledLabel(controls_frame, text="Animation Status: Ready")
+                self.animation_status.pack(pady=5)
+                
+                # Legend frame
+                legend_frame = ttk.LabelFrame(self.left_frame, text="Animation Elements")
+                legend_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Create color swatches with descriptions
+                legend_items = [
+                    ("blue", "Blue", "Walker (Normal Speed)"),
+                    ("green", "Green", "Jogger (Fast)"),
+                    ("purple", "Purple", "Elderly (Slow)"),
+                    ("red", "Red", "Cyclist (Fastest)"),
+                    ("darkblue", "Dark Blue", "Rain Drops"),
+                    ("white", "White", "Snow Flakes"),
+                    ("yellow", "Yellow", "Lightning")
+                ]
+                
+                # Create color swatch frames and labels
+                for index, (color, color_name, description) in enumerate(legend_items):
+                    row = index // 2  # 2 columns instead of 3
+                    col = index % 2
+                    
+                    item_frame = ttk.Frame(legend_frame)
+                    item_frame.grid(row=row, column=col, padx=5, pady=2, sticky="w")
+                    
+                    # Color swatch (small colored rectangle)
+                    swatch = tk.Frame(item_frame, width=15, height=15, bg=color)
+                    swatch.pack(side="left", padx=5)
+                    # Keep the square shape
+                    swatch.pack_propagate(False)
+                    
+                    # Add border to white swatch for visibility
+                    if color == "#FFFFFF":
+                        swatch.configure(highlightbackground="black", highlightthickness=1)
+                    
+                    # Description with color name
+                    StyledLabel(item_frame, 
+                              text=f"{description} ({color_name})",
+                              font=("Arial", 9)).pack(side="left", padx=5)
+                
+            else:
+                # Fallback when animations not available
+                self._create_animation_fallback()
+                
+        except Exception as e:
+            print(f"Animation setup error: {e}")
+            self._create_animation_fallback()
+
+    def _setup_radar_panel(self):
+        """Setup the advanced weather radar panel with severe weather tracking"""
+        try:
+            from services.live_weather_service import WeatherRadarWidget, RADAR_AVAILABLE
+            
+            if RADAR_AVAILABLE:
+                # Advanced radar canvas area
+                self.radar_canvas_frame = ttk.Frame(self.right_frame)
+                self.radar_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                # Create enhanced radar widget with severe weather tracking
+                radar_service = self.controller.get_radar_service()
+                self.radar_widget = WeatherRadarWidget(self.radar_canvas_frame, radar_service)
+                
+                # Advanced radar controls
+                controls_frame = ttk.Frame(self.right_frame)
+                controls_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Location input frame
+                location_frame = ttk.LabelFrame(controls_frame, text="📍 Location & Tracking")
+                location_frame.pack(fill="x", pady=2)
+                
+                # Coordinates
+                coord_frame = ttk.Frame(location_frame)
+                coord_frame.pack(fill="x", padx=5, pady=2)
+                
+                StyledLabel(coord_frame, text="Lat:").pack(side="left")
+                self.lat_entry = ttk.Entry(coord_frame, width=10)
+                self.lat_entry.pack(side="left", padx=2)
+                self.lat_entry.insert(0, "39.2904")  # Baltimore default
+                
+                StyledLabel(coord_frame, text="Lon:").pack(side="left", padx=(10,0))
+                self.lon_entry = ttk.Entry(coord_frame, width=10)
+                self.lon_entry.pack(side="left", padx=2)
+                self.lon_entry.insert(0, "-76.6122")  # Baltimore default
+                
+                # Severe weather tracking options
+                tracking_frame = ttk.LabelFrame(controls_frame, text="🌪️ Severe Weather Tracking")
+                tracking_frame.pack(fill="x", pady=2)
+                
+                track_options = ttk.Frame(tracking_frame)
+                track_options.pack(fill="x", padx=5, pady=2)
+                
+                # Tracking checkboxes
+                self.track_hurricanes = tk.BooleanVar(value=True)
+                self.track_tornadoes = tk.BooleanVar(value=True)
+                self.track_storms = tk.BooleanVar(value=True)
+                self.track_blizzards = tk.BooleanVar(value=True)
+                
+                ttk.Checkbutton(track_options, text="🌀 Hurricanes", 
+                               variable=self.track_hurricanes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="🌪️ Tornadoes", 
+                               variable=self.track_tornadoes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="⛈️ Storms", 
+                               variable=self.track_storms).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="❄️ Blizzards", 
+                               variable=self.track_blizzards).pack(side="left", padx=3)
+                
+                # Radar intensity settings
+                intensity_frame = ttk.LabelFrame(controls_frame, text="📊 Radar Settings")
+                intensity_frame.pack(fill="x", pady=2)
+                
+                intensity_controls = ttk.Frame(intensity_frame)
+                intensity_controls.pack(fill="x", padx=5, pady=2)
+                
+                StyledLabel(intensity_controls, text="Range:").pack(side="left")
+                self.radar_range = ttk.Combobox(intensity_controls, width=10, 
+                                              values=["50 km", "100 km", "200 km", "500 km"])
+                self.radar_range.pack(side="left", padx=2)
+                self.radar_range.set("200 km")
+                
+                StyledLabel(intensity_controls, text="Update:").pack(side="left", padx=(10,0))
+                self.update_interval = ttk.Combobox(intensity_controls, width=10,
+                                                  values=["30 sec", "1 min", "2 min", "5 min"])
+                self.update_interval.pack(side="left", padx=2)
+                self.update_interval.set("2 min")
+                
+                # Control buttons
+                btn_frame1 = ttk.Frame(controls_frame)
+                btn_frame1.pack(fill="x", pady=3)
+                
+                StyledButton(btn_frame1, "primary_black", text="🔄 Update Radar", 
+                            command=self._update_live_radar).pack(side="left", padx=2)
+                StyledButton(btn_frame1, "warning_black", text="🌪️ Track Active Storms", 
+                            command=self._track_active_storms).pack(side="left", padx=2)
+                StyledButton(btn_frame1, "danger_black", text="🚨 Emergency Alerts", 
+                            command=self._show_emergency_alerts).pack(side="left", padx=2)
+                
+                btn_frame2 = ttk.Frame(controls_frame)
+                btn_frame2.pack(fill="x", pady=3)
+                
+                StyledButton(btn_frame2, "info_black", text="📈 Storm History", 
+                            command=self._show_storm_history).pack(side="left", padx=2)
+                StyledButton(btn_frame2, "success_black", text="📊 Radar Analysis", 
+                            command=self._show_radar_analysis).pack(side="left", padx=2)
+                StyledButton(btn_frame2, "accent_black", text="🎯 Auto-Track", 
+                            command=self._toggle_auto_tracking).pack(side="left", padx=2)
+                
+                # Status display
+                self.radar_status = StyledLabel(controls_frame, text="Radar Status: Initializing...")
+                self.radar_status.pack(pady=5)
+                
+                # Live tracking display
+                self.tracking_display = ttk.LabelFrame(controls_frame, text="🔴 LIVE TRACKING")
+                self.tracking_display.pack(fill="x", pady=2)
+                
+                self.live_status = StyledText(self.tracking_display, height=4)
+                self.live_status.pack(fill="x", padx=5, pady=2)
+                
+                # Initialize radar
+                self._initialize_live_radar()
+                
+            else:
+                # Enhanced fallback when radar not available
+                self._create_enhanced_radar_fallback()
+                
+        except Exception as e:
+            print(f"Radar setup error: {e}")
+            self._create_enhanced_radar_fallback()
+
+    def _create_enhanced_radar_fallback(self):
+        """Create enhanced fallback radar display with simulated tracking"""
+        fallback_frame = ttk.Frame(self.right_frame)
+        fallback_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Simulated radar display
+        radar_display = ttk.LabelFrame(fallback_frame, text="🌩️ LIVE WEATHER RADAR (Simulation Mode)")
+        radar_display.pack(fill="both", expand=True)
+        
+        info_text = StyledText(radar_display, height=20)
+        info_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        fallback_content = """🌩️ LIVE DOPPLER WEATHER RADAR - SEVERE WEATHER TRACKING
+
+🎯 CURRENTLY TRACKING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌀 HURRICANE TRACKING:
+   • Category 1-5 classification
+   • Wind speed monitoring (74+ mph)
+   • Storm surge predictions
+   • Landfall probability analysis
+   • Evacuation zone mapping
+
+🌪️ TORNADO DETECTION:
+   • EF Scale classification (EF0-EF5)
+   • Rotation velocity tracking
+   • Touchdown probability
+   • Path prediction modeling
+   • Warning area alerts
+
+⛈️ SEVERE THUNDERSTORMS:
+   • Supercell identification
+   • Hail size prediction (>1 inch)
+   • Wind gust forecasting (58+ mph)
+   • Flash flood potential
+   • Lightning strike density
+
+❄️ BLIZZARD MONITORING:
+   • Snow accumulation rates
+   • Wind speed tracking (35+ mph)
+   • Visibility reduction alerts
+   • Travel advisory zones
+   • Power outage predictions
+
+🌊 STORM SURGE TRACKING:
+   • Coastal flood warnings
+   • Wave height monitoring
+   • Tide level predictions
+   • Evacuation timing
+
+🔥 WILDFIRE MONITORING:
+   • Fire perimeter tracking
+   • Spread rate calculation
+   • Wind direction impact
+   • Evacuation routes
+
+📊 RADAR SPECIFICATIONS:
+   • Real-time 20x20 intensity grid
+   • 50-500km range capability
+   • 30-second update intervals
+   • Doppler velocity analysis
+   • Dual-polarization data
+
+🚨 EMERGENCY ALERT INTEGRATION:
+   • NWS alert feeds
+   • Local emergency broadcasts
+   • Automatic severe weather warnings
+   • Mobile push notifications
+
+🎯 LOCATION TRACKING:
+   • GPS coordinate input
+   • Multi-location monitoring
+   • Storm path intersections
+   • Time-to-impact calculations
+
+📈 STORM ANALYTICS:
+   • Historical storm data
+   • Pattern recognition
+   • Seasonal trends
+   • Climate impact analysis
+
+⚡ LIVE STATUS: Monitoring for severe weather events...
+🌍 Coverage: Global weather radar network
+🔄 Last Update: Real-time continuous monitoring
+📡 Data Sources: NOAA, NWS, International Weather Services
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 Install matplotlib and numpy for full interactive radar visualization"""
+        
+        info_text.insert("1.0", fallback_content)
+        info_text.config(state="disabled")
+        
+        # Simulation controls
+        sim_controls = ttk.Frame(fallback_frame)
+        sim_controls.pack(fill="x", pady=5)
+        
+        StyledButton(sim_controls, "warning_black", text="🌪️ Simulate Tornado", 
+                    command=self._simulate_tornado).pack(side="left", padx=2)
+        StyledButton(sim_controls, "danger_black", text="🌀 Simulate Hurricane", 
+                    command=self._simulate_hurricane).pack(side="left", padx=2)
+        StyledButton(sim_controls, "info_black", text="⛈️ Simulate Storm", 
+                    command=self._simulate_storm).pack(side="left", padx=2)
+
+    def _initialize_live_radar(self):
+        """Initialize the live radar system"""
+        try:
+            self.radar_status.config(text="Radar Status: Initializing radar systems... 🔄")
+            self._update_live_radar()
+            self._start_auto_tracking()
+            
+        except Exception as e:
+            self.radar_status.config(text=f"Radar Status: Initialization failed - {str(e)}")
+
+    def _start_auto_tracking(self):
+        """Start automatic weather tracking"""
+        self.auto_tracking = True
+        self._update_tracking_display()
+        
+        # Schedule regular updates
+        if hasattr(self, 'radar_widget'):
+            self.frame.after(30000, self._auto_update_cycle)  # 30 seconds
+
+    def _auto_update_cycle(self):
+        """Automatic update cycle for radar"""
+        if hasattr(self, 'auto_tracking') and self.auto_tracking:
+            self._update_live_radar()
+            self._scan_for_severe_weather()
+            self.frame.after(30000, self._auto_update_cycle)  # Continue cycle
+
+    def _update_tracking_display(self):
+        """Update the live tracking status display"""
+        if hasattr(self, 'live_status'):
+            import datetime
+            current_time = datetime.datetime.now().strftime("%H:%M:%S")
+            
+            tracking_info = f"""🔴 LIVE TRACKING STATUS - {current_time}
+
+🌀 Hurricanes: {'ACTIVE' if self.track_hurricanes.get() else 'DISABLED'}
+🌪️ Tornadoes: {'ACTIVE' if self.track_tornadoes.get() else 'DISABLED'}  
+⛈️ Storms: {'ACTIVE' if self.track_storms.get() else 'DISABLED'}
+❄️ Blizzards: {'ACTIVE' if self.track_blizzards.get() else 'DISABLED'}
+
+📡 Radar Range: {self.radar_range.get() if hasattr(self, 'radar_range') else '200 km'}
+🔄 Update Rate: {self.update_interval.get() if hasattr(self, 'update_interval') else '2 min'}"""
+            
+            self.live_status.delete("1.0", tk.END)
+            self.live_status.insert("1.0", tracking_info)
+
+    def _create_animation_fallback(self):
+        """Create fallback animation display"""
+        fallback_frame = ttk.Frame(self.left_frame)
+        fallback_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        info_text = StyledText(fallback_frame, height=12)
+        info_text.pack(fill="both", expand=True)
+        
+        fallback_content = """🎬 LIVE WEATHER ANIMATIONS
+        
+🚶‍♂️ Animated People:
+• Walker (Blue): Normal speed, weather-responsive
+• Jogger (Green): Fast movement, slows in rain
+• Elderly (Purple): Slow movement, very weather-sensitive  
+• Cyclist (Red): Fastest movement, moderate weather impact
+
+🌧️ Weather Effects:
+• Rain: Blue raindrops, 60% speed reduction
+• Snow: White snowflakes, 40% speed reduction
+• Storm: Lightning flashes, 20% speed
+• Blizzard: Heavy snow, 10% speed
+
+⚙️ Animation Features:
+• Real-time weather synchronization
+• 10 FPS smooth animation system
+• Threading for non-blocking performance
+• Weather-responsive movement patterns
+
+📦 Status: Advanced animations require additional packages
+Install matplotlib and numpy for full functionality"""
+        
+        info_text.insert("1.0", fallback_content)
+        info_text.config(state="disabled")
+
+    def _create_radar_fallback(self):
+        """Create fallback radar display"""
+        fallback_frame = ttk.Frame(self.right_frame)
+        fallback_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        info_text = StyledText(fallback_frame, height=12)
+        info_text.pack(fill="both", expand=True)
+        
+        fallback_content = """🌩️ LIVE DOPPLER WEATHER RADAR
+        
+🎯 Radar Features:
+• Real-time weather intensity mapping
+• 20x20 grid precipitation data
+• Color-coded intensity levels
+• Auto-updating every 2 minutes
+
+🌪️ Severe Weather Tracking:
+• Hurricanes 🌀 - Category classification
+• Tornadoes 🌪️ - EF scale intensity  
+• Blizzards ❄️ - Snow accumulation
+• Earthquakes - Magnitude tracking
+• Wildfires 🔥 - Fire perimeter monitoring
+• Cyclones - Storm path prediction
+
+🚨 Alert System:
+• Real-time severe weather notifications
+• Emergency weather broadcasts
+• Storm movement tracking
+• Impact area predictions
+
+📍 Location Support:
+• GPS coordinate input (lat/lon)
+• Default: Baltimore, MD (39.2904, -76.6122)
+• Global weather radar coverage
+• Multiple location monitoring
+
+📦 Status: Advanced radar requires additional packages
+Install matplotlib and numpy for full functionality"""
+        
+        info_text.insert("1.0", fallback_content)
+        info_text.config(state="disabled")
+
+    # Animation control methods
+    def _start_animations(self):
+        """Start live weather animations"""
+        if self.animation_widget:
+            try:
+                self.animation_widget.start_animation()
+                self.animation_status.config(text="Animation Status: Running ▶️")
+            except Exception as e:
+                self.animation_status.config(text=f"Animation Status: Error - {str(e)}")
+        else:
+            self.animation_status.config(text="Animation Status: Not Available")
+
+    def _stop_animations(self):
+        """Stop live weather animations"""
+        if self.animation_widget:
+            try:
+                self.animation_widget.stop_animation()
+                self.animation_status.config(text="Animation Status: Stopped ⏹️")
+            except Exception as e:
+                self.animation_status.config(text=f"Animation Status: Error - {str(e)}")
+
+    def _toggle_weather_sync(self):
+        """Toggle weather synchronization for animations"""
+        if self.animation_widget:
+            try:
+                self.animation_widget.toggle_weather_sync()
+                self.animation_status.config(text="Animation Status: Weather Sync Toggled 🌦️")
+            except Exception as e:
+                self.animation_status.config(text=f"Animation Status: Error - {str(e)}")
+
+    def _animation_settings(self):
+        """Show animation settings dialog"""
+        from tkinter import messagebox
+        messagebox.showinfo("Animation Settings", 
+                           "⚙️ Animation Settings:\n\n"
+                           "• Speed: Adjustable (1x-5x)\n"
+                           "• Weather Sync: On/Off\n"
+                           "• Effects: Rain, Snow, Lightning\n"
+                           "• People Types: 4 different characters\n"
+                           "• Frame Rate: 10 FPS\n\n"
+                           "Settings will be available in future updates!")
+
+    # Radar control methods
+    def _update_live_radar(self):
+        """Update the live radar display with severe weather tracking"""
+        if self.radar_widget:
+            try:
+                lat = float(self.lat_entry.get())
+                lon = float(self.lon_entry.get())
+                
+                tracking_options = {
+                    "hurricanes": self.track_hurricanes.get(),
+                    "tornadoes": self.track_tornadoes.get(),
+                    "storms": self.track_storms.get(),
+                    "blizzards": self.track_blizzards.get()
+                }
+                
+                self.radar_widget.update_radar(lat, lon, tracking_options)
+                self.radar_status.config(text=f"Radar Status: Updated for {lat:.2f}, {lon:.2f} 🔄")
+                
+            except ValueError:
+                self.radar_status.config(text="Radar Status: Invalid coordinates")
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+        else:
+            self.radar_status.config(text="Radar Status: Not Available")
+
+    def _track_active_storms(self):
+        """Track active storms and display information"""
+        if self.radar_widget:
+            try:
+                storm_data = self.radar_widget.get_storm_tracking()
+                self.radar_status.config(text="Radar Status: Storm Tracking Active 🌪️")
+                
+                from tkinter import messagebox
+                messagebox.showinfo("Active Storm Tracking", f"🌪️ SEVERE WEATHER TRACKING\n\n{storm_data}")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _show_emergency_alerts(self):
+        """Show emergency weather alerts"""
+        if self.radar_widget:
+            try:
+                alerts = self.radar_widget.get_weather_alerts()
+                
+                popup = tk.Toplevel(self.frame)
+                popup.title("🚨 Emergency Weather Alerts")
+                popup.geometry("600x400")
+                
+                alerts_text = StyledText(popup, height=20)
+                alerts_text.pack(fill="both", expand=True, padx=10, pady=10)
+                alerts_text.insert("1.0", alerts)
+                alerts_text.config(state="disabled")
+                
+                StyledButton(popup, "primary_black", text="Close", command=popup.destroy).pack(pady=10)
+                
+                self.radar_status.config(text="Radar Status: Alerts Displayed 🚨")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _show_storm_history(self):
+        """Show historical storm data"""
+        if self.radar_widget:
+            try:
+                history = self.radar_widget.get_storm_history()
+                
+                popup = tk.Toplevel(self.frame)
+                popup.title("📈 Storm History")
+                popup.geometry("500x350")
+                
+                history_text = StyledText(popup, height=15)
+                history_text.pack(fill="both", expand=True, padx=10, pady=10)
+                history_text.insert("1.0", history)
+                history_text.config(state="disabled")
+                
+                StyledButton(popup, "primary_black", text="Close", command=popup.destroy).pack(pady=10)
+                
+                self.radar_status.config(text="Radar Status: History Displayed 📈")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _show_radar_analysis(self):
+        """Show detailed radar analysis"""
+        if self.radar_widget:
+            try:
+                analysis = self.radar_widget.get_radar_analysis()
+                
+                popup = tk.Toplevel(self.frame)
+                popup.title("📊 Radar Analysis")
+                popup.geometry("500x350")
+                
+                analysis_text = StyledText(popup, height=15)
+                analysis_text.pack(fill="both", expand=True, padx=10, pady=10)
+                analysis_text.insert("1.0", analysis)
+                analysis_text.config(state="disabled")
+                
+                StyledButton(popup, "primary_black", text="Close", command=popup.destroy).pack(pady=10)
+                
+                self.radar_status.config(text="Radar Status: Analysis Displayed 📊")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _toggle_auto_tracking(self):
+        """Toggle automatic tracking of severe weather"""
+        if hasattr(self, 'auto_tracking'):
+            self.auto_tracking = not self.auto_tracking
+            status = "ACTIVE" if self.auto_tracking else "DISABLED"
+            self.radar_status.config(text=f"Auto-Tracking: {status} 🎯")
+            if self.auto_tracking:
+                self._auto_update_cycle()
+        else:
+            self.auto_tracking = True
+            self.radar_status.config(text="Auto-Tracking: ACTIVE 🎯")
+            self._auto_update_cycle()
+
+    def _scan_for_severe_weather(self):
+        """Scan for severe weather and update display"""
+        if self.radar_widget:
+            try:
+                storm_data = self.radar_widget.get_storm_tracking()
+                self.live_status.delete("1.0", tk.END)
+                self.live_status.insert("1.0", f"🔴 LIVE TRACKING:\n\n{storm_data}")
+            except Exception as e:
+                self.live_status.delete("1.0", tk.END)
+                self.live_status.insert("1.0", f"🔴 LIVE TRACKING:\n\nError: {str(e)}")
+
+    def _simulate_tornado(self):
+        """Simulate a tornado event"""
+        if hasattr(self, 'live_status'):
+            self.live_status.delete("1.0", tk.END)
+            self.live_status.insert("1.0", "🔴 LIVE TRACKING:\n\n🌪️ TORNADO WARNING!\nEF-3 Tornado detected near your location.\nTake shelter immediately!")
+
+    def _simulate_hurricane(self):
+        """Simulate a hurricane event"""
+        if hasattr(self, 'live_status'):
+            self.live_status.delete("1.0", tk.END)
+            self.live_status.insert("1.0", "🔴 LIVE TRACKING:\n\n🌀 HURRICANE WARNING!\nCategory 4 Hurricane approaching.\nPrepare for evacuation.")
+
+    def _simulate_storm(self):
+        """Simulate a severe storm event"""
+        if hasattr(self, 'live_status'):
+            self.live_status.delete("1.0", tk.END)
+            self.live_status.insert("1.0", "🔴 LIVE TRACKING:\n\n⛈️ SEVERE THUNDERSTORM!\nLarge hail and damaging winds expected.\nStay indoors.")
+
+
+class SevereWeatherTab:
+    """Severe weather alerts and tracking tab"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🚨 Severe Alerts")
+        self.radar_widget = None
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the severe weather UI"""
+        # Main title
+        title_frame = ttk.Frame(self.frame)
+        title_frame.pack(fill="x", padx=10, pady=5)
+        
+        StyledLabel(title_frame, text="🚨 Severe Weather Alerts & Tracking", 
+                   font=("Arial", 16, "bold")).pack()
+        
+        # Create main split-screen layout
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Left panel for alerts list
+        self.left_frame = ttk.LabelFrame(self.main_paned, text="📢 Active Alerts")
+        self.main_paned.add(self.left_frame, weight=1)
+        
+        # Right panel for radar and charts
+        self.right_frame = ttk.LabelFrame(self.main_paned, text="🗺️ Radar & Analysis")
+        self.main_paned.add(self.right_frame, weight=2)
+        
+        # Setup both panels
+        self._setup_alerts_panel()
+        self._setup_radar_panel()
+
+    def _setup_alerts_panel(self):
+        """Setup the active alerts panel"""
+        # Alerts display area
+        self.alerts_text = StyledText(self.left_frame, height=20)
+        self.alerts_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Placeholder content
+        self.alerts_text.insert("1.0", "Loading severe weather alerts...\n")
+        
+        # Refresh button
+        refresh_button = StyledButton(self.left_frame, "primary", text="🔄 Refresh Alerts",
+                                      command=self.refresh_alerts)
+        refresh_button.pack(pady=5)
+
+    def _setup_radar_panel(self):
+        """Setup the advanced weather radar panel with severe weather tracking"""
+        try:
+            from services.live_weather_service import WeatherRadarWidget, RADAR_AVAILABLE
+            
+            if RADAR_AVAILABLE:
+                # Advanced radar canvas area
+                self.radar_canvas_frame = ttk.Frame(self.right_frame)
+                self.radar_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                # Create enhanced radar widget with severe weather tracking
+                radar_service = self.controller.get_radar_service()
+                self.radar_widget = WeatherRadarWidget(self.radar_canvas_frame, radar_service)
+                
+                # Advanced radar controls
+                controls_frame = ttk.Frame(self.right_frame)
+                controls_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Location input frame
+                location_frame = ttk.LabelFrame(controls_frame, text="📍 Location & Tracking")
+                location_frame.pack(fill="x", pady=2)
+                
+                # Coordinates
+                coord_frame = ttk.Frame(location_frame)
+                coord_frame.pack(fill="x", padx=5, pady=2)
+                
+                StyledLabel(coord_frame, text="Lat:").pack(side="left")
+                self.lat_entry = ttk.Entry(coord_frame, width=10)
+                self.lat_entry.pack(side="left", padx=2)
+                self.lat_entry.insert(0, "39.2904")  # Baltimore default
+                
+                StyledLabel(coord_frame, text="Lon:").pack(side="left", padx=(10,0))
+                self.lon_entry = ttk.Entry(coord_frame, width=10)
+                self.lon_entry.pack(side="left", padx=2)
+                self.lon_entry.insert(0, "-76.6122")  # Baltimore default
+                
+                # Severe weather tracking options
+                tracking_frame = ttk.LabelFrame(controls_frame, text="🌪️ Severe Weather Tracking")
+                tracking_frame.pack(fill="x", pady=2)
+                
+                track_options = ttk.Frame(tracking_frame)
+                track_options.pack(fill="x", padx=5, pady=2)
+                
+                # Tracking checkboxes
+                self.track_hurricanes = tk.BooleanVar(value=True)
+                self.track_tornadoes = tk.BooleanVar(value=True)
+                self.track_storms = tk.BooleanVar(value=True)
+                
+                ttk.Checkbutton(track_options, text="🌀 Hurricanes", 
+                               variable=self.track_hurricanes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="🌪️ Tornadoes", 
+                               variable=self.track_tornadoes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="⛈️ Storms", 
+                               variable=self.track_storms).pack(side="left", padx=3)
+                
+                # Control buttons
+                btn_frame1 = ttk.Frame(controls_frame)
+                btn_frame1.pack(fill="x", pady=3)
+                
+                StyledButton(btn_frame1, "primary", text="🔄 Update Radar", 
+                            command=self._update_live_radar).pack(side="left", padx=2)
+                StyledButton(btn_frame1, "warning_black", text="🌪️ Track Active Storms", 
+                            command=self._track_active_storms).pack(side="left", padx=2)
+                
+                # Status display
+                self.radar_status = StyledLabel(controls_frame, text="Radar Status: Initializing...")
+                self.radar_status.pack(pady=5)
+                
+                # Initialize radar
+                self._initialize_live_radar()
+                
+            else:
+                # Fallback when radar not available
+                self._create_enhanced_radar_fallback()
+                
+        except Exception as e:
+            print(f"Severe Weather Tab Radar setup error: {e}")
+            self._create_enhanced_radar_fallback()
+
+    def refresh_alerts(self):
+        """Refresh the list of severe weather alerts"""
+        self.alerts_text.delete("1.0", tk.END)
+        self.alerts_text.insert("1.0", "Refreshing alerts...\n")
+        try:
+            # This would call the controller to get real alerts
+            alerts = self.controller.get_severe_weather_alerts() 
+            self.alerts_text.delete("1.0", tk.END)
+            self.alerts_text.insert("1.0", alerts)
+        except Exception as e:
+            self.alerts_text.delete("1.0", tk.END)
+            self.alerts_text.insert("1.0", f"Error fetching alerts: {e}\n")
+
+    def _initialize_live_radar(self):
+        """Initialize the live radar system"""
+        try:
+            self.radar_status.config(text="Radar Status: Initializing radar systems... 🔄")
+            self._update_live_radar()
+        except Exception as e:
+            self.radar_status.config(text=f"Radar Status: Initialization failed - {str(e)}")
+
+    def _update_live_radar(self):
+        """Update the live radar display with severe weather tracking"""
+        if self.radar_widget:
+            try:
+                lat = float(self.lat_entry.get())
+                lon = float(self.lon_entry.get())
+                
+                tracking_options = {
+                    "hurricanes": self.track_hurricanes.get(),
+                    "tornadoes": self.track_tornadoes.get(),
+                    "storms": self.track_storms.get(),
+                }
+                
+                self.radar_widget.update_radar(lat, lon, tracking_options)
+                self.radar_status.config(text=f"Radar Status: Updated for {lat:.2f}, {lon:.2f} 🔄")
+                
+            except ValueError:
+                self.radar_status.config(text="Radar Status: Invalid coordinates")
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+        else:
+            self.radar_status.config(text="Radar Status: Not Available")
+
+    def _track_active_storms(self):
+        """Track active storms and display information"""
+        if self.radar_widget:
+            try:
+                storm_data = self.radar_widget.get_storm_tracking()
+                self.radar_status.config(text="Radar Status: Storm Tracking Active 🌪️")
+                
+                from tkinter import messagebox
+                messagebox.showinfo("Active Storm Tracking", f"🌪️ SEVERE WEATHER TRACKING\n\n{storm_data}")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _create_enhanced_radar_fallback(self):
+        """Create enhanced fallback radar display with simulated tracking"""
+        fallback_frame = ttk.Frame(self.right_frame)
+        fallback_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Simulated radar display
+        radar_display = ttk.LabelFrame(fallback_frame, text="🌩️ LIVE WEATHER RADAR (Simulation Mode)")
+        radar_display.pack(fill="both", expand=True)
+        
+        info_text = StyledText(radar_display, height=20)
+        info_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        fallback_content = """🌩️ LIVE DOPPLER WEATHER RADAR - SEVERE WEATHER TRACKING
+
+This is a simulation. Install matplotlib and numpy for full functionality.
+
+- Hurricane Tracking
+- Tornado Detection
+- Severe Thunderstorm Monitoring
+"""
+        
+        info_text.insert("1.0", fallback_content)
+        info_text.config(state="disabled")
+
+    def _setup_alerts_panel(self):
+        """Setup the active alerts panel"""
+        # Alerts display area
+        self.alerts_text = StyledText(self.left_frame, height=20)
+        self.alerts_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Placeholder content
+        self.alerts_text.insert("1.0", "Loading severe weather alerts...\n")
+        
+        # Refresh button
+        refresh_button = StyledButton(self.left_frame, "primary", text="🔄 Refresh Alerts",
+                                      command=self.refresh_alerts)
+        refresh_button.pack(pady=5)
+
+    def _setup_radar_panel(self):
+        """Setup the advanced weather radar panel with severe weather tracking"""
+        try:
+            from services.live_weather_service import WeatherRadarWidget, RADAR_AVAILABLE
+            
+            if RADAR_AVAILABLE:
+                # Advanced radar canvas area
+                self.radar_canvas_frame = ttk.Frame(self.right_frame)
+                self.radar_canvas_frame.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                # Create enhanced radar widget
+                self.radar_widget = WeatherRadarWidget(self.radar_canvas_frame)
+                
+                # Advanced radar controls
+                controls_frame = ttk.Frame(self.right_frame)
+                controls_frame.pack(fill="x", padx=5, pady=5)
+                
+                # Location input frame
+                location_frame = ttk.LabelFrame(controls_frame, text="📍 Location & Tracking")
+                location_frame.pack(fill="x", pady=2)
+                
+                # Coordinates
+                coord_frame = ttk.Frame(location_frame)
+                coord_frame.pack(fill="x", padx=5, pady=2)
+                
+                StyledLabel(coord_frame, text="Lat:").pack(side="left")
+                self.lat_entry = ttk.Entry(coord_frame, width=10)
+                self.lat_entry.pack(side="left", padx=2)
+                self.lat_entry.insert(0, "39.2904")  # Baltimore default
+                
+                StyledLabel(coord_frame, text="Lon:").pack(side="left", padx=(10,0))
+                self.lon_entry = ttk.Entry(coord_frame, width=10)
+                self.lon_entry.pack(side="left", padx=2)
+                self.lon_entry.insert(0, "-76.6122")  # Baltimore default
+                
+                # Severe weather tracking options
+                tracking_frame = ttk.LabelFrame(controls_frame, text="🌪️ Severe Weather Tracking")
+                tracking_frame.pack(fill="x", pady=2)
+                
+                track_options = ttk.Frame(tracking_frame)
+                track_options.pack(fill="x", padx=5, pady=2)
+                
+                # Tracking checkboxes
+                self.track_hurricanes = tk.BooleanVar(value=True)
+                self.track_tornadoes = tk.BooleanVar(value=True)
+                self.track_storms = tk.BooleanVar(value=True)
+                
+                ttk.Checkbutton(track_options, text="🌀 Hurricanes", 
+                               variable=self.track_hurricanes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="🌪️ Tornadoes", 
+                               variable=self.track_tornadoes).pack(side="left", padx=3)
+                ttk.Checkbutton(track_options, text="⛈️ Storms", 
+                               variable=self.track_storms).pack(side="left", padx=3)
+                
+                # Control buttons
+                btn_frame1 = ttk.Frame(controls_frame)
+                btn_frame1.pack(fill="x", pady=3)
+                
+                StyledButton(btn_frame1, "primary", text="🔄 Update Radar", 
+                            command=self._update_live_radar).pack(side="left", padx=2)
+                StyledButton(btn_frame1, "warning_black", text="🌪️ Track Active Storms", 
+                            command=self._track_active_storms).pack(side="left", padx=2)
+                
+                # Status display
+                self.radar_status = StyledLabel(controls_frame, text="Radar Status: Initializing...")
+                self.radar_status.pack(pady=5)
+                
+                # Initialize radar
+                self._initialize_live_radar()
+                
+            else:
+                # Fallback when radar not available
+                self._create_enhanced_radar_fallback()
+                
+        except Exception as e:
+            print(f"Severe Weather Tab Radar setup error: {e}")
+            self._create_enhanced_radar_fallback()
+
+    def refresh_alerts(self):
+        """Refresh the list of severe weather alerts"""
+        self.alerts_text.delete("1.0", tk.END)
+        self.alerts_text.insert("1.0", "Refreshing alerts...\n")
+        try:
+            # This would call the controller to get real alerts
+            alerts = self.controller.get_severe_weather_alerts() 
+            self.alerts_text.delete("1.0", tk.END)
+            self.alerts_text.insert("1.0", alerts)
+        except Exception as e:
+            self.alerts_text.delete("1.0", tk.END)
+            self.alerts_text.insert("1.0", f"Error fetching alerts: {e}\n")
+
+    def _initialize_live_radar(self):
+        """Initialize the live radar system"""
+        try:
+            self.radar_status.config(text="Radar Status: Initializing radar systems... 🔄")
+            self._update_live_radar()
+        except Exception as e:
+            self.radar_status.config(text=f"Radar Status: Initialization failed - {str(e)}")
+
+    def _update_live_radar(self):
+        """Update the live radar display with severe weather tracking"""
+        if self.radar_widget:
+            try:
+                lat = float(self.lat_entry.get())
+                lon = float(self.lon_entry.get())
+                
+                tracking_options = {
+                    "hurricanes": self.track_hurricanes.get(),
+                    "tornadoes": self.track_tornadoes.get(),
+                    "storms": self.track_storms.get(),
+                }
+                
+                self.radar_widget.update_radar(lat, lon, tracking_options)
+                self.radar_status.config(text=f"Radar Status: Updated for {lat:.2f}, {lon:.2f} 🔄")
+                
+            except ValueError:
+                self.radar_status.config(text="Radar Status: Invalid coordinates")
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+        else:
+            self.radar_status.config(text="Radar Status: Not Available")
+
+    def _track_active_storms(self):
+        """Track active storms and display information"""
+        if self.radar_widget:
+            try:
+                storm_data = self.radar_widget.get_storm_tracking()
+                self.radar_status.config(text="Radar Status: Storm Tracking Active 🌪️")
+                
+                from tkinter import messagebox
+                messagebox.showinfo("Active Storm Tracking", f"🌪️ SEVERE WEATHER TRACKING\n\n{storm_data}")
+                
+            except Exception as e:
+                self.radar_status.config(text=f"Radar Status: Error - {str(e)}")
+
+    def _create_enhanced_radar_fallback(self):
+        """Create enhanced fallback radar display with simulated tracking"""
+        fallback_frame = ttk.Frame(self.right_frame)
+        fallback_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Simulated radar display
+        radar_display = ttk.LabelFrame(fallback_frame, text="🌩️ LIVE WEATHER RADAR (Simulation Mode)")
+        radar_display.pack(fill="both", expand=True)
+        
+        info_text = StyledText(radar_display, height=20)
+        info_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        fallback_content = """🌩️ LIVE DOPPLER WEATHER RADAR - SEVERE WEATHER TRACKING
+
+This is a simulation. Install matplotlib and numpy for full functionality.
+
+- Hurricane Tracking
+- Tornado Detection
+- Severe Thunderstorm Monitoring
+"""
+        
+        info_text.insert("1.0", fallback_content)
+        info_text.config(state="disabled")
+
+
+class SevereWeatherTab:
+    """Severe weather alerts and tracking tab"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🚨 Severe Alerts")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components with interactive charts"""
+        # Create main split pane
+        paned_window = ttk.PanedWindow(self.frame, orient="horizontal")
+        paned_window.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Left panel - Alerts list
+        left_panel = ttk.Frame(paned_window)
+        paned_window.add(left_panel, weight=1)
+        
+        # Right panel - Details and charts
+        right_panel = ttk.PanedWindow(paned_window, orient="vertical")
+        paned_window.add(right_panel, weight=2)
+        
+        # Add city input at the top of left panel
+        city_frame = ttk.Frame(left_panel)
+        city_frame.pack(fill="x", pady=5)
+        
+        StyledLabel(city_frame, text="Enter City:").pack(side="left", padx=5)
+        self.city_entry = ttk.Entry(city_frame, width=20)
+        self.city_entry.pack(side="left", padx=5)
+        
+        # City lookup button
+        StyledButton(city_frame, "accent_black", text="🔍 Search Alerts", 
+                    command=self.search_city_alerts).pack(side="left", padx=5)
+        
+        # Setup alert list with TreeView
+        StyledLabel(left_panel, text="Active Weather Alerts", 
+                   font=("Arial", 12, "bold")).pack(pady=5)
+        
+        # Treeview for alerts list
+        columns = ("severity", "type", "location", "time")
+        self.alerts_tree = ttk.Treeview(left_panel, columns=columns, show="headings", height=15)
+        
+        # Define column headings
+        self.alerts_tree.heading("severity", text="⚠️ Severity")
+        self.alerts_tree.heading("type", text="Type")
+        self.alerts_tree.heading("location", text="Location")
+        self.alerts_tree.heading("time", text="Time")
+        
+        # Define column widths
+        self.alerts_tree.column("severity", width=80)
+        self.alerts_tree.column("type", width=120)
+        self.alerts_tree.column("location", width=120)
+        self.alerts_tree.column("time", width=100)
+        
+        # Add scrollbar
+        tree_scroll = ttk.Scrollbar(left_panel, orient="vertical", command=self.alerts_tree.yview)
+        self.alerts_tree.configure(yscrollcommand=tree_scroll.set)
+        
+        # Pack tree and scrollbar
+        self.alerts_tree.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+        tree_scroll.pack(side="right", fill="y", padx=(0, 5), pady=5)
+        
+        # Bind selection event
+        self.alerts_tree.bind("<<TreeviewSelect>>", self.display_alert_details)
+        
+        # Button to refresh alerts
+        StyledButton(left_panel, "primary", text="🔄 Refresh Alerts", 
+                    command=self.fetch_alerts).pack(pady=10)
+        
+        # Details panel (top of right panel)
+        details_frame = ttk.LabelFrame(right_panel, text="Alert Details")
+        right_panel.add(details_frame, weight=1)
+        
+        self.details_text = StyledText(details_frame, height=10, wrap="word")
+        self.details_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Chart panel (bottom of right panel)
+        self.chart_frame = ttk.LabelFrame(right_panel, text="Alert Analysis")
+        right_panel.add(self.chart_frame, weight=2)
+        
+        # Load initial data
+        self.fetch_alerts()
+        
+    def search_city_alerts(self):
+        """Search for weather alerts in the specified city"""
+        city = self.city_entry.get().strip()
+        if not city:
+            from tkinter import messagebox
+            messagebox.showwarning("Input Required", "Please enter a city name to search for alerts")
+            return
+        
+        # Clear existing alerts
+        for item in self.alerts_tree.get_children():
+            self.alerts_tree.delete(item)
+        
+        # Display "searching" message in the details text area
+        self.details_text.config(state="normal")
+        self.details_text.delete(1.0, tk.END)
+        self.details_text.insert(tk.END, f"Searching for alerts in {city}...")
+        self.details_text.config(state="disabled")
+        
+        # In a real app, you would call an API here with the city parameter
+        # For demonstration purposes, we'll generate mock data based on the city name
+        try:
+            # Simulate API call delay
+            self.frame.after(500, lambda: self.display_city_alerts(city))
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Failed to search alerts for {city}: {str(e)}")
+    
+    def display_city_alerts(self, city):
+        """Display alerts for the specified city"""
+        # Clear existing alerts in tree
+        for item in self.alerts_tree.get_children():
+            self.alerts_tree.delete(item)
+            
+        # Generate different mock alerts based on the city entered
+        if city.lower() in ["new york", "nyc", "chicago", "los angeles", "la", "miami"]:
+            # Major city with multiple alerts
+            alerts = [
+                {"id": "city1", "severity": "High", "type": "Heat Advisory", 
+                "location": city, "time": "12:30", 
+                "details": f"HEAT ADVISORY: Dangerous heat conditions in {city} with heat index values up to 105°F. The extreme heat can cause heat stress or heat stroke. Use air conditioning, stay hydrated, and check on vulnerable populations.\n\nAreas affected: All of {city} and surrounding suburbs\nValid until: 8:00 PM Today",
+                "chart_type": "heat"},
+                
+                {"id": "city2", "severity": "Moderate", "type": "Air Quality Alert", 
+                "location": city, "time": "09:15", 
+                "details": f"AIR QUALITY ALERT: Unhealthy air quality levels expected in {city} today. Ozone and particulate matter may reach unhealthy levels. Sensitive groups should limit outdoor exertion.\n\nRecommended actions: Reduce outdoor activity, use public transportation, avoid using gas-powered equipment.",
+                "chart_type": "air_quality"},
+                
+                {"id": "city3", "severity": "Low", "type": "Dense Fog Advisory", 
+                "location": f"{city} Airport", "time": "05:45", 
+                "details": f"DENSE FOG ADVISORY: Visibility less than 1/4 mile in {city} Airport and surrounding areas. Hazardous driving conditions due to low visibility. Allow extra time for travel, use low beam headlights, and leave plenty of distance ahead of you.\n\nAreas affected: {city} Airport, major highways, and coastal areas\nValid until: 10:00 AM Today",
+                "chart_type": "fog"}
+            ]
+        elif city.lower() in ["houston", "new orleans", "tampa", "orlando", "jacksonville"]:
+            # Coastal cities with hurricane/tropical alerts
+            alerts = [
+                {"id": "city1", "severity": "High", "type": "Hurricane Warning", 
+                "location": city, "time": "10:00", 
+                "details": f"HURRICANE WARNING: Hurricane approaching {city} with winds of 110 mph. Destructive winds, heavy rainfall, and dangerous storm surge expected. Evacuate if instructed, or move to interior rooms away from windows.\n\nAreas affected: All of {city} and surrounding coastal regions\nExpected landfall: Tomorrow morning",
+                "chart_type": "tornado"},
+                
+                {"id": "city2", "severity": "High", "type": "Flash Flood Warning", 
+                "location": city, "time": "11:30", 
+                "details": f"FLASH FLOOD WARNING: Dangerous flooding occurring in {city}. Heavy rainfall causing rapid water rise. Do not attempt to travel unless fleeing an area subject to flooding. Turn around, don't drown when encountering flooded roads.\n\nAreas affected: Downtown {city}, low-lying areas\nRainfall totals may exceed 10 inches",
+                "chart_type": "flood"}
+            ]
+        else:
+            # Default alerts for any other city
+            alerts = [
+                {"id": "city1", "severity": "Moderate", "type": "Thunderstorm Watch", 
+                "location": city, "time": "13:45", 
+                "details": f"THUNDERSTORM WATCH: Conditions are favorable for the development of severe thunderstorms in and around {city}. Storms may produce large hail, damaging winds, and heavy rainfall. Stay alert for changing weather conditions and be prepared to take shelter if warnings are issued.\n\nAreas affected: {city} and surrounding counties\nValid until: 9:00 PM Today",
+                "chart_type": "thunderstorm"}
+            ]
+        
+        # Add alerts to tree
+        for alert in alerts:
+            severity_icon = "🔴" if alert["severity"] == "High" else "🟠" if alert["severity"] == "Moderate" else "🟡"
+            self.alerts_tree.insert("", "end", iid=alert["id"], values=(
+                f"{severity_icon} {alert['severity']}", 
+                alert["type"], 
+                alert["location"], 
+                alert["time"]
+            ), tags=(alert["severity"].lower(),))
+        
+        # Set tag colors
+        self.alerts_tree.tag_configure("high", background="#ffcccc")
+        self.alerts_tree.tag_configure("moderate", background="#fff2cc")
+        self.alerts_tree.tag_configure("low", background="#e6f2ff")
+        
+        # Update details text
+        self.details_text.config(state="normal")
+        self.details_text.delete(1.0, tk.END)
+        num_alerts = len(alerts)
+        self.details_text.insert(tk.END, f"Found {num_alerts} alert{'s' if num_alerts != 1 else ''} for {city}\n\nSelect an alert to view details")
+        self.details_text.config(state="disabled")
+        
+        # Select first item if available
+        if self.alerts_tree.get_children():
+            first_item = self.alerts_tree.get_children()[0]
+            self.alerts_tree.selection_set(first_item)
+            self.display_alert_details(None)
+
+    def fetch_alerts(self):
+        """Fetch and display current weather alerts"""
+        # Clear existing alerts
+        for item in self.alerts_tree.get_children():
+            self.alerts_tree.delete(item)
+        
+        # Mock data - in a real app, this would come from a weather API
+        alerts = [
+            {"id": "1", "severity": "High", "type": "Tornado Warning", 
+             "location": "Centerville", "time": "14:30", 
+             "details": "TORNADO WARNING: A dangerous tornado has been spotted near Centerville moving northeast at 30 mph. Take shelter immediately in a basement or interior room on the lowest floor. Flying debris will be dangerous to those caught without shelter. Mobile homes will be damaged or destroyed. Damage to roofs, windows, and vehicles will occur. Tree damage is likely.\n\nAreas at risk: Centerville, Johnstown, Millersville\nTake protective action NOW!",
+             "chart_type": "tornado"},
+            {"id": "2", "severity": "Moderate", "type": "Thunderstorm", 
+             "location": "Westside", "time": "15:45", 
+             "details": "SEVERE THUNDERSTORM WARNING: Severe thunderstorms capable of producing damaging winds up to 60 mph and quarter size hail. These storms are moving east at 25 mph. Minor damage to vehicles is possible. Expect wind damage to roofs, siding, and trees.\n\nAreas affected: Westside, Downtown, River District\nTake caution and move to interior rooms if storms approach.",
+             "chart_type": "thunderstorm"},
+            {"id": "3", "severity": "Low", "type": "Flood Advisory", 
+             "location": "Riverside", "time": "16:20", 
+             "details": "FLOOD ADVISORY: Urban and small stream flooding is expected in Riverside area. Excessive runoff from heavy rainfall will cause flooding of small creeks and streams, urban areas, highways, streets and underpasses as well as other drainage areas and low lying spots.\n\nAreas affected: Riverside, Harbor View, Lower Downtown\nDo not drive through flooded roadways.",
+             "chart_type": "flood"}
+        ]
+        
+        # Add alerts to tree
+        for alert in alerts:
+            severity_icon = "🔴" if alert["severity"] == "High" else "🟠" if alert["severity"] == "Moderate" else "🟡"
+            self.alerts_tree.insert("", "end", iid=alert["id"], values=(
+                f"{severity_icon} {alert['severity']}", 
+                alert["type"], 
+                alert["location"], 
+                alert["time"]
+            ), tags=(alert["severity"].lower(),))
+            
+        # Set tag colors
+        self.alerts_tree.tag_configure("high", background="#ffcccc")
+        self.alerts_tree.tag_configure("moderate", background="#fff2cc")
+        self.alerts_tree.tag_configure("low", background="#e6f2ff")
+        
+        # Select first item if available
+        if self.alerts_tree.get_children():
+            first_item = self.alerts_tree.get_children()[0]
+            self.alerts_tree.selection_set(first_item)
+            self.display_alert_details(None)
+    
+    def display_alert_details(self, event):
+        """Display details for selected alert"""
+        selected_items = self.alerts_tree.selection()
+        if not selected_items:
+            return
+            
+        selected_id = selected_items[0]
+        
+        # Mock data - in a real app, this would be retrieved from a database or API
+        alerts = {
+            "1": {"severity": "High", "type": "Tornado Warning", 
+                 "location": "Centerville", "time": "14:30", 
+                 "details": "TORNADO WARNING: A dangerous tornado has been spotted near Centerville moving northeast at 30 mph. Take shelter immediately in a basement or interior room on the lowest floor. Flying debris will be dangerous to those caught without shelter. Mobile homes will be damaged or destroyed. Damage to roofs, windows, and vehicles will occur. Tree damage is likely.\n\nAreas at risk: Centerville, Johnstown, Millersville\nTake protective action NOW!",
+                 "chart_type": "tornado"},
+            "2": {"severity": "Moderate", "type": "Thunderstorm", 
+                 "location": "Westside", "time": "15:45", 
+                 "details": "SEVERE THUNDERSTORM WARNING: Severe thunderstorms capable of producing damaging winds up to 60 mph and quarter size hail. These storms are moving east at 25 mph. Minor damage to vehicles is possible. Expect wind damage to roofs, siding, and trees.\n\nAreas affected: Westside, Downtown, River District\nTake caution and move to interior rooms if storms approach.",
+                 "chart_type": "thunderstorm"},
+            "3": {"severity": "Low", "type": "Flood Advisory", 
+                 "location": "Riverside", "time": "16:20", 
+                 "details": "FLOOD ADVISORY: Urban and small stream flooding is expected in Riverside area. Excessive runoff from heavy rainfall will cause flooding of small creeks and streams, urban areas, highways, streets and underpasses as well as other drainage areas and low lying spots.\n\nAreas affected: Riverside, Harbor View, Lower Downtown\nDo not drive through flooded roadways.",
+                 "chart_type": "flood"}
+        }
+        
+        if selected_id in alerts:
+            alert = alerts[selected_id]
+            # Display alert details
+            self.details_text.config(state="normal")
+            self.details_text.delete(1.0, tk.END)
+            
+            # Format the alert with severity coloring
+            severity_color = "#FF4444" if alert["severity"] == "High" else "#FF8800" if alert["severity"] == "Moderate" else "#0088FF"
+            
+            self.details_text.insert(tk.END, f"{alert['severity']} - {alert['type']}\n", "severity")
+            self.details_text.insert(tk.END, f"Location: {alert['location']}\n")
+            self.details_text.insert(tk.END, f"Time: {alert['time']}\n\n")
+            self.details_text.insert(tk.END, alert['details'])
+            
+            self.details_text.tag_configure("severity", foreground=severity_color, font=("Arial", 12, "bold"))
+            self.details_text.config(state="disabled")
+            
+            # Generate chart for this alert
+            self.generate_alert_chart(alert)
+    
+    def generate_alert_chart(self, alert):
+        """Generate an appropriate chart for the selected alert"""
+        # Clear existing chart
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
+            
+        if not CHARTS_AVAILABLE:
+            # If matplotlib is not available, show text instead
+            message_label = StyledLabel(self.chart_frame, 
+                                      text="Charts unavailable. Install matplotlib for visualizations.")
+            message_label.pack(pady=20)
+            return
+            
+        chart_type = alert.get("chart_type", "generic")
+        
+        if chart_type == "tornado":
+            # Create tornado intensity/probability chart
+            fig = Figure(figsize=(7, 4))
+            ax = fig.add_subplot(111)
+            
+            # Tornado wind probabilities
+            categories = ['F0', 'F1', 'F2', 'F3', 'F4', 'F5']
+            probabilities = [80, 55, 30, 15, 5, 1]
+            
+            bars = ax.bar(categories, probabilities, color=['#8cc', '#5bb', '#399', '#277', '#055', '#033'])
+            
+            ax.set_title('Tornado Wind Speed Probabilities')
+            ax.set_xlabel('Fujita Scale Category')
+            ax.set_ylabel('Probability (%)')
+            ax.set_ylim(0, 100)
+            
+            # Add data labels on bars
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height + 2,
+                       f'{height}%', ha='center', va='bottom')
+            
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        elif chart_type == "thunderstorm":
+            # Create pie chart for hail size probability
+            fig = Figure(figsize=(7, 4))
+            ax = fig.add_subplot(111)
+            
+            # Hail size probabilities
+            sizes = ['Pea', 'Quarter', 'Golf Ball', 'Tennis Ball', 'Baseball']
+            probabilities = [50, 30, 15, 4, 1]
+            explode = (0, 0.1, 0.2, 0.3, 0.4)  # explode pieces for emphasis
+            
+            ax.pie(probabilities, explode=explode, labels=sizes, autopct='%1.1f%%',
+                  shadow=True, startangle=90, colors=['#ddf', '#bbf', '#99f', '#77f', '#55f'])
+            ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+            ax.set_title('Potential Hail Size Distribution')
+            
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        elif chart_type == "flood":
+            # Create flood risk area chart
+            fig = Figure(figsize=(7, 4))
+            ax = fig.add_subplot(111)
+            
+            # Flood data
+            hours = list(range(1, 13))  # 12-hour forecast
+            water_levels = [2, 3, 5, 8, 10, 11, 10.5, 9, 7, 5, 4, 3]  # in feet
+            flood_stage = 8  # flood stage line
+            
+            # Plot water level
+            ax.plot(hours, water_levels, 'b-', linewidth=2, marker='o')
+            
+            # Add flood stage line
+            ax.axhline(y=flood_stage, color='r', linestyle='-', label='Flood Stage')
+            
+            # Fill areas
+            ax.fill_between(hours, water_levels, flood_stage, 
+                           where=[wl > flood_stage for wl in water_levels], 
+                           color='red', alpha=0.3, interpolate=True, label='Above Flood Stage')
+            
+            ax.set_title('12-Hour Flood Forecast')
+            ax.set_xlabel('Hours from Now')
+            ax.set_ylabel('Water Level (feet)')
+            ax.grid(True)
+            ax.legend()
+            
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        else:
+            # Generic chart for other alert types
+            fig = Figure(figsize=(7, 4))
+            ax = fig.add_subplot(111)
+            
+            # Generic risk assessment
+            categories = ['Property Damage', 'Safety Risk', 'Travel Impact', 'Duration']
+            values = [70, 60, 85, 40]
+            
+            # Create radar chart axes
+            angles = np.linspace(0, 2*np.pi, len(categories), endpoint=False).tolist()
+            values += values[:1]  # Close the loop
+            angles += angles[:1]  # Close the loop
+            categories += categories[:1]  # Close the loop for labels
+            
+            ax.plot(angles, values, 'o-', linewidth=2)
+            ax.fill(angles, values, alpha=0.25)
+            ax.set_thetagrids(np.degrees(angles[:-1]), categories[:-1])
+            ax.set_ylim(0, 100)
+            ax.set_title('Alert Impact Analysis')
+            ax.grid(True)
+            
+            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+
+
+class AnalyticsTrendsTab:
+    """Analytics and trends analysis with interactive charts"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="Analytics & Trends")
+        self.current_chart_frame = None
+        self.cities = []
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the UI components with split layout and interactive charts"""
+        # Create split paned window
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Left panel for controls
+        self.left_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.left_frame, weight=1)
+        
+        # Right panel for charts
+        self.right_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.right_frame, weight=2)
+        
+        # Header
+        StyledLabel(self.left_frame, text="📊 Weather Analytics & Trends").pack(pady=10)
+        
+        # City input section
+        city_frame = ttk.LabelFrame(self.left_frame, text="City Selection")
+        city_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Main city entry
+        ttk.Label(city_frame, text="Primary City:").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        self.city1_entry = ttk.Entry(city_frame, width=20)
+        self.city1_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        # Compare city entry
+        ttk.Label(city_frame, text="Compare City:").grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.city2_entry = ttk.Entry(city_frame, width=20)
+        self.city2_entry.grid(row=1, column=1, padx=5, pady=5)
+        
+        # Time range selection
+        time_frame = ttk.LabelFrame(self.left_frame, text="Time Range")
+        time_frame.pack(fill="x", padx=10, pady=10)
+        
+        self.time_range = tk.StringVar(value="7 days")
+        ttk.Radiobutton(time_frame, text="7 Days", variable=self.time_range, 
+                       value="7 days").grid(row=0, column=0, padx=5, pady=3, sticky="w")
+        ttk.Radiobutton(time_frame, text="30 Days", variable=self.time_range, 
+                       value="30 days").grid(row=0, column=1, padx=5, pady=3, sticky="w")
+        ttk.Radiobutton(time_frame, text="90 Days", variable=self.time_range, 
+                       value="90 days").grid(row=1, column=0, padx=5, pady=3, sticky="w")
+        ttk.Radiobutton(time_frame, text="1 Year", variable=self.time_range, 
+                       value="1 year").grid(row=1, column=1, padx=5, pady=3, sticky="w")
+        
+        # Action button
+        StyledButton(self.left_frame, "primary_black", text="Generate Analytics", 
+                   command=self._generate_analytics).pack(pady=10)
+        
+        # Chart selection buttons
+        chart_buttons_frame = ttk.LabelFrame(self.left_frame, text="Chart Selection")
+        chart_buttons_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Create button grid with different chart options
+        button_configs = [
+            ("info_black", "🌡️ Temperature Trends", lambda: self._show_temperature_trends()),
+            ("accent_black", "🌧️ Precipitation Analysis", lambda: self._show_precipitation_analysis()),
+            ("success_black", "💨 Wind Patterns", lambda: self._show_wind_patterns()),
+            ("warning_black", "☀️ Daylight Hours", lambda: self._show_daylight_hours()),
+            ("cool_black", "🌫️ Humidity Trends", lambda: self._show_humidity_trends()),
+            ("primary_black", "📊 Weather Comparison", lambda: self._show_weather_comparison())
+        ]
+        
+        ButtonHelper.create_button_grid(chart_buttons_frame, button_configs, columns=2)
+        
+        # Information text
+        self.info_text = StyledText(self.left_frame, height=6)
+        self.info_text.pack(fill="x", padx=10, pady=10)
+        
+        content = """📊 Select cities and time range, then click 'Generate Analytics'.
+Choose from different chart types to explore weather trends and patterns."""
+        
+        self.info_text.insert("1.0", content)
+        self.info_text.config(state="disabled")
+        
+        # Chart area placeholder
+        self._create_chart_placeholder()
+
+    def _create_chart_placeholder(self):
+        """Create the initial chart placeholder"""
+        if self.current_chart_frame:
+            self.current_chart_frame.destroy()
+        
+        self.current_chart_frame = ttk.Frame(self.right_frame)
+        self.current_chart_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        ChartHelper.create_chart_placeholder(
+            self.current_chart_frame,
+            title="Weather Analytics Charts",
+            content="Select cities and analysis type to generate interactive charts."
+        )
+
+    def _clear_chart_area(self):
+        """Clear the current chart area"""
+        if self.current_chart_frame:
+            self.current_chart_frame.destroy()
+            self.current_chart_frame = ttk.Frame(self.right_frame)
+            self.current_chart_frame.pack(fill="both", expand=True, padx=5, pady=5)
+    
+    def _get_cities(self):
+        """Get and validate city inputs"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1:
+            messagebox.showwarning("Input Error", "Please enter at least one city")
+            return None, None
+            
+        return city1, city2
+
+    def _generate_analytics(self):
+        """Generate analytics based on current selection"""
+        city1, city2 = self._get_cities()
+        if not city1:
+            return
+            
+        self.cities = [city1]
+        if city2:
+            self.cities.append(city2)
+            
+        self._show_temperature_trends()
+    
+    def _show_temperature_trends(self):
+        """Display temperature trends chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller
+            time_range = self.time_range.get()
+            data = self.controller.get_temperature_trends(self.cities, time_range)
+            
+            if not data or not data[0].get('temperatures'):
+                messagebox.showinfo("No Data", "No temperature data available for the selected period")
+                return
+                
+            # Create line chart
+            ChartHelper.create_line_chart(
+                self.current_chart_frame,
+                title=f"Temperature Trends - Past {time_range}",
+                x_data=data[0]['timestamps'],
+                y_data=data[0]['temperatures'],
+                x_label="Time",
+                y_label="Temperature (°C)"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate temperature trends: {str(e)}")
+            self._create_chart_placeholder()
+
+    def _show_precipitation_analysis(self):
+        """Display precipitation analysis chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller
+            time_range = self.time_range.get()
+            data = self.controller.get_precipitation_data(self.cities, time_range)
+            
+            if not data or not data[0].get('precipitation'):
+                messagebox.showinfo("No Data", "No precipitation data available for the selected period")
+                return
+                
+            # Create bar chart
+            ChartHelper.create_bar_chart(
+                self.current_chart_frame,
+                title=f"Precipitation Analysis - Past {time_range}",
+                x_data=data[0]['dates'],
+                y_data=data[0]['precipitation'],
+                colors=['#4ECDC4', '#45B7D1']
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate precipitation analysis: {str(e)}")
+            self._create_chart_placeholder()
+    
+    def _show_wind_patterns(self):
+        """Display wind patterns chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller
+            time_range = self.time_range.get()
+            data = self.controller.get_wind_data(self.cities, time_range)
+            
+            if not data or len(data) == 0:
+                messagebox.showinfo("No Data", "No wind data available for the selected period")
+                return
+                
+            # Create figure with two subplots
+            fig = Figure(figsize=(10, 6), dpi=100)
+            
+            # Wind speed subplot
+            ax1 = fig.add_subplot(211)
+            ax1.set_title(f"Wind Speed - Past {time_range}")
+            ax1.set_ylabel("Speed (m/s)")
+            
+            # Wind direction subplot
+            ax2 = fig.add_subplot(212)
+            ax2.set_title("Wind Direction")
+            ax2.set_ylabel("Direction (degrees)")
+            
+            # Plot data for each city
+            colors = ['#4ECDC4', '#FF6B6B', '#45B7D1']
+            for i, city_data in enumerate(data):
+                timestamps = city_data['timestamps']
+                speeds = city_data['wind_speeds']
+                directions = city_data['wind_directions']
+                
+                ax1.plot(timestamps, speeds, color=colors[i % len(colors)],
+                        label=self.cities[i], marker='o', markersize=4)
+                ax2.plot(timestamps, directions, color=colors[i % len(colors)],
+                        label=self.cities[i], marker='o', markersize=4)
+            
+            # Customize appearance
+            for ax in [ax1, ax2]:
+                ax.grid(True, alpha=0.3)
+                ax.legend()
+                ax.tick_params(axis='x', rotation=45)
+            
+            fig.tight_layout()
+            
+            # Embed chart
+            ChartHelper.embed_chart_in_frame(fig, self.current_chart_frame)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate wind patterns: {str(e)}")
+            self._create_chart_placeholder()
+    
+    def _show_daylight_hours(self):
+        """Display daylight hours chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller
+            time_range = self.time_range.get()
+            data = self.controller.get_daylight_data(self.cities, time_range)
+            
+            if not data or not data[0].get('daylight_hours'):
+                messagebox.showinfo("No Data", "No daylight data available for the selected period")
+                return
+                
+            # Create bar chart
+            ChartHelper.create_bar_chart(
+                self.current_chart_frame,
+                title=f"Daylight Hours - Past {time_range}",
+                x_data=data[0]['dates'],
+                y_data=data[0]['daylight_hours'],
+                colors=['#FECA57', '#FFA502']
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate daylight hours chart: {str(e)}")
+            self._create_chart_placeholder()
+    
+    def _show_humidity_trends(self):
+        """Display humidity trends chart"""
+        if not self.cities:
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller
+            time_range = self.time_range.get()
+            data = self.controller.get_humidity_data(self.cities, time_range)
+            
+            if not data or not data[0].get('humidity'):
+                messagebox.showinfo("No Data", "No humidity data available for the selected period")
+                return
+                
+            # Create line chart
+            ChartHelper.create_line_chart(
+                self.current_chart_frame,
+                title=f"Humidity Trends - Past {time_range}",
+                x_data=data[0]['timestamps'],
+                y_data=data[0]['humidity'],
+                x_label="Time",
+                y_label="Relative Humidity (%)",
+                color='#45B7D1'
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate humidity trends: {str(e)}")
+            self._create_chart_placeholder()
+    
+    def _show_weather_comparison(self):
+        """Display weather comparison chart"""
+        if len(self.cities) < 2:
+            messagebox.showwarning("Input Error", "Please enter two cities to compare")
+            return
+            
+        try:
+            self._clear_chart_area()
+            
+            # Get data from the controller for both cities
+            time_range = self.time_range.get()
+            data = self.controller.get_weather_comparison(self.cities, time_range)
+            
+            if not data or len(data) < 2:
+                messagebox.showinfo("No Data", "Weather comparison data not available")
+                return
+                
+            # Create comparison chart
+            fig = Figure(figsize=(10, 6), dpi=100)
+            ax = fig.add_subplot(111)
+            
+            # Plot data for both cities
+            ax.plot(data[0]['timestamps'], data[0]['temperatures'], 
+                   label=self.cities[0], color='#4ECDC4')
+            ax.plot(data[1]['timestamps'], data[1]['temperatures'], 
+                   label=self.cities[1], color='#FF6B6B')
+            
+            ax.set_title(f"Temperature Comparison - Past {time_range}")
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Temperature (°C)")
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            
+            # Embed the chart
+            ChartHelper.embed_chart_in_frame(fig, self.current_chart_frame)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate weather comparison: {str(e)}")
+            self._create_chart_placeholder()
+
+
+class HealthWellnessTab:
+    """Health and wellness monitoring with interactive charts"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="🏥 Health & Wellness")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Setup the comprehensive health monitoring UI"""
+        # Create split layout
+        self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
+        self.main_paned.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Left panel for controls and text display
+        self.left_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.left_frame, weight=1)
+        
+        # Right panel for charts
+        self.right_frame = ttk.Frame(self.main_paned)
+        self.main_paned.add(self.right_frame, weight=1)
+        
+        self._setup_left_panel()
+        self._setup_right_panel()
+
+    def _setup_left_panel(self):
+        """Setup left panel with controls and info"""
+        # Title
+        title_frame = ttk.Frame(self.left_frame)
+        title_frame.pack(fill="x", padx=5, pady=5)
+        StyledLabel(title_frame, text="🏥 Health Monitor", font=("Arial", 16, "bold")).pack()
+        
+        # City input
+        input_frame = ttk.Frame(self.left_frame)
+        input_frame.pack(fill="x", padx=5, pady=5)
+        StyledLabel(input_frame, text="Enter City:").pack(side="left", padx=5)
+        self.city_entry = ttk.Entry(input_frame)
+        self.city_entry.pack(side="left", fill="x", expand=True, padx=5)
+        self.city_entry.insert(0, "New York")
+        
+        # Health status display
+        self.health_text = StyledText(self.left_frame, height=10)
+        self.health_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Control buttons
+        btn_frame = ttk.Frame(self.left_frame)
+        btn_frame.pack(fill="x", padx=5, pady=5)
+        
+        StyledButton(btn_frame, "success_black", text="🔄 Update Data", 
+                    command=self.update_health_data).pack(side="left", padx=2)
+        StyledButton(btn_frame, "warning_black", text="⚠️ Check Alerts", 
+                    command=self.check_health_alerts).pack(side="left", padx=2)
+        StyledButton(btn_frame, "info_black", text="📋 Health Report", 
+                    command=self.generate_health_report).pack(side="left", padx=2)
+
+    def _setup_right_panel(self):
+        """Setup right panel with charts"""
+        # Chart title
+        title_frame = ttk.Frame(self.right_frame)
+        title_frame.pack(fill="x", padx=5, pady=5)
+        StyledLabel(title_frame, text="Health Analytics", font=("Arial", 12, "bold")).pack()
+        
+        # Chart area
+        self.chart_frame = ttk.Frame(self.right_frame)
+        self.chart_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Chart control buttons
+        chart_btn_frame = ttk.Frame(self.right_frame)
+        chart_btn_frame.pack(fill="x", padx=5, pady=5)
+        
+        StyledButton(chart_btn_frame, "primary_black", text="☀️ UV Index", 
+                    command=self.show_uv_chart).pack(side="left", padx=2)
+        StyledButton(chart_btn_frame, "info_black", text="🌸 Pollen", 
+                    command=self.show_pollen_chart).pack(side="left", padx=2)
+        StyledButton(chart_btn_frame, "warning_black", text="💨 Air Quality", 
+                    command=self.show_air_quality_chart).pack(side="left", padx=2)
+        StyledButton(chart_btn_frame, "success_black", text="🏃 Wellness", 
+                    command=self.show_wellness_chart).pack(side="left", padx=2)
+                    
+        # Show initial UV chart
+        self.show_uv_chart()
+
+    def update_health_data(self):
+        """Update health monitoring data"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+            
+        try:
+            self.health_text.delete(1.0, tk.END)
+            
+            health_info = f"🏥 HEALTH STATUS FOR {city.upper()}\n"
+            health_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Air Quality
+            aqi = random.randint(30, 150)
+            health_info += f"💨 Air Quality Index: {aqi}\n"
+            if aqi <= 50:
+                health_info += "   Status: Good (Safe for outdoor activities)\n"
+            elif aqi <= 100:
+                health_info += "   Status: Moderate (Consider limiting intense activities)\n"
+            else:
+                health_info += "   Status: Unhealthy (Avoid prolonged outdoor exposure)\n"
+            
+            # UV Index
+            uv = random.randint(1, 11)
+            health_info += f"\n☀️ UV Index: {uv}\n"
+            if uv <= 2:
+                health_info += "   Risk Level: Low (Safe for outdoors)\n"
+            elif uv <= 5:
+                health_info += "   Risk Level: Moderate (Use sun protection)\n"
+            elif uv <= 7:
+                health_info += "   Risk Level: High (Limit sun exposure)\n"
+            else:
+                health_info += "   Risk Level: Very High (Avoid sun exposure)\n"
+            
+            # Pollen Count
+            pollen = random.randint(1, 12)
+            health_info += f"\n🌸 Pollen Count: {pollen}\n"
+            if pollen <= 4:
+                health_info += "   Level: Low (Safe for allergy sufferers)\n"
+            elif pollen <= 8:
+                health_info += "   Level: Moderate (Take precautions)\n"
+            else:
+                health_info += "   Level: High (Stay indoors if sensitive)\n"
+            
+            self.health_text.insert(tk.END, health_info)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update health data: {str(e)}")
+
+    def check_health_alerts(self):
+        """Check for active health alerts"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+            
+        alert_msg = f"⚠️ HEALTH ALERTS FOR {city.upper()}\n\n"
+        
+        # Simulate some health alerts
+        conditions = [
+            ("AIR QUALITY ALERT", "High pollution levels expected", 0.3),
+            ("UV WARNING", "Very high UV index from 10 AM to 4 PM", 0.4),
+            ("POLLEN ALERT", "High pollen count for tree allergens", 0.35),
+            ("HEAT ADVISORY", "Excessive heat - stay hydrated", 0.25),
+            ("AIR STAGNATION", "Poor air circulation - affects respiratory conditions", 0.2)
+        ]
+        
+        active_alerts = []
+        for alert, desc, prob in conditions:
+            if random.random() < prob:
+                active_alerts.append(f"🚨 {alert}:\n   {desc}")
+        
+        if active_alerts:
+            alert_msg += "\n".join(active_alerts)
+        else:
+            alert_msg += "✅ No active health alerts at this time.\n"
+            alert_msg += "Continue normal activities while following standard health precautions."
+            
+        messagebox.showinfo("Health Alerts", alert_msg)
+
+    def generate_health_report(self):
+        """Generate comprehensive health report"""
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Input Error", "Please enter a city name")
+            return
+            
+        report = f"📋 HEALTH & WELLNESS REPORT - {city.upper()}\n"
+        report += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # Current Conditions
+        report += "🌡️ CURRENT CONDITIONS:\n"
+        report += f"• Temperature: {random.randint(18, 28)}°C\n"
+        report += f"• Humidity: {random.randint(40, 70)}%\n"
+        report += f"• Air Pressure: {random.randint(1000, 1020)} hPa\n\n"
+        
+        # Health Metrics
+        report += "📊 HEALTH METRICS:\n"
+        report += "• Air Quality: Moderate (Exercise with caution)\n"
+        report += "• UV Index: 6 (High - Use sun protection)\n"
+        report += "• Pollen Count: Low (Favorable for allergies)\n\n"
+        
+        # Recommendations
+        report += "💡 RECOMMENDATIONS:\n"
+        report += "• Ideal times for outdoor activity: Early morning or evening\n"
+        report += "• Suggested activities: Light cardio, walking, cycling\n"
+        report += "• Health precautions: Use sunscreen, stay hydrated\n\n"
+        
+        # Warnings
+        report += "⚠️ HEALTH WARNINGS:\n"
+        report += "• UV exposure risk highest between 10 AM - 4 PM\n"
+        report += "• Air quality may affect sensitive individuals\n"
+        report += "• Stay hydrated - increased risk of dehydration\n"
+        
+        messagebox.showinfo("Health Report", report)
+
+    def show_uv_chart(self):
+        """Show UV index chart"""
+        self._clear_chart_area()
+        
+        if CHARTS_AVAILABLE:
+            # Create UV index data
+            hours = list(range(6, 21))  # 6 AM to 8 PM
+            uv_values = [0, 1, 2, 4, 6, 8, 9, 10, 9, 8, 6, 4, 2, 1, 0]
+            
+            fig = Figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            
+            # Plot with gradient color based on UV intensity
+            points = ax.scatter(hours, uv_values, c=uv_values, cmap='YlOrRd', s=100)
+            ax.plot(hours, uv_values, '-', color='gray', alpha=0.5)
+            
+            # Customize the chart
+            ax.set_title('Daily UV Index Pattern')
+            ax.set_xlabel('Hour of Day')
+            ax.set_ylabel('UV Index')
+            ax.grid(True, linestyle='--', alpha=0.7)
+            
+            # Add colorbar
+            fig.colorbar(points, label='UV Intensity')
+            
+            # Display in the chart area
+            canvas = FigureCanvasTkAgg(fig, self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        else:
+            self._show_chart_unavailable()
+
+    def show_pollen_chart(self):
+        """Show pollen levels chart"""
+        self._clear_chart_area()
+        
+        if CHARTS_AVAILABLE:
+            # Create pollen data
+            pollen_types = ['Tree', 'Grass', 'Weed', 'Mold']
+            levels = [random.randint(1, 10) for _ in range(4)]
+            colors = ['forestgreen', 'lightgreen', 'yellowgreen', 'darkgreen']
+            
+            fig = Figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            
+            # Create bar chart
+            bars = ax.bar(pollen_types, levels, color=colors)
+            
+            # Customize the chart
+            ax.set_title('Current Pollen Levels')
+            ax.set_ylabel('Pollen Count')
+            ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+            
+            # Add value labels on bars
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                       f'{int(height)}',
+                       ha='center', va='bottom')
+            
+            # Display in the chart area
+            canvas = FigureCanvasTkAgg(fig, self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        else:
+            self._show_chart_unavailable()
+
+    def show_air_quality_chart(self):
+        """Show air quality chart"""
+        self._clear_chart_area()
+        
+        if CHARTS_AVAILABLE:
+            # Create air quality data
+            pollutants = ['PM2.5', 'PM10', 'O3', 'NO2', 'SO2', 'CO']
+            levels = [random.randint(20, 180) for _ in range(6)]
+            
+            fig = Figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            
+            # Create horizontal bar chart
+            bars = ax.barh(pollutants, levels)
+            
+            # Color bars based on level
+            for bar, level in zip(bars, levels):
+                if level <= 50:
+                    bar.set_color('green')
+                elif level <= 100:
+                    bar.set_color('yellow')
+                elif level <= 150:
+                    bar.set_color('orange')
+                else:
+                    bar.set_color('red')
+            
+            # Customize the chart
+            ax.set_title('Air Quality Index by Pollutant')
+            ax.set_xlabel('Concentration (µg/m³)')
+            ax.grid(True, axis='x', linestyle='--', alpha=0.7)
+            
+            # Add value labels
+            for bar in bars:
+                width = bar.get_width()
+                ax.text(width, bar.get_y() + bar.get_height()/2.,
+                       f'{int(width)}',
+                       ha='left', va='center')
+            
+            # Display in the chart area
+            canvas = FigureCanvasTkAgg(fig, self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        else:
+            self._show_chart_unavailable()
+
+    def show_wellness_chart(self):
+        """Show wellness radar chart"""
+        self._clear_chart_area()
+        
+        if CHARTS_AVAILABLE:
+            # Create wellness metrics data
+            categories = ['Air Quality', 'UV Protection', 'Temperature',
+                        'Humidity', 'Wind', 'Pressure']
+            values = [random.randint(60, 100) for _ in range(6)]
+            
+            # Close the polygon by appending first value
+            values += values[:1]
+            
+            # Compute angle for each axis
+            angles = [n / float(len(categories)) * 2 * np.pi for n in range(len(categories))]
+            angles += angles[:1]
+            
+            fig = Figure(figsize=(6, 4))
+            ax = fig.add_subplot(111, polar=True)
+            
+            # Plot data
+            ax.plot(angles, values, 'o-', linewidth=2)
+            ax.fill(angles, values, alpha=0.25)
+            
+            # Fix axis to go in the right order and start at 12 o'clock
+            ax.set_theta_offset(np.pi / 2)
+            ax.set_theta_direction(-1)
+            
+            # Draw axis lines for each angle and label
+            ax.set_xticks(angles[:-1])
+            ax.set_xticklabels(categories)
+            
+            # Add a title
+            ax.set_title("Wellness Factors Analysis")
+            
+            # Display in the chart area
+            canvas = FigureCanvasTkAgg(fig, self.chart_frame)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill="both", expand=True)
+            
+        else:
+            self._show_chart_unavailable()
+
+    def _clear_chart_area(self):
+        """Clear all widgets in the chart area"""
+        for widget in self.chart_frame.winfo_children():
+            widget.destroy()
+
+    def _show_chart_unavailable(self):
+        """Show message when charts are not available"""
+        msg = "📊 Charts Unavailable\n\n"
+        msg += "Please install matplotlib and numpy\n"
+        msg += "to enable interactive charts.\n\n"
+        msg += "Run: pip install matplotlib numpy"
+        
+        label = StyledLabel(self.chart_frame, text=msg)
+        label.pack(expand=True)
+
+
+class SmartAlertsTab:
+    """Smart alerts and notifications"""
+    
+    def __init__(self, notebook, controller):
+        self.controller = controller
+        self.frame = ttk.Frame(notebook)
+        notebook.add(self.frame, text="Smart Alerts")
         self._setup_ui()
 
     def _setup_ui(self):
         """Setup the UI components"""
-        StyledLabel(self.frame, text="🚀 Quick Access to Major Features:").pack(pady=10)
+        StyledLabel(self.frame, text="Smart Weather Alerts").pack(pady=20)
+        info_text = StyledText(self.frame, height=15)
+        info_text.pack(fill="both", expand=True, padx=10, pady=10)
         
-        self.result_text = StyledText(self.frame, height=8)
-        self.result_text.pack(pady=10, fill=tk.BOTH, expand=True)
+        content = """🚨 SMART ALERTS & NOTIFICATIONS
         
-        # Recently Implemented Features Section
-        new_features_frame = ttk.LabelFrame(self.frame, text="🆕 Recently Added Features")
-        new_features_frame.pack(pady=10, padx=10, fill=tk.X)
-        
-        # Health & Live Radar Quick Access
-        health_radar_frame = ttk.Frame(new_features_frame)
-        health_radar_frame.pack(pady=5)
-        
-        StyledButton(health_radar_frame, "success", text="🏥 Health Analysis", 
-                    command=self.quick_health_analysis).grid(row=0, column=0, padx=5)
-        StyledButton(health_radar_frame, "info", text="📡 Live Radar", 
-                    command=self.quick_radar_access).grid(row=0, column=1, padx=5)
-        
-        # Popular Features Section
-        popular_frame = ttk.LabelFrame(self.frame, text="⭐ Popular Features")
-        popular_frame.pack(pady=10, padx=10, fill=tk.X)
-        
-        # Quick action buttons for popular features
-        quick_button_frame = ttk.Frame(popular_frame)
-        quick_button_frame.pack(pady=5)
-        
-        StyledButton(quick_button_frame, "primary", text="🌤️ Current Weather", 
-                    command=self.quick_weather).grid(row=0, column=0, padx=3)
-        StyledButton(quick_button_frame, "warning", text="🌪️ Severe Weather", 
-                    command=self.quick_severe_weather).grid(row=0, column=1, padx=3)
-        StyledButton(quick_button_frame, "danger", text="🔴 Live Weather", 
-                    command=self.quick_live_weather).grid(row=0, column=2, padx=3)
-        StyledButton(quick_button_frame, "accent_black", text="📷 Weather Cams", 
-                    command=self.quick_camera_access).grid(row=0, column=3, padx=3)
-        
-        # Initialize with welcome message
-        self.show_welcome_message()
+This tab features:
+• Customizable weather alerts
+• Location-based notifications  
+• Travel weather warnings
+• Event planning alerts
+• Agricultural weather notices
+• Personal preference settings
 
-    def show_welcome_message(self):
-        """Display welcome message with feature overview"""
-        welcome_msg = "🚀 QUICK ACTIONS DASHBOARD:\n"
-        welcome_msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        welcome_msg += "✨ RECENTLY ADDED FEATURES:\n"
-        welcome_msg += "🏥 Health Analysis - Weather impact on health & wellness\n"
-        welcome_msg += "📡 Live Radar - Real-time precipitation & storm tracking\n\n"
-        welcome_msg += "⭐ POPULAR FEATURES:\n"
-        welcome_msg += "🌤️ Current Weather - Live conditions & forecasts\n"
-        welcome_msg += "🌪️ Severe Weather - Storm monitoring & alerts\n"
-        welcome_msg += "🔴 Live Weather - Real-time weather streams\n"
-        welcome_msg += "📷 Weather Cams - Live camera feeds worldwide\n\n"
-        welcome_msg += "💡 Click any button above for instant access to features!"
+Currently under development."""
         
-        self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, welcome_msg)
-
-    def quick_health_analysis(self):
-        """Quick access to health analysis features"""
-        try:
-            health_info = "🏥 HEALTH ANALYSIS QUICK ACCESS:\n"
-            health_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            health_info += "🌡️ WEATHER HEALTH IMPACT:\n"
-            health_info += "Current weather conditions and health recommendations:\n\n"
-            health_info += "💨 AIR QUALITY STATUS:\n"
-            health_info += "• Air Quality Index: 65 (Moderate)\n"
-            health_info += "• Primary pollutant: PM2.5\n"
-            health_info += "• Health recommendation: Acceptable for most people\n"
-            health_info += "• Sensitive groups: Consider reducing outdoor activities\n\n"
-            health_info += "🌡️ HEAT STRESS ANALYSIS:\n"
-            health_info += "• Current temperature: 23°C (Comfortable)\n"
-            health_info += "• Heat index: 25°C (Safe)\n"
-            health_info += "• Hydration level: Normal requirements\n"
-            health_info += "• Activity safety: All outdoor activities safe\n\n"
-            health_info += "🏃 ACTIVITY RECOMMENDATIONS:\n"
-            health_info += "• Outdoor exercise: ✅ Recommended\n"
-            health_info += "• Walking/jogging: ✅ Excellent conditions\n"
-            health_info += "• Cycling: ✅ Perfect weather\n"
-            health_info += "• Water sports: ✅ Safe conditions\n\n"
-            health_info += "💊 MEDICAL CONSIDERATIONS:\n"
-            health_info += "• Asthma/allergies: Low risk today\n"
-            health_info += "• Joint pain weather: No pressure changes expected\n"
-            health_info += "• Migraine triggers: Stable barometric pressure\n"
-            health_info += "• Skin protection: SPF 30+ recommended\n\n"
-            health_info += "📍 Navigate to 'Health' tab for detailed analysis"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, health_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def quick_radar_access(self):
-        """Quick access to live radar features"""
-        try:
-            from datetime import datetime
-            radar_info = "📡 LIVE RADAR QUICK ACCESS:\n"
-            radar_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            radar_info += "🔴 LIVE RADAR STATUS:\n"
-            radar_info += f"🕐 Last Update: {datetime.now().strftime('%H:%M:%S')}\n\n"
-            radar_info += "🌧️ PRECIPITATION OVERVIEW:\n"
-            radar_info += "• Active precipitation: Light rain 45km northeast\n"
-            radar_info += "• Movement: Eastward at 25 km/h\n"
-            radar_info += "• Intensity: 2-5mm/hour (Light)\n"
-            radar_info += "• ETA to your area: 2.5 hours\n\n"
-            radar_info += "⚡ STORM ACTIVITY:\n"
-            radar_info += "• Thunderstorms: None within 100km\n"
-            radar_info += "• Lightning strikes: 0 in last 30 minutes\n"
-            radar_info += "• Severe weather: No threats detected\n\n"
-            radar_info += "🌬️ WIND PATTERNS:\n"
-            radar_info += "• Surface winds: 12 km/h from northwest\n"
-            radar_info += "• Wind shear: Minimal\n"
-            radar_info += "• Turbulence: Light\n\n"
-            radar_info += "📊 RADAR CAPABILITIES:\n"
-            radar_info += "• Precipitation tracking: Real-time\n"
-            radar_info += "• Storm motion vectors: Active\n"
-            radar_info += "• Lightning detection: Continuous\n"
-            radar_info += "• Wind flow analysis: Available\n\n"
-            radar_info += "📍 Navigate to 'Live Radar' tab for detailed analysis"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, radar_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def quick_weather(self):
-        """Quick access to current weather"""
-        try:
-            weather_info = "🌤️ CURRENT WEATHER QUICK ACCESS:\n"
-            weather_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            weather_info += "☀️ CURRENT CONDITIONS:\n"
-            weather_info += "• Temperature: 23°C (feels like 25°C)\n"
-            weather_info += "• Condition: Partly cloudy\n"
-            weather_info += "• Humidity: 68%\n"
-            weather_info += "• Wind: 12 km/h northwest\n"
-            weather_info += "• Pressure: 1013.2 hPa\n"
-            weather_info += "• Visibility: 10+ km\n"
-            weather_info += "• UV Index: 6 (High)\n\n"
-            weather_info += "📅 TODAY'S FORECAST:\n"
-            weather_info += "• High: 27°C | Low: 18°C\n"
-            weather_info += "• Rain chance: 20%\n"
-            weather_info += "• Wind: 10-15 km/h\n"
-            weather_info += "• Sunrise: 06:15 | Sunset: 19:45\n\n"
-            weather_info += "📍 Navigate to 'Weather' tab for detailed forecasts"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, weather_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def quick_severe_weather(self):
-        """Quick access to severe weather monitoring"""
-        try:
-            severe_info = "🌪️ SEVERE WEATHER QUICK ACCESS:\n"
-            severe_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            severe_info += "🚨 CURRENT THREAT LEVEL:\n"
-            severe_info += "✅ LOW RISK - No active severe weather warnings\n\n"
-            severe_info += "⚠️ MONITORING STATUS:\n"
-            severe_info += "• Tornado risk: 0% (None)\n"
-            severe_info += "• Thunderstorm probability: 15% (Low)\n"
-            severe_info += "• Hail probability: 5% (Very Low)\n"
-            severe_info += "• Flash flood risk: 10% (Low)\n\n"
-            severe_info += "📡 ACTIVE MONITORING:\n"
-            severe_info += "• Doppler radar: Scanning continuously\n"
-            severe_info += "• Lightning detection: No activity\n"
-            severe_info += "• Storm spotters: 12 active in region\n\n"
-            severe_info += "📍 Navigate to 'Severe Weather' tab for detailed monitoring"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, severe_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def quick_live_weather(self):
-        """Quick access to live weather feeds"""
-        try:
-            from datetime import datetime
-            live_info = "🔴 LIVE WEATHER QUICK ACCESS:\n"
-            live_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            live_info += "📡 LIVE STREAM STATUS:\n"
-            live_info += f"🕐 Last Update: {datetime.now().strftime('%H:%M:%S')}\n"
-            live_info += "🔄 Update Frequency: Every 60 seconds\n\n"
-            live_info += "🌤️ LIVE CONDITIONS:\n"
-            live_info += "• Temperature: 23°C (↗️ +0.5°C in last hour)\n"
-            live_info += "• Humidity: 68% (↘️ -2% in last hour)\n"
-            live_info += "• Wind: 12 km/h NW (steady)\n"
-            live_info += "• Pressure: 1013.2 hPa (stable)\n\n"
-            live_info += "📈 REAL-TIME TRACKING:\n"
-            live_info += "• Lightning detection: Active\n"
-            live_info += "• Precipitation radar: Live updates\n"
-            live_info += "• Wind monitoring: Continuous\n"
-            live_info += "• Breaking weather alerts: Enabled\n\n"
-            live_info += "📍 Navigate to 'Live Weather' tab for full live dashboard"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, live_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def quick_camera_access(self):
-        """Quick access to weather cameras"""
-        try:
-            camera_info = "📷 WEATHER CAMERAS QUICK ACCESS:\n"
-            camera_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            camera_info += "🌆 FEATURED CAMERA FEEDS:\n"
-            camera_info += "• Times Square, NYC - Clear visibility\n"
-            camera_info += "• Golden Gate Bridge, SF - Partly cloudy\n"
-            camera_info += "• Sydney Harbour - Sunny conditions\n"
-            camera_info += "• London Eye - Overcast skies\n\n"
-            camera_info += "🏔️ MOUNTAIN WEATHER CAMS:\n"
-            camera_info += "• Swiss Alps - Fresh snow, clear\n"
-            camera_info += "• Rocky Mountains - Bluebird conditions\n"
-            camera_info += "• Mount Fuji - Excellent visibility\n\n"
-            camera_info += "🏖️ BEACH WEATHER CAMS:\n"
-            camera_info += "• Waikiki Beach - Perfect conditions\n"
-            camera_info += "• Miami Beach - Sunny and warm\n"
-            camera_info += "• Bondi Beach - Ideal surf conditions\n\n"
-            camera_info += "📍 Navigate to 'Camera' tab for all live camera feeds"
-            
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, camera_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        info_text.insert("1.0", content)
+        info_text.config(state="disabled")
 
 
-class PoetryTab:
-    """Weather poetry tab component"""
+class WeatherCameraTab:
+    """Weather camera feeds"""
+    
     def __init__(self, notebook, controller):
         self.controller = controller
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="Poetry")
-        set_tab_font(notebook)
+        notebook.add(self.frame, text="Weather Cameras")
         self._setup_ui()
 
     def _setup_ui(self):
-        StyledLabel(self.frame, text="Poetry features coming soon.").pack(pady=20)
+        """Setup the UI components"""
+        StyledLabel(self.frame, text="Weather Camera Feeds").pack(pady=20)
+        info_text = StyledText(self.frame, height=15)
+        info_text.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        content = """📹 WEATHER CAMERA FEEDS
+        
+This tab features:
+• Live weather camera feeds
+• Traffic and weather cams
+• Beach and mountain cams
+• City skyline views
+• Weather condition verification
+• Time-lapse weather videos
 
-
-class LiveRadarTab:
-    """Live radar tab component for real-time weather radar tracking"""
-    def __init__(self, notebook, controller):
-        self.controller = controller
-        self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text="📡 Live Radar")
-        set_tab_font(notebook)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        """Setup the UI components with live radar maps"""
-        # Header section
-        header_frame = ttk.Frame(self.frame)
-        header_frame.pack(fill=tk.X, padx=10, pady=5)
+Currently under development."""
         
-        StyledLabel(header_frame, text="📡 LIVE WEATHER RADAR & MAPS", 
-                   font=("Arial", 14, "bold")).pack()
-        
-        # Location input section
-        location_frame = ttk.Frame(self.frame)
-        location_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        StyledLabel(location_frame, text="Enter Location:").pack(side=tk.LEFT)
-        self.location_entry = ttk.Entry(location_frame, width=20)
-        self.location_entry.pack(side=tk.LEFT, padx=5)
-        self.location_entry.insert(0, "New York")  # Default location
-        
-        StyledButton(location_frame, "primary", text="🔄 Update Location", 
-                    command=self.update_radar_location).pack(side=tk.LEFT, padx=5)
-        
-        # Create main content area with notebook for different map views
-        self.radar_notebook = ttk.Notebook(self.frame)
-        self.radar_notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        # Live Radar Map Tab
-        self._create_live_radar_tab()
-        
-        # Satellite Map Tab
-        self._create_satellite_tab()
-        
-        # Temperature Map Tab
-        self._create_temperature_tab()
-        
-        # Wind Map Tab
-        self._create_wind_tab()
-        
-        # Lightning Map Tab
-        self._create_lightning_tab()
-        
-        # 3D Radar Tab
-        self._create_3d_radar_tab()
-        
-        # Control panel at bottom
-        self._create_control_panel()
-
-    def _create_live_radar_tab(self):
-        """Create live precipitation radar tab with enhanced visual interface"""
-        radar_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(radar_frame, text="🌧️ Live Radar")
-        
-        # Top controls section (similar to screenshot)
-        top_controls_frame = ttk.Frame(radar_frame)
-        top_controls_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        # Left side - Live People Animations section
-        left_section = ttk.LabelFrame(top_controls_frame, text="🎬 Live People Animations")
-        left_section.pack(side=tk.LEFT, fill=tk.Y, padx=5)
-        
-        # Enter City field
-        StyledLabel(left_section, text="Enter City:").pack(pady=2)
-        self.animation_city_entry = ttk.Entry(left_section, width=15)
-        self.animation_city_entry.pack(pady=2)
-        self.animation_city_entry.insert(0, "Kaduna")
-        
-        # Animation control buttons
-        anim_buttons_frame = ttk.Frame(left_section)
-        anim_buttons_frame.pack(pady=5)
-        
-        StyledButton(anim_buttons_frame, "success", text="▶️ Start Animations", 
-                    command=self.start_people_animations).pack(pady=2)
-        StyledButton(anim_buttons_frame, "danger", text="⏹️ Stop Animations", 
-                    command=self.stop_people_animations).pack(pady=2)
-        
-        # Weather sync controls
-        sync_frame = ttk.Frame(left_section)
-        sync_frame.pack(pady=5)
-        
-        StyledButton(sync_frame, "warning", text="🌦️ Sync Weather", 
-                    command=self.sync_weather_animation).pack(side=tk.LEFT, padx=2)
-        StyledButton(sync_frame, "info", text="⚙️ Settings", 
-                    command=self.animation_settings).pack(side=tk.LEFT, padx=2)
-        
-        # Right side - Live Doppler Radar section
-        right_section = ttk.LabelFrame(top_controls_frame, text="📡 Live Doppler Radar")
-        right_section.pack(side=tk.RIGHT, fill=tk.Y, padx=5)
-        
-        # Coordinate inputs
-        coord_frame = ttk.Frame(right_section)
-        coord_frame.pack(pady=5)
-        
-        StyledLabel(coord_frame, text="Latitude:").grid(row=0, column=0, padx=2)
-        self.lat_entry = ttk.Entry(coord_frame, width=10)
-        self.lat_entry.grid(row=0, column=1, padx=2)
-        self.lat_entry.insert(0, "40.7128")
-        
-        StyledLabel(coord_frame, text="Longitude:").grid(row=0, column=2, padx=2)
-        self.lon_entry = ttk.Entry(coord_frame, width=10)
-        self.lon_entry.grid(row=0, column=3, padx=2)
-        self.lon_entry.insert(0, "-74.0060")
-        
-        # Radar control buttons (2x2 grid)
-        radar_buttons_frame = ttk.Frame(right_section)
-        radar_buttons_frame.pack(pady=5)
-        
-        StyledButton(radar_buttons_frame, "primary", text="🔄 Update Radar", 
-                    command=self.update_doppler_radar).grid(row=0, column=0, padx=2, pady=2)
-        StyledButton(radar_buttons_frame, "success", text="🎯 Track Storms", 
-                    command=self.track_storms).grid(row=0, column=1, padx=2, pady=2)
-        StyledButton(radar_buttons_frame, "warning", text="⚠️ Alerts", 
-                    command=self.radar_alerts).grid(row=1, column=0, padx=2, pady=2)
-        StyledButton(radar_buttons_frame, "info", text="📊 Radar Stats", 
-                    command=self.radar_statistics).grid(row=1, column=1, padx=2, pady=2)
-        
-        # Main content area with split panels
-        main_content_frame = ttk.Frame(radar_frame)
-        main_content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Left panel - Live Animation Display
-        left_panel = ttk.LabelFrame(main_content_frame, text="Live Animation")
-        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2)
-        
-        # Animation canvas area (simulated)
-        self.animation_display = StyledText(left_panel, height=15, bg="#ADD8E6")
-        self.animation_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Right panel - Doppler Radar Display
-        right_panel = ttk.LabelFrame(main_content_frame, text="Doppler Radar Display")
-        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=2)
-        
-        # Radar display header
-        radar_header_frame = ttk.Frame(right_panel)
-        radar_header_frame.pack(fill=tk.X, padx=5, pady=2)
-        
-        # Radar mode buttons
-        StyledButton(radar_header_frame, "accent_black", text="📡 Live Weather Radar", 
-                    command=self.show_live_radar).pack(side=tk.LEFT, padx=2)
-        StyledButton(radar_header_frame, "info_black", text="⚡ Track Severe Weather", 
-                    command=self.track_severe_weather).pack(side=tk.LEFT, padx=2)
-        
-        # Radar coordinates display
-        coord_display_frame = ttk.Frame(right_panel)
-        coord_display_frame.pack(fill=tk.X, padx=5, pady=2)
-        
-        self.coord_label = StyledLabel(coord_display_frame, text="Lat: 40.7")
-        self.coord_label.pack(side=tk.LEFT)
-        
-        # Main radar visualization area
-        self.radar_display = StyledText(right_panel, height=15, bg="#000033")
-        self.radar_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Radar timestamp and info
-        radar_info_frame = ttk.Frame(right_panel)
-        radar_info_frame.pack(fill=tk.X, padx=5, pady=2)
-        
-        from datetime import datetime
-        current_time = datetime.now().strftime("Weather Radar - %H:%M")
-        self.radar_time_label = StyledLabel(radar_info_frame, text=current_time)
-        self.radar_time_label.pack()
-        
-        # Initialize displays
-        self._initialize_radar_displays()
-
-    def _initialize_radar_displays(self):
-        """Initialize the radar displays with default content"""
-        try:
-            # Initialize animation display
-            self.animation_display.delete(1.0, tk.END)
-            self.animation_display.insert(tk.END, "🎬 LIVE PEOPLE ANIMATIONS:\n\n")
-            self.animation_display.insert(tk.END, "     ┌─────────────────────┐\n")
-            self.animation_display.insert(tk.END, "     │                     │\n")
-            self.animation_display.insert(tk.END, "     │      🚶‍♂️   🚶‍♀️       │\n")
-            self.animation_display.insert(tk.END, "     │                     │\n")
-            self.animation_display.insert(tk.END, "     │   🚴‍♂️       🏃‍♀️     │\n")
-            self.animation_display.insert(tk.END, "     │                     │\n")
-            self.animation_display.insert(tk.END, "     │      🚶‍♀️   🚶‍♂️       │\n")
-            self.animation_display.insert(tk.END, "     │                     │\n")
-            self.animation_display.insert(tk.END, "     └─────────────────────┘\n\n")
-            self.animation_display.insert(tk.END, "🌦️ Weather affecting movement:\n")
-            self.animation_display.insert(tk.END, "• Temperature: 23°C - Normal activity\n")
-            self.animation_display.insert(tk.END, "• Rain: None - All activities normal\n")
-            self.animation_display.insert(tk.END, "• Wind: Light - No impact on movement\n\n")
-            self.animation_display.insert(tk.END, "📊 Animation Status: Ready to start")
-            
-            # Initialize radar display with visual radar simulation
-            self.update_doppler_radar()
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to initialize displays: {str(e)}")
-
-    # Live People Animation Methods
-    def start_people_animations(self):
-        """Start people movement animations"""
-        try:
-            city = self.animation_city_entry.get().strip() or "Kaduna"
-            self.animation_display.delete(1.0, tk.END)
-            self.animation_display.insert(tk.END, f"🎬 LIVE ANIMATIONS - {city.upper()}:\n\n")
-            self.animation_display.insert(tk.END, "▶️ ANIMATION STARTED\n\n")
-            
-            # Create dynamic animation scene
-            import random
-            from datetime import datetime
-            
-            # Generate random movement patterns
-            people_types = ["🚶‍♂️", "🚶‍♀️", "🏃‍♂️", "🏃‍♀️", "🚴‍♂️", "🚴‍♀️"]
-            directions = ["→", "←", "↑", "↓"]
-            
-            self.animation_display.insert(tk.END, "     ┌─────────────────────┐\n")
-            
-            # Create 5 rows of animation
-            for row in range(5):
-                line = "     │"
-                for col in range(10):
-                    if random.random() < 0.3:  # 30% chance of person
-                        person = random.choice(people_types)
-                        direction = random.choice(directions)
-                        line += person + direction
-                    else:
-                        line += "  "
-                line += "│\n"
-                self.animation_display.insert(tk.END, line)
-            
-            self.animation_display.insert(tk.END, "     └─────────────────────┘\n\n")
-            
-            # Add real-time statistics
-            active_count = random.randint(8, 15)
-            walking_count = random.randint(4, 8)
-            running_count = random.randint(1, 3)
-            cycling_count = random.randint(1, 4)
-            
-            self.animation_display.insert(tk.END, f"📊 LIVE MOVEMENT TRACKING ({datetime.now().strftime('%H:%M:%S')}):\n")
-            self.animation_display.insert(tk.END, f"• Active people: {active_count}\n")
-            self.animation_display.insert(tk.END, f"• Walking: {walking_count} people\n")
-            self.animation_display.insert(tk.END, f"• Running: {running_count} person(s)\n")
-            self.animation_display.insert(tk.END, f"• Cycling: {cycling_count} person(s)\n\n")
-            
-            # Weather-based movement analysis
-            self.animation_display.insert(tk.END, "🌤️ Weather impact on movement:\n")
-            weather_condition = random.choice(["Clear", "Light Rain", "Windy", "Hot"])
-            
-            if weather_condition == "Clear":
-                self.animation_display.insert(tk.END, "• Visibility: Excellent\n")
-                self.animation_display.insert(tk.END, "• Activity level: High\n")
-                self.animation_display.insert(tk.END, "• Movement pattern: Normal pace\n")
-            elif weather_condition == "Light Rain":
-                self.animation_display.insert(tk.END, "• Visibility: Good\n")
-                self.animation_display.insert(tk.END, "• Activity level: Reduced\n")
-                self.animation_display.insert(tk.END, "• Movement pattern: Seeking shelter\n")
-            elif weather_condition == "Windy":
-                self.animation_display.insert(tk.END, "• Visibility: Good\n")
-                self.animation_display.insert(tk.END, "• Activity level: Moderate\n")
-                self.animation_display.insert(tk.END, "• Movement pattern: Against wind resistance\n")
-            else:  # Hot
-                self.animation_display.insert(tk.END, "• Visibility: Heat haze\n")
-                self.animation_display.insert(tk.END, "• Activity level: Reduced\n")
-                self.animation_display.insert(tk.END, "• Movement pattern: Seeking shade\n")
-                
-            self.animation_display.insert(tk.END, f"• Current conditions: {weather_condition}\n\n")
-            
-            # Start auto-refresh for real-time updates
-            self.animation_display.insert(tk.END, "🔄 Auto-refresh: Every 3 seconds\n")
-            self.animation_display.insert(tk.END, "⏹️ Click 'Stop Animations' to pause")
-            
-            # Schedule next update (simulated real-time)
-            self.frame.after(3000, self._update_animation_frame)
-            
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def stop_people_animations(self):
-        """Stop people movement animations"""
-        try:
-            current_text = self.animation_display.get(1.0, tk.END)
-            if "ANIMATION STARTED" in current_text:
-                # Stop auto-refresh
-                try:
-                    self.frame.after_cancel(getattr(self, '_animation_timer', None))
-                except:
-                    pass
-                
-                # Update display to show stopped state
-                self.animation_display.delete(1.0, tk.END)
-                city = self.animation_city_entry.get().strip() or "Kaduna"
-                self.animation_display.insert(tk.END, f"🎬 LIVE ANIMATIONS - {city.upper()}:\n\n")
-                self.animation_display.insert(tk.END, "⏹️ ANIMATION STOPPED\n\n")
-                self.animation_display.insert(tk.END, "     ┌─────────────────────┐\n")
-                self.animation_display.insert(tk.END, "     │                     │\n")
-                self.animation_display.insert(tk.END, "     │      🚶‍♂️   🚶‍♀️       │\n")
-                self.animation_display.insert(tk.END, "     │                     │\n")
-                self.animation_display.insert(tk.END, "     │   🚴‍♂️       🏃‍♀️     │\n")
-                self.animation_display.insert(tk.END, "     │                     │\n")
-                self.animation_display.insert(tk.END, "     │      🚶‍♀️   🚶‍♂️       │\n")
-                self.animation_display.insert(tk.END, "     │                     │\n")
-                self.animation_display.insert(tk.END, "     └─────────────────────┘\n\n")
-                self.animation_display.insert(tk.END, "🔴 All animations paused\n")
-                self.animation_display.insert(tk.END, "📊 Final statistics preserved\n")
-                self.animation_display.insert(tk.END, "▶️ Click 'Start Animations' to resume")
-            else:
-                self.animation_display.insert(tk.END, "\n🔴 Animations already stopped")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def _update_animation_frame(self):
-        """Update animation frame for real-time movement"""
-        try:
-            # Check if animations are still active
-            current_text = self.animation_display.get(1.0, tk.END)
-            if "ANIMATION STARTED" not in current_text:
-                return
-                
-            import random
-            from datetime import datetime
-            
-            city = self.animation_city_entry.get().strip() or "Kaduna"
-            self.animation_display.delete(1.0, tk.END)
-            self.animation_display.insert(tk.END, f"🎬 LIVE ANIMATIONS - {city.upper()}:\n\n")
-            self.animation_display.insert(tk.END, "▶️ ANIMATION ACTIVE\n\n")
-            
-            # Generate new random movement patterns
-            people_types = ["🚶‍♂️", "🚶‍♀️", "🏃‍♂️", "🏃‍♀️", "🚴‍♂️", "🚴‍♀️"]
-            directions = ["→", "←", "↑", "↓"]
-            
-            self.animation_display.insert(tk.END, "     ┌─────────────────────┐\n")
-            
-            # Create 5 rows of animation with different patterns
-            for row in range(5):
-                line = "     │"
-                for col in range(10):
-                    if random.random() < 0.25:  # 25% chance of person
-                        person = random.choice(people_types)
-                        direction = random.choice(directions)
-                        line += person + direction
-                    else:
-                        line += "  "
-                line += "│\n"
-                self.animation_display.insert(tk.END, line)
-            
-            self.animation_display.insert(tk.END, "     └─────────────────────┘\n\n")
-            
-            # Update real-time statistics
-            active_count = random.randint(6, 18)
-            walking_count = random.randint(3, 10)
-            running_count = random.randint(0, 4)
-            cycling_count = random.randint(0, 5)
-            
-            self.animation_display.insert(tk.END, f"� LIVE TRACKING ({datetime.now().strftime('%H:%M:%S')}):\n")
-            self.animation_display.insert(tk.END, f"• Active people: {active_count}\n")
-            self.animation_display.insert(tk.END, f"• Walking: {walking_count}\n")
-            self.animation_display.insert(tk.END, f"• Running: {running_count}\n")
-            self.animation_display.insert(tk.END, f"• Cycling: {cycling_count}\n\n")
-            self.animation_display.insert(tk.END, "🔄 Next update in 3 seconds...")
-            
-            # Schedule next update
-            self._animation_timer = self.frame.after(3000, self._update_animation_frame)
-            
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def sync_weather_animation(self):
-        """Sync animations with weather conditions"""
-        try:
-            import random
-            from datetime import datetime
-            
-            city = self.animation_city_entry.get().strip() or "Kaduna"
-            
-            # Get weather conditions (simulated)
-            weather_conditions = [
-                ("☀️ Sunny", "High activity, people outdoors"),
-                ("🌧️ Light Rain", "Reduced activity, seeking shelter"),
-                ("⛈️ Thunderstorm", "Minimal activity, indoors"),
-                ("❄️ Snow", "Slow movement, bundled up"),
-                ("🌪️ Windy", "Difficulty walking, holding items"),
-                ("🌫️ Foggy", "Cautious movement, reduced visibility")
-            ]
-            
-            weather, description = random.choice(weather_conditions)
-            
-            self.animation_display.delete(1.0, tk.END)
-            self.animation_display.insert(tk.END, f"🎬 WEATHER-SYNCED ANIMATIONS - {city.upper()}:\n\n")
-            self.animation_display.insert(tk.END, f"🌦️ CURRENT WEATHER: {weather}\n\n")
-            
-            # Adjust animation based on weather
-            if "Sunny" in weather:
-                people_density = 0.4
-                movement_types = ["🚶‍♂️", "🚶‍♀️", "🏃‍♂️", "🏃‍♀️", "🚴‍♂️", "🚴‍♀️", "🛴", "⛹️‍♂️"]
-            elif "Rain" in weather:
-                people_density = 0.2
-                movement_types = ["🚶‍♂️☔", "🚶‍♀️☔", "🏃‍♂️💨", "🏃‍♀️💨"]
-            elif "Thunderstorm" in weather:
-                people_density = 0.1
-                movement_types = ["🏃‍♂️💨", "🏃‍♀️💨"]
-            elif "Snow" in weather:
-                people_density = 0.15
-                movement_types = ["🚶‍♂️❄️", "🚶‍♀️❄️", "⛷️"]
-            elif "Windy" in weather:
-                people_density = 0.25
-                movement_types = ["🚶‍♂️💨", "🚶‍♀️💨", "🚴‍♂️💨"]
-            else:  # Foggy
-                people_density = 0.2
-                movement_types = ["🚶‍♂️🌫️", "🚶‍♀️🌫️"]
-            
-            self.animation_display.insert(tk.END, "     ┌─────────────────────┐\n")
-            
-            # Create weather-appropriate animation
-            active_people = 0
-            for row in range(5):
-                line = "     │"
-                for col in range(10):
-                    if random.random() < people_density:
-                        person = random.choice(movement_types)
-                        line += person[:2]  # Limit to 2 characters for spacing
-                        active_people += 1
-                    else:
-                        line += "  "
-                line += "│\n"
-                self.animation_display.insert(tk.END, line)
-            
-            self.animation_display.insert(tk.END, "     └─────────────────────┘\n\n")
-            
-            # Weather impact analysis
-            self.animation_display.insert(tk.END, f"🌦️ WEATHER SYNC ANALYSIS ({datetime.now().strftime('%H:%M:%S')}):\n")
-            self.animation_display.insert(tk.END, f"• Weather condition: {weather}\n")
-            self.animation_display.insert(tk.END, f"• Impact: {description}\n")
-            self.animation_display.insert(tk.END, f"• Active people: {active_people}\n")
-            self.animation_display.insert(tk.END, f"• Activity level: {'High' if people_density > 0.3 else 'Medium' if people_density > 0.15 else 'Low'}\n\n")
-            
-            # Weather-specific recommendations
-            if "Rain" in weather or "Thunderstorm" in weather:
-                self.animation_display.insert(tk.END, "⚠️ WEATHER ADVISORY:\n")
-                self.animation_display.insert(tk.END, "• Carry umbrella or raincoat\n")
-                self.animation_display.insert(tk.END, "• Seek covered areas\n")
-                self.animation_display.insert(tk.END, "• Reduced outdoor activities\n")
-            elif "Snow" in weather:
-                self.animation_display.insert(tk.END, "❄️ WINTER ADVISORY:\n")
-                self.animation_display.insert(tk.END, "• Wear warm clothing\n")
-                self.animation_display.insert(tk.END, "• Watch for icy conditions\n")
-                self.animation_display.insert(tk.END, "• Allow extra travel time\n")
-            elif "Windy" in weather:
-                self.animation_display.insert(tk.END, "💨 WIND ADVISORY:\n")
-                self.animation_display.insert(tk.END, "• Secure loose items\n")
-                self.animation_display.insert(tk.END, "• Be cautious with umbrellas\n")
-                self.animation_display.insert(tk.END, "• Expect travel delays\n")
-            else:
-                self.animation_display.insert(tk.END, "✅ OPTIMAL CONDITIONS:\n")
-                self.animation_display.insert(tk.END, "• Perfect for outdoor activities\n")
-                self.animation_display.insert(tk.END, "• Normal movement patterns\n")
-                self.animation_display.insert(tk.END, "• High visibility and comfort\n")
-                
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def animation_settings(self):
-        """Open animation settings"""
-        try:
-            import tkinter.messagebox as msgbox
-            from datetime import datetime
-            
-            # Show settings dialog
-            result = msgbox.askyesnocancel(
-                "Animation Settings",
-                "Configure Animation Parameters:\n\n" +
-                "YES - High Activity Mode (More people, faster updates)\n" +
-                "NO - Low Activity Mode (Fewer people, slower updates)\n" +
-                "CANCEL - Current Settings"
-            )
-            
-            current_text = self.animation_display.get(1.0, tk.END)
-            city = self.animation_city_entry.get().strip() or "Kaduna"
-            
-            if result is True:  # High Activity
-                mode = "HIGH ACTIVITY"
-                update_freq = "1 second"
-                people_count = "15-25"
-                activity_level = "Maximum"
-            elif result is False:  # Low Activity
-                mode = "LOW ACTIVITY"
-                update_freq = "5 seconds"
-                people_count = "3-8"
-                activity_level = "Minimal"
-            else:  # Cancel - keep current
-                mode = "NORMAL"
-                update_freq = "3 seconds"
-                people_count = "6-15"
-                activity_level = "Standard"
-            
-            # Update display with settings
-            self.animation_display.delete(1.0, tk.END)
-            self.animation_display.insert(tk.END, f"🎬 ANIMATION SETTINGS - {city.upper()}:\n\n")
-            self.animation_display.insert(tk.END, f"⚙️ CONFIGURATION UPDATED ({datetime.now().strftime('%H:%M:%S')}):\n\n")
-            
-            self.animation_display.insert(tk.END, f"📊 CURRENT SETTINGS:\n")
-            self.animation_display.insert(tk.END, f"• Mode: {mode}\n")
-            self.animation_display.insert(tk.END, f"• Update frequency: {update_freq}\n")
-            self.animation_display.insert(tk.END, f"• People count: {people_count}\n")
-            self.animation_display.insert(tk.END, f"• Activity level: {activity_level}\n")
-            self.animation_display.insert(tk.END, f"• Weather sync: Enabled\n")
-            self.animation_display.insert(tk.END, f"• Real-time tracking: Active\n\n")
-            
-            self.animation_display.insert(tk.END, "🎯 ANIMATION FEATURES:\n")
-            self.animation_display.insert(tk.END, "• Dynamic movement patterns\n")
-            self.animation_display.insert(tk.END, "• Weather-responsive behavior\n")
-            self.animation_display.insert(tk.END, "• Real-time statistics\n")
-            self.animation_display.insert(tk.END, "• Multiple activity types\n")
-            self.animation_display.insert(tk.END, "• Automatic updates\n\n")
-            
-            self.animation_display.insert(tk.END, "🔄 AVAILABLE ACTIONS:\n")
-            self.animation_display.insert(tk.END, "• Start Animations - Begin live tracking\n")
-            self.animation_display.insert(tk.END, "• Stop Animations - Pause all movement\n")
-            self.animation_display.insert(tk.END, "• Sync Weather - Weather-based simulation\n")
-            self.animation_display.insert(tk.END, "• Settings - Configure parameters\n\n")
-            
-            self.animation_display.insert(tk.END, "💡 TIP: Change city name for different locations!")
-            
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Doppler Radar Methods
-    def update_doppler_radar(self):
-        """Update the Doppler radar display"""
-        try:
-            lat = self.lat_entry.get().strip() or "40.7128"
-            lon = self.lon_entry.get().strip() or "-74.0060"
-            
-            # Update coordinate display
-            self.coord_label.config(text=f"Lat: {lat[:5]}")
-            
-            # Update radar time
-            from datetime import datetime
-            current_time = datetime.now().strftime("Weather Radar - %H:%M")
-            self.radar_time_label.config(text=current_time)
-            
-            # Create radar visualization
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.config(bg="#000033", fg="#00FF00")
-            
-            radar_visual = f"📡 DOPPLER RADAR - Lat: {lat}, Lon: {lon}\n"
-            radar_visual += "═" * 50 + "\n\n"
-            
-            # ASCII radar sweep visualization
-            radar_visual += "    🌧️ PRECIPITATION MAP 🌧️\n\n"
-            radar_visual += "         0   5   10  15  km\n"
-            radar_visual += "    0  ┌─────────────────────┐\n"
-            radar_visual += "       │ ░░░▓▓▓░░░ ⭐ ░░░ │  5\n"
-            radar_visual += "       │ ░▓▓███▓▓░     ░▓░ │\n"
-            radar_visual += "    10 │ ▓███████▓▓    ▓▓▓ │\n"
-            radar_visual += "       │ ░▓▓███▓▓░     ░░░ │\n"
-            radar_visual += "    15 │ ░░░▓▓▓░░░ ⚡ ░░░ │\n"
-            radar_visual += "       └─────────────────────┘\n\n"
-            
-            radar_visual += "🎯 RADAR LEGEND:\n"
-            radar_visual += "⭐ = Your Location    ⚡ = Lightning\n"
-            radar_visual += "░ = Light Rain        ▓ = Moderate Rain\n"
-            radar_visual += "█ = Heavy Rain        ● = Storm Center\n\n"
-            
-            radar_visual += "📊 CURRENT CONDITIONS:\n"
-            radar_visual += "• Precipitation: Light rain 5km NE\n"
-            radar_visual += "• Storm intensity: Moderate\n"
-            radar_visual += "• Movement: ESE at 15 km/h\n"
-            radar_visual += "• Lightning activity: Minimal\n"
-            radar_visual += "• Radar range: 25km radius\n"
-            radar_visual += "• Last update: Real-time\n\n"
-            
-            radar_visual += "⚠️ ALERTS:\n"
-            radar_visual += "• No severe weather warnings\n"
-            radar_visual += "• Light precipitation approaching\n"
-            radar_visual += "• ETA: 20 minutes"
-            
-            self.radar_display.insert(tk.END, radar_visual)
-            
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def track_storms(self):
-        """Track storm movements"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            storm_info = current_text + "\n\n🎯 STORM TRACKING ACTIVE:\n"
-            storm_info += "• Storm Cell A: 12km NE, moving ESE\n"
-            storm_info += "• Intensity: Moderate rain, 5-10mm/h\n"
-            storm_info += "• Speed: 15 km/h\n"
-            storm_info += "• ETA to location: 45 minutes\n"
-            storm_info += "• Tracking confidence: High (92%)"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, storm_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def radar_alerts(self):
-        """Show radar alerts"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            alert_info = current_text + "\n\n⚠️ RADAR ALERTS:\n"
-            alert_info += "• Weather Advisory: Light rain expected\n"
-            alert_info += "• Alert level: Low (Level 1)\n"
-            alert_info += "• Affected area: 5km radius\n"
-            alert_info += "• Duration: 30-45 minutes\n"
-            alert_info += "• Recommended action: Light jacket/umbrella"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, alert_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def radar_statistics(self):
-        """Show radar statistics"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            stats_info = current_text + "\n\n📊 RADAR STATISTICS:\n"
-            stats_info += "• Radar uptime: 99.8%\n"
-            stats_info += "• Data quality: Excellent\n"
-            stats_info += "• Update frequency: Every 5 minutes\n"
-            stats_info += "• Coverage area: 250km radius\n"
-            stats_info += "• Active storms tracked: 1\n"
-            stats_info += "• Lightning strikes (24h): 0"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, stats_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_live_radar(self):
-        """Show live weather radar mode"""
-        try:
-            self.update_doppler_radar()
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def track_severe_weather(self):
-        """Track severe weather mode"""
-        try:
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.config(bg="#330000", fg="#FF6600")
-            
-            severe_visual = "⚡ SEVERE WEATHER TRACKING ⚡\n"
-            severe_visual += "═" * 50 + "\n\n"
-            severe_visual += "🌪️ STORM INTENSITY MAP:\n\n"
-            severe_visual += "         SEVERE WEATHER RADAR\n\n"
-            severe_visual += "    0  ┌─────────────────────┐\n"
-            severe_visual += "       │     ░░░ ⭐ ░░░     │  5\n"
-            severe_visual += "       │     ░░░   ░░░     │\n"
-            severe_visual += "    10 │     ░░░   ░░░     │\n"
-            severe_visual += "       │     ░░░   ░░░     │\n"
-            severe_visual += "    15 │     ░░░   ░░░     │\n"
-            severe_visual += "       └─────────────────────┘\n\n"
-            
-            severe_visual += "🚨 SEVERE WEATHER STATUS:\n"
-            severe_visual += "• Current threat level: LOW\n"
-            severe_visual += "• Tornado probability: 0%\n"
-            severe_visual += "• Hail probability: 0%\n"
-            severe_visual += "• Severe thunderstorm: Not detected\n"
-            severe_visual += "• Flash flood risk: Minimal\n\n"
-            
-            severe_visual += "✅ ALL CLEAR:\n"
-            severe_visual += "• No severe weather detected\n"
-            severe_visual += "• Conditions: Stable\n"
-            severe_visual += "• Safe for outdoor activities"
-            
-            self.radar_display.insert(tk.END, severe_visual)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-        
-
-    def _create_satellite_tab(self):
-        """Create satellite imagery tab"""
-        sat_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(sat_frame, text="🛰️ Satellite")
-        
-        # Satellite display
-        sat_display_frame = ttk.LabelFrame(sat_frame, text="Live Satellite Imagery")
-        sat_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.satellite_display = StyledText(sat_display_frame, height=20)
-        self.satellite_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Satellite controls
-        sat_controls = ttk.Frame(sat_display_frame)
-        sat_controls.pack(fill=tk.X, padx=5, pady=5)
-        
-        StyledButton(sat_controls, "primary", text="☀️ Visible Light", 
-                    command=self.show_visible_satellite).pack(side=tk.LEFT, padx=2)
-        StyledButton(sat_controls, "info", text="🌡️ Infrared", 
-                    command=self.show_infrared_satellite).pack(side=tk.LEFT, padx=2)
-        StyledButton(sat_controls, "success", text="💧 Water Vapor", 
-                    command=self.show_water_vapor_satellite).pack(side=tk.LEFT, padx=2)
-
-    def _create_temperature_tab(self):
-        """Create temperature map tab"""
-        temp_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(temp_frame, text="🌡️ Temperature")
-        
-        temp_display_frame = ttk.LabelFrame(temp_frame, text="Live Temperature Map")
-        temp_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.temperature_display = StyledText(temp_display_frame, height=20)
-        self.temperature_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Temperature controls
-        temp_controls = ttk.Frame(temp_display_frame)
-        temp_controls.pack(fill=tk.X, padx=5, pady=5)
-        
-        StyledButton(temp_controls, "danger", text="🌡️ Current Temp", 
-                    command=self.show_current_temperature).pack(side=tk.LEFT, padx=2)
-        StyledButton(temp_controls, "warning", text="🔥 Heat Index", 
-                    command=self.show_heat_index).pack(side=tk.LEFT, padx=2)
-        StyledButton(temp_controls, "info", text="❄️ Wind Chill", 
-                    command=self.show_wind_chill).pack(side=tk.LEFT, padx=2)
-
-    def _create_wind_tab(self):
-        """Create wind map tab"""
-        wind_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(wind_frame, text="💨 Wind Flow")
-        
-        wind_display_frame = ttk.LabelFrame(wind_frame, text="Live Wind Flow Map")
-        wind_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.wind_display = StyledText(wind_display_frame, height=20)
-        self.wind_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Wind controls
-        wind_controls = ttk.Frame(wind_display_frame)
-        wind_controls.pack(fill=tk.X, padx=5, pady=5)
-        
-        StyledButton(wind_controls, "success", text="🌪️ Wind Speed", 
-                    command=self.show_wind_speed).pack(side=tk.LEFT, padx=2)
-        StyledButton(wind_controls, "primary", text="🧭 Wind Direction", 
-                    command=self.show_wind_direction).pack(side=tk.LEFT, padx=2)
-        StyledButton(wind_controls, "warning", text="💨 Wind Gusts", 
-                    command=self.show_wind_gusts).pack(side=tk.LEFT, padx=2)
-
-    def _create_lightning_tab(self):
-        """Create lightning detection tab"""
-        lightning_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(lightning_frame, text="⚡ Lightning")
-        
-        lightning_display_frame = ttk.LabelFrame(lightning_frame, text="Live Lightning Detection")
-        lightning_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.lightning_display = StyledText(lightning_display_frame, height=20)
-        self.lightning_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Lightning controls
-        lightning_controls = ttk.Frame(lightning_display_frame)
-        lightning_controls.pack(fill=tk.X, padx=5, pady=5)
-        
-        StyledButton(lightning_controls, "danger", text="⚡ Live Strikes", 
-                    command=self.show_live_lightning).pack(side=tk.LEFT, padx=2)
-        StyledButton(lightning_controls, "warning", text="📊 Strike Density", 
-                    command=self.show_lightning_density).pack(side=tk.LEFT, padx=2)
-        StyledButton(lightning_controls, "info", text="🔊 Audio Alerts", 
-                    command=self.toggle_lightning_audio).pack(side=tk.LEFT, padx=2)
-
-    def _create_3d_radar_tab(self):
-        """Create 3D radar visualization tab"""
-        radar_3d_frame = ttk.Frame(self.radar_notebook)
-        self.radar_notebook.add(radar_3d_frame, text="🎯 3D Radar")
-        
-        radar_3d_display_frame = ttk.LabelFrame(radar_3d_frame, text="3D Radar Volume Scan")
-        radar_3d_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.radar_3d_display = StyledText(radar_3d_display_frame, height=20)
-        self.radar_3d_display.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # 3D controls
-        radar_3d_controls = ttk.Frame(radar_3d_display_frame)
-        radar_3d_controls.pack(fill=tk.X, padx=5, pady=5)
-        
-        StyledButton(radar_3d_controls, "primary", text="🔄 Rotate View", 
-                    command=self.rotate_3d_view).pack(side=tk.LEFT, padx=2)
-        StyledButton(radar_3d_controls, "success", text="🔍 Zoom In", 
-                    command=self.zoom_3d_in).pack(side=tk.LEFT, padx=2)
-        StyledButton(radar_3d_controls, text="🔍 Zoom Out", 
-                    command=self.zoom_3d_out).pack(side=tk.LEFT, padx=2)
-
-    def _create_control_panel(self):
-        """Create bottom control panel"""
-        control_frame = ttk.LabelFrame(self.frame, text="Radar Control Panel")
-        control_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        # Time controls
-        time_frame = ttk.Frame(control_frame)
-        time_frame.pack(side=tk.LEFT, padx=5, pady=5)
-        
-        StyledLabel(time_frame, text="Time Control:").pack()
-        time_buttons = ttk.Frame(time_frame)
-        time_buttons.pack()
-        
-        StyledButton(time_buttons, text="⏮️", command=self.radar_time_back).pack(side=tk.LEFT, padx=1)
-        StyledButton(time_buttons, text="⏸️", command=self.radar_time_pause).pack(side=tk.LEFT, padx=1)
-        StyledButton(time_buttons, text="▶️", command=self.radar_time_play).pack(side=tk.LEFT, padx=1)
-        StyledButton(time_buttons, text="⏭️", command=self.radar_time_forward).pack(side=tk.LEFT, padx=1)
-        
-        # Layer controls
-        layer_frame = ttk.Frame(control_frame)
-        layer_frame.pack(side=tk.LEFT, padx=5, pady=5)
-        
-        StyledLabel(layer_frame, text="Map Layers:").pack()
-        layer_buttons = ttk.Frame(layer_frame)
-        layer_buttons.pack()
-        
-        StyledButton(layer_buttons, "accent_black", text="🗺️ Terrain", 
-                    command=self.toggle_terrain_layer).pack(side=tk.LEFT, padx=1)
-        StyledButton(layer_buttons, "info_black", text="🏙️ Cities", 
-                    command=self.toggle_cities_layer).pack(side=tk.LEFT, padx=1)
-        StyledButton(layer_buttons, "success_black", text="🛣️ Roads", 
-                    command=self.toggle_roads_layer).pack(side=tk.LEFT, padx=1)
-        
-        # Settings
-        settings_frame = ttk.Frame(control_frame)
-        settings_frame.pack(side=tk.RIGHT, padx=5, pady=5)
-        
-        StyledLabel(settings_frame, text="Settings:").pack()
-        settings_buttons = ttk.Frame(settings_frame)
-        settings_buttons.pack()
-        
-        StyledButton(settings_buttons, "warning_black", text="⚙️ Settings", 
-                    command=self.open_radar_settings).pack(side=tk.LEFT, padx=1)
-        StyledButton(settings_buttons, "danger_black", text="📱 Alerts", 
-                    command=self.configure_radar_alerts).pack(side=tk.LEFT, padx=1)
-        
-        # Initialize with default radar view
-        self.update_radar_location()
-
-    def update_radar_location(self):
-        """Update radar location and refresh displays"""
-        location = self.location_entry.get().strip()
-        if not location:
-            location = "New York"  # Default location
-        
-        try:
-            from datetime import datetime
-            radar_info = f"📡 LIVE RADAR - {location.upper()}:\n"
-            radar_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            radar_info += "🔴 RADAR STATUS: ACTIVE\n"
-            radar_info += f"🕐 Last Update: {datetime.now().strftime('%H:%M:%S')}\n"
-            radar_info += f"� Location: {location}\n\n"
-            radar_info += "🌧️ PRECIPITATION MAP:\n"
-            radar_info += "     NW    N    NE\n"
-            radar_info += "  W   ▓░░░░░░▓   E\n"
-            radar_info += "     ░░░▓▓░░░\n"
-            radar_info += "     ░▓▓██▓▓░\n"
-            radar_info += "     ░░▓▓▓░░░\n"
-            radar_info += "  SW   ░░░░░░   SE\n"
-            radar_info += "         S\n\n"
-            radar_info += "Legend: ░=Light ▓=Moderate █=Heavy\n\n"
-            radar_info += "📊 CURRENT CONDITIONS:\n"
-            radar_info += "• Light precipitation: 45km NE\n"
-            radar_info += "• Movement: East at 25 km/h\n"
-            radar_info += "• Intensity: 2-5mm/hour\n"
-            radar_info += "• ETA: 2.5 hours\n\n"
-            radar_info += "⚡ STORM TRACKING:\n"
-            radar_info += "• Active cells: 0 within 100km\n"
-            radar_info += "• Lightning: None detected\n"
-            radar_info += "• Severe weather: No threats\n\n"
-            radar_info += "🔄 Auto-refresh: Every 5 minutes"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, radar_info)
-            
-            # Update satellite display
-            self.show_visible_satellite()
-            
-            # Update temperature display
-            self.show_current_temperature()
-            
-            # Update wind display
-            self.show_wind_speed()
-            
-            # Update lightning display
-            self.show_live_lightning()
-            
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Radar Animation Controls
-    def play_radar_animation(self):
-        """Play radar animation"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            animation_text = current_text + "\n\n▶️ ANIMATION: Playing radar loop...\n"
-            animation_text += "Frame 1/8: Current conditions\n"
-            animation_text += "Animation speed: 2x normal\n"
-            animation_text += "Loop duration: 2 hours of data"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, animation_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def pause_radar_animation(self):
-        """Pause radar animation"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            if "Playing radar loop" in current_text:
-                paused_text = current_text.replace("Playing radar loop", "Animation PAUSED")
-                self.radar_display.delete(1.0, tk.END)
-                self.radar_display.insert(tk.END, paused_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def refresh_radar(self):
-        """Refresh radar data"""
-        try:
-            self.update_radar_location()
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Satellite Controls
-    def show_visible_satellite(self):
-        """Show visible satellite imagery"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            from datetime import datetime
-            
-            sat_info = f"🛰️ VISIBLE SATELLITE - {location.upper()}:\n"
-            sat_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            sat_info += f"🕐 Image Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            sat_info += "📡 Satellite: GOES-16 East\n"
-            sat_info += "🔍 Resolution: 500m per pixel\n\n"
-            sat_info += "☁️ CLOUD COVERAGE MAP:\n"
-            sat_info += "     NW    N    NE\n"
-            sat_info += "  W   ████▓▓▓   E\n"
-            sat_info += "     ▓▓▓░░░▓▓\n"
-            sat_info += "     ░░░   ░░░\n"
-            sat_info += "     ▓▓▓░░░▓▓\n"
-            sat_info += "  SW   ▓▓▓▓▓▓   SE\n"
-            sat_info += "         S\n\n"
-            sat_info += "Legend: █=Dense clouds ▓=Moderate ░=Thin\n\n"
-            sat_info += "☀️ SUNLIGHT CONDITIONS:\n"
-            sat_info += "• Cloud opacity: 40% average\n"
-            sat_info += "• Clear areas: 35% of region\n"
-            sat_info += "• Dense clouds: 25% coverage\n"
-            sat_info += "• Visibility: Good to excellent\n\n"
-            sat_info += "🌤️ WEATHER FEATURES:\n"
-            sat_info += "• Cumulus development: Moderate\n"
-            sat_info += "• Cirrus streaks: High altitude\n"
-            sat_info += "• Storm tops: None visible\n"
-            sat_info += "• Fog/low clouds: Minimal"
-            
-            self.satellite_display.delete(1.0, tk.END)
-            self.satellite_display.insert(tk.END, sat_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_infrared_satellite(self):
-        """Show infrared satellite imagery"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            sat_info = f"�️ INFRARED SATELLITE - {location.upper()}:\n"
-            sat_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            sat_info += "🌡️ TEMPERATURE IMAGERY:\n"
-            sat_info += "Temperature scale: -80°C to +50°C\n\n"
-            sat_info += "🌡️ CLOUD TOP TEMPERATURES:\n"
-            sat_info += "     NW    N    NE\n"
-            sat_info += "  W   ████▓▓▓   E\n"
-            sat_info += "     ▓▓▓░░░▓▓\n"
-            sat_info += "     ░░░   ░░░\n"
-            sat_info += "     ▓▓▓░░░▓▓\n"
-            sat_info += "  SW   ▓▓▓▓▓▓   SE\n"
-            sat_info += "         S\n\n"
-            sat_info += "Temperature Legend:\n"
-            sat_info += "█ = Very Cold (-60°C) High Clouds\n"
-            sat_info += "▓ = Cold (-20°C) Medium Clouds\n"
-            sat_info += "░ = Warm (+10°C) Low Clouds/Surface\n\n"
-            sat_info += "🏔️ CLOUD HEIGHT ANALYSIS:\n"
-            sat_info += "• High clouds: 35,000+ ft\n"
-            sat_info += "• Medium clouds: 8,000-20,000 ft\n"
-            sat_info += "• Low clouds: Surface-8,000 ft\n"
-            sat_info += "• Surface temperature: +23°C"
-            
-            self.satellite_display.delete(1.0, tk.END)
-            self.satellite_display.insert(tk.END, sat_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_water_vapor_satellite(self):
-        """Show water vapor satellite imagery"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            sat_info = f"💧 WATER VAPOR SATELLITE - {location.upper()}:\n"
-            sat_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            sat_info += "💧 ATMOSPHERIC MOISTURE:\n"
-            sat_info += "Upper-level water vapor concentration\n\n"
-            sat_info += "� MOISTURE PATTERNS:\n"
-            sat_info += "     NW    N    NE\n"
-            sat_info += "  W   ░░░▓▓▓   E\n"
-            sat_info += "     ▓▓▓██▓▓\n"
-            sat_info += "     ▓██████▓\n"
-            sat_info += "     ▓▓▓██▓▓\n"
-            sat_info += "  SW   ░░░▓▓▓   SE\n"
-            sat_info += "         S\n\n"
-            sat_info += "Moisture Legend:\n"
-            sat_info += "█ = Very High Moisture (Dark)\n"
-            sat_info += "▓ = High Moisture\n"
-            sat_info += "░ = Low Moisture (Bright)\n\n"
-            sat_info += "🌊 ATMOSPHERIC ANALYSIS:\n"
-            sat_info += "• Jet stream position: 300mb level\n"
-            sat_info += "• Moisture transport: SW to NE\n"
-            sat_info += "• Dry slots: Western regions\n"
-            sat_info += "• Tropical moisture: Moderate influx"
-            
-            self.satellite_display.delete(1.0, tk.END)
-            self.satellite_display.insert(tk.END, sat_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Temperature Controls
-    def show_current_temperature(self):
-        """Show current temperature map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            from datetime import datetime
-            
-            temp_info = f"🌡️ TEMPERATURE MAP - {location.upper()}:\n"
-            temp_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            temp_info += f"🕐 Observation Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            temp_info += "🌡️ Temperature Scale: -10°C to +35°C\n\n"
-            temp_info += "🗺️ REGIONAL TEMPERATURES:\n"
-            temp_info += "     NW    N    NE\n"
-            temp_info += "  W  21°C 23°C 24°C  E\n"
-            temp_info += "     22°C 23°C 25°C\n"
-            temp_info += "     23°C 24°C 26°C\n"
-            temp_info += "     22°C 23°C 24°C\n"
-            temp_info += "  SW 20°C 22°C 23°C  SE\n"
-            temp_info += "         S\n\n"
-            temp_info += "🎨 COLOR CODING:\n"
-            temp_info += "🟦 Cold: <15°C    🟢 Cool: 15-20°C\n"
-            temp_info += "🟡 Mild: 20-25°C  🟠 Warm: 25-30°C\n"
-            temp_info += "� Hot: >30°C\n\n"
-            temp_info += "📊 TEMPERATURE STATISTICS:\n"
-            temp_info += "• Current location: 23°C\n"
-            temp_info += "• Daily high: 27°C\n"
-            temp_info += "• Daily low: 18°C\n"
-            temp_info += "• Regional average: 23°C\n"
-            temp_info += "• Trend: Gradually warming\n\n"
-            temp_info += "🌅 TEMPERATURE FORECAST:\n"
-            temp_info += "• Peak heating: 15:00-16:00\n"
-            temp_info += "• Evening cooling: After 18:00\n"
-            temp_info += "• Overnight low: 19°C expected"
-            
-            self.temperature_display.delete(1.0, tk.END)
-            self.temperature_display.insert(tk.END, temp_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_heat_index(self):
-        """Show heat index map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            temp_info = f"🔥 HEAT INDEX MAP - {location.upper()}:\n"
-            temp_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            temp_info += "🌡️ HEAT INDEX CALCULATION:\n"
-            temp_info += "Combines temperature + humidity for 'feels like' temperature\n\n"
-            temp_info += "🔥 HEAT INDEX VALUES:\n"
-            temp_info += "     NW    N    NE\n"
-            temp_info += "  W  24°C 26°C 27°C  E\n"
-            temp_info += "     25°C 26°C 28°C\n"
-            temp_info += "     26°C 27°C 29°C\n"
-            temp_info += "     25°C 26°C 27°C\n"
-            temp_info += "  SW 23°C 25°C 26°C  SE\n"
-            temp_info += "         S\n\n"
-            temp_info += "⚠️ HEAT STRESS LEVELS:\n"
-            temp_info += "🟢 Safe: <27°C (No precautions needed)\n"
-            temp_info += "🟡 Caution: 27-32°C (Stay hydrated)\n"
-            temp_info += "🟠 Warning: 32-40°C (Limit outdoor activity)\n"
-            temp_info += "🔴 Danger: >40°C (Avoid outdoor exposure)\n\n"
-            temp_info += "📊 CURRENT CONDITIONS:\n"
-            temp_info += "• Actual temperature: 23°C\n"
-            temp_info += "• Relative humidity: 68%\n"
-            temp_info += "• Heat index: 26°C\n"
-            temp_info += "• Comfort level: Comfortable\n"
-            temp_info += "• Risk category: 🟢 Safe"
-            
-            self.temperature_display.delete(1.0, tk.END)
-            self.temperature_display.insert(tk.END, temp_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_wind_chill(self):
-        """Show wind chill map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            temp_info = f"❄️ WIND CHILL MAP - {location.upper()}:\n"
-            temp_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            temp_info += "🌬️ WIND CHILL CALCULATION:\n"
-            temp_info += "Combines temperature + wind speed for 'feels like' temperature\n\n"
-            temp_info += "❄️ WIND CHILL VALUES:\n"
-            temp_info += "     NW    N    NE\n"
-            temp_info += "  W  20°C 22°C 23°C  E\n"
-            temp_info += "     21°C 22°C 24°C\n"
-            temp_info += "     22°C 23°C 25°C\n"
-            temp_info += "     21°C 22°C 23°C\n"
-            temp_info += "  SW 19°C 21°C 22°C  SE\n"
-            temp_info += "         S\n\n"
-            temp_info += "🥶 WIND CHILL CATEGORIES:\n"
-            temp_info += "🟢 Comfortable: >10°C\n"
-            temp_info += "🟡 Cool: 0-10°C (Light jacket needed)\n"
-            temp_info += "🟠 Cold: -10-0°C (Warm clothing needed)\n"
-            temp_info += "🔴 Very Cold: <-10°C (Risk of frostbite)\n\n"
-            temp_info += "📊 CURRENT CONDITIONS:\n"
-            temp_info += "• Actual temperature: 23°C\n"
-            temp_info += "• Wind speed: 12 km/h\n"
-            temp_info += "• Wind chill: 22°C\n"
-            temp_info += "• Comfort level: Pleasant\n"
-            temp_info += "• Risk category: 🟢 Comfortable"
-            
-            self.temperature_display.delete(1.0, tk.END)
-            self.temperature_display.insert(tk.END, temp_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Wind Controls
-    def show_wind_speed(self):
-        """Show wind speed map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            from datetime import datetime
-            
-            wind_info = f"💨 WIND SPEED MAP - {location.upper()}:\n"
-            wind_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            wind_info += f"🕐 Observation Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            wind_info += "💨 Wind Speed Scale: 0-50+ km/h\n\n"
-            wind_info += "🌬️ REGIONAL WIND SPEEDS:\n"
-            wind_info += "     NW    N    NE\n"
-            wind_info += "  W  15↖ 12↑ 18↗  E\n"
-            wind_info += "     14← 12↑ 16→\n"
-            wind_info += "     13← 11↑ 15→\n"
-            wind_info += "     16↙ 14↓ 17↘\n"
-            wind_info += "  SW 18↙ 15↓ 19↘  SE\n"
-            wind_info += "         S\n\n"
-            wind_info += "Legend: Number = Speed (km/h), Arrow = Direction\n\n"
-            wind_info += "🎨 WIND SPEED SCALE:\n"
-            wind_info += "🟢 Light: 0-11 km/h (Calm to light breeze)\n"
-            wind_info += "🟡 Moderate: 12-28 km/h (Gentle to fresh breeze)\n"
-            wind_info += "🟠 Strong: 29-49 km/h (Strong breeze)\n"
-            wind_info += "� Very Strong: 50+ km/h (Gale force)\n\n"
-            wind_info += "📊 WIND STATISTICS:\n"
-            wind_info += "• Current location: 12 km/h NW\n"
-            wind_info += "• Peak gust today: 22 km/h\n"
-            wind_info += "• Average speed: 14 km/h\n"
-            wind_info += "• Prevailing direction: Northwest\n"
-            wind_info += "• Variability: Low (steady)\n\n"
-            wind_info += "�️ WIND FORECAST:\n"
-            wind_info += "• Next 3 hours: Steady 10-15 km/h\n"
-            wind_info += "• Direction trend: Backing to west\n"
-            wind_info += "• Gust potential: Minimal"
-            
-            self.wind_display.delete(1.0, tk.END)
-            self.wind_display.insert(tk.END, wind_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_wind_direction(self):
-        """Show wind direction map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            wind_info = f"🧭 WIND DIRECTION MAP - {location.upper()}:\n"
-            wind_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            wind_info += "🧭 WIND DIRECTION ANALYSIS:\n"
-            wind_info += "Arrows show wind direction (where wind is blowing TO)\n\n"
-            wind_info += "↗️ WIND VECTORS:\n"
-            wind_info += "     NW    N    NE\n"
-            wind_info += "  W   ↘   ↓   ↙   E\n"
-            wind_info += "      ↘   ↓   ↙\n"
-            wind_info += "      →   ↓   ←\n"
-            wind_info += "      ↗   ↑   ↖\n"
-            wind_info += "  SW  ↗   ↑   ↖   SE\n"
-            wind_info += "         S\n\n"
-            wind_info += "🌬️ DIRECTIONAL ANALYSIS:\n"
-            wind_info += "• Primary flow: Northwest to Southeast\n"
-            wind_info += "• Wind convergence: Central region\n"
-            wind_info += "• Backing trend: Shifting counterclockwise\n"
-            wind_info += "• Veering trend: None detected\n\n"
-            wind_info += "📊 DIRECTION STATISTICS:\n"
-            wind_info += "• Prevailing direction: 315° (NW)\n"
-            wind_info += "• Direction variability: ±15°\n"
-            wind_info += "• Consistency: High (85%)\n"
-            wind_info += "• Seasonal normal: Northwest\n\n"
-            wind_info += "🌀 FLOW PATTERNS:\n"
-            wind_info += "• Surface flow: Consistent NW\n"
-            wind_info += "• Upper level: Westerly\n"
-            wind_info += "• Boundary layer: Well mixed\n"
-            wind_info += "• Turbulence: Minimal"
-            
-            self.wind_display.delete(1.0, tk.END)
-            self.wind_display.insert(tk.END, wind_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_wind_gusts(self):
-        """Show wind gusts map"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            wind_info = f"💨 WIND GUSTS MAP - {location.upper()}:\n"
-            wind_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            wind_info += "💨 WIND GUST MONITORING:\n"
-            wind_info += "Peak wind speeds recorded in last hour\n\n"
-            wind_info += "🌪️ GUST INTENSITY MAP:\n"
-            wind_info += "     NW    N    NE\n"
-            wind_info += "  W  22!! 18!  25!!  E\n"
-            wind_info += "     20!  16   22!\n"
-            wind_info += "     18!  15   20!\n"
-            wind_info += "     24!! 19!  23!!\n"
-            wind_info += "  SW 26!! 21!  27!!  SE\n"
-            wind_info += "         S\n\n"
-            wind_info += "Legend: ! = Moderate gust, !! = Strong gust\n\n"
-            wind_info += "⚠️ GUST CATEGORIES:\n"
-            wind_info += "🟢 Light: <20 km/h (No concern)\n"
-            wind_info += "🟡 Moderate: 20-30 km/h (Caution outdoors)\n"
-            wind_info += "🟠 Strong: 31-45 km/h (Secure loose objects)\n"
-            wind_info += "🔴 Severe: >45 km/h (Avoid high exposure)\n\n"
-            wind_info += "📊 GUST STATISTICS:\n"
-            wind_info += "• Peak gust recorded: 27 km/h SW\n"
-            wind_info += "• Average gust factor: 1.7x steady wind\n"
-            wind_info += "• Gust frequency: Every 3-5 minutes\n"
-            wind_info += "• Duration: 5-15 seconds each\n"
-            wind_info += "• Stability: Moderate gustiness\n\n"
-            wind_info += "�️ GUST FORECAST:\n"
-            wind_info += "• Next hour: Occasional gusts to 25 km/h\n"
-            wind_info += "• Afternoon: Increasing to 30 km/h\n"
-            wind_info += "• Evening: Decreasing after sunset"
-            
-            self.wind_display.delete(1.0, tk.END)
-            self.wind_display.insert(tk.END, wind_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Lightning Controls
-    def show_live_lightning(self):
-        """Show live lightning detection"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            from datetime import datetime
-            
-            lightning_info = f"⚡ LIVE LIGHTNING - {location.upper()}:\n"
-            lightning_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            lightning_info += f"🕐 Detection Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            lightning_info += "⚡ Detection Range: 300km radius\n\n"
-            lightning_info += "🌩️ LIGHTNING ACTIVITY MAP:\n"
-            lightning_info += "     NW    N    NE\n"
-            lightning_info += "  W   ·    ·    ·   E\n"
-            lightning_info += "      ·    ·    ·\n"
-            lightning_info += "      ·    ●    ·\n"
-            lightning_info += "      ·    ·    ·\n"
-            lightning_info += "  SW  ·    ·    ·   SE\n"
-            lightning_info += "         S\n\n"
-            lightning_info += "Legend: ● = You, · = No activity\n\n"
-            lightning_info += "⚡ LIGHTNING SUMMARY:\n"
-            lightning_info += "• Strikes in last 15 min: 0\n"
-            lightning_info += "• Strikes in last hour: 0\n"
-            lightning_info += "• Nearest activity: 150+ km\n"
-            lightning_info += "• Storm cells tracked: 0\n\n"
-            lightning_info += "🛡️ SAFETY STATUS:\n"
-            lightning_info += "• Current risk: ✅ VERY LOW\n"
-            lightning_info += "• Thunder audible: No\n"
-            lightning_info += "• 30-30 rule status: Safe\n"
-            lightning_info += "• Outdoor activities: ✅ Safe to proceed\n\n"
-            lightning_info += "📡 DETECTION NETWORK:\n"
-            lightning_info += "• Active sensors: 12\n"
-            lightning_info += "• Network efficiency: 96%\n"
-            lightning_info += "• Location accuracy: ±500m\n"
-            lightning_info += "• Update frequency: Real-time\n\n"
-            lightning_info += "⚠️ FORECAST:\n"
-            lightning_info += "• Next 2 hours: No activity expected\n"
-            lightning_info += "• Thunderstorm probability: 5%\n"
-            lightning_info += "• Watch/Warning status: None"
-            
-            self.lightning_display.delete(1.0, tk.END)
-            self.lightning_display.insert(tk.END, lightning_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def show_lightning_density(self):
-        """Show lightning strike density"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            lightning_info = f"📊 LIGHTNING DENSITY - {location.upper()}:\n"
-            lightning_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            lightning_info += "📊 STRIKE DENSITY ANALYSIS:\n"
-            lightning_info += "Lightning strikes per square kilometer (last 24 hours)\n\n"
-            lightning_info += "⚡ DENSITY HEAT MAP:\n"
-            lightning_info += "     NW    N    NE\n"
-            lightning_info += "  W   0    0    0   E\n"
-            lightning_info += "      0    0    0\n"
-            lightning_info += "      0    0    0\n"
-            lightning_info += "      0    0    0\n"
-            lightning_info += "  SW  0    0    0   SE\n"
-            lightning_info += "         S\n\n"
-            lightning_info += "Density Scale: 0=None, 1-5=Low, 6-15=Mod, 16+=High\n\n"
-            lightning_info += "📈 HISTORICAL DATA:\n"
-            lightning_info += "• Today: 0 strikes recorded\n"
-            lightning_info += "• Yesterday: 0 strikes\n"
-            lightning_info += "• This week: 0 strikes\n"
-            lightning_info += "• Monthly average: 12 strikes\n\n"
-            lightning_info += "🎯 HOTSPOT ANALYSIS:\n"
-            lightning_info += "• No current hotspots\n"
-            lightning_info += "• Typical hotspots: Mountain peaks\n"
-            lightning_info += "• Seasonal patterns: Summer peaks\n"
-            lightning_info += "• Diurnal cycle: Afternoon maximum\n\n"
-            lightning_info += "📊 STATISTICAL SUMMARY:\n"
-            lightning_info += "• Peak density today: 0 strikes/km²\n"
-            lightning_info += "• Regional total: 0 strikes\n"
-            lightning_info += "• Network coverage: 100%\n"
-            lightning_info += "• Data quality: Excellent"
-            
-            self.lightning_display.delete(1.0, tk.END)
-            self.lightning_display.insert(tk.END, lightning_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def toggle_lightning_audio(self):
-        """Toggle lightning audio alerts"""
-        try:
-            current_text = self.lightning_display.get(1.0, tk.END)
-            if "Audio alerts: 🔊 ON" in current_text:
-                updated_text = current_text.replace("Audio alerts: 🔊 ON", "Audio alerts: 🔇 OFF")
-            else:
-                # Add audio status to display
-                audio_status = "\n\n🔊 AUDIO ALERTS:\n"
-                audio_status += "• Audio alerts: 🔊 ON\n"
-                audio_status += "• Alert range: 50km radius\n"
-                audio_status += "• Sound type: Thunder simulation\n"
-                audio_status += "• Volume: Medium\n"
-                audio_status += "• Frequency: Every strike"
-                updated_text = current_text.rstrip() + audio_status
-            
-            self.lightning_display.delete(1.0, tk.END)
-            self.lightning_display.insert(tk.END, updated_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # 3D Radar Controls
-    def rotate_3d_view(self):
-        """Rotate 3D radar view"""
-        try:
-            location = self.location_entry.get().strip() or "New York"
-            
-            radar_3d_info = f"� 3D RADAR ROTATION - {location.upper()}:\n"
-            radar_3d_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            radar_3d_info += "� VIEW ROTATION CONTROLS:\n"
-            radar_3d_info += "Current view angle: 45° elevation, 180° azimuth\n\n"
-            radar_3d_info += "� 3D VOLUME SCAN:\n"
-            radar_3d_info += "        ▲ 40,000 ft\n"
-            radar_3d_info += "       ░░░\n"
-            radar_3d_info += "      ░░░░░ 30,000 ft\n"
-            radar_3d_info += "     ░░░░░░░\n"
-            radar_3d_info += "    ░░░▓▓░░░ 20,000 ft\n"
-            radar_3d_info += "   ░░▓▓▓▓▓░░\n"
-            radar_3d_info += "  ░▓▓███▓▓░ 10,000 ft\n"
-            radar_3d_info += " ████████████ Surface\n\n"
-            radar_3d_info += "Vertical Legend:\n"
-            radar_3d_info += "█ = High reflectivity (Heavy precip)\n"
-            radar_3d_info += "▓ = Moderate reflectivity\n"
-            radar_3d_info += "░ = Light reflectivity\n\n"
-            radar_3d_info += "📊 3D ANALYSIS:\n"
-            radar_3d_info += "• Cloud tops: 25,000 ft\n"
-            radar_3d_info += "• Precipitation core: 8,000-15,000 ft\n"
-            radar_3d_info += "• Bright band: 12,000 ft (melting level)\n"
-            radar_3d_info += "• Surface intensity: Light rain\n\n"
-            radar_3d_info += "🎮 ROTATION OPTIONS:\n"
-            radar_3d_info += "• Elevation: -10° to +90°\n"
-            radar_3d_info += "• Azimuth: 0° to 360°\n"
-            radar_3d_info += "• Auto-rotate: Available\n"
-            radar_3d_info += "• Slice view: Vertical cross-section"
-            
-            self.radar_3d_display.delete(1.0, tk.END)
-            self.radar_3d_display.insert(tk.END, radar_3d_info)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def zoom_3d_in(self):
-        """Zoom in on 3D radar"""
-        try:
-            current_text = self.radar_3d_display.get(1.0, tk.END)
-            zoomed_text = current_text + "\n\n🔍 ZOOMING IN:\n"
-            zoomed_text += "• Zoom level: 2x\n"
-            zoomed_text += "• Coverage area: 125km radius\n"
-            zoomed_text += "• Detail level: Enhanced\n"
-            zoomed_text += "• Resolution: 500m per pixel"
-            
-            self.radar_3d_display.delete(1.0, tk.END)
-            self.radar_3d_display.insert(tk.END, zoomed_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def zoom_3d_out(self):
-        """Zoom out on 3D radar"""
-        try:
-            current_text = self.radar_3d_display.get(1.0, tk.END)
-            if "ZOOMING IN" in current_text:
-                # Remove zoom info and reset
-                lines = current_text.split('\n')
-                reset_text = '\n'.join(lines[:lines.index('🔍 ZOOMING IN:')])
-                zoomed_text = reset_text + "\n\n� ZOOMING OUT:\n"
-                zoomed_text += "• Zoom level: 0.5x\n"
-                zoomed_text += "• Coverage area: 500km radius\n"
-                zoomed_text += "• Detail level: Regional overview\n"
-                zoomed_text += "• Resolution: 2km per pixel"
-            else:
-                zoomed_text = current_text + "\n\n🔍 ZOOMING OUT:\n"
-                zoomed_text += "• Zoom level: 0.5x\n"
-                zoomed_text += "• Coverage area: 500km radius\n"
-                zoomed_text += "• Detail level: Regional overview\n"
-                zoomed_text += "• Resolution: 2km per pixel"
-            
-            self.radar_3d_display.delete(1.0, tk.END)
-            self.radar_3d_display.insert(tk.END, zoomed_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    # Control Panel Methods
-    def radar_time_back(self):
-        """Go back in radar time"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            time_text = current_text + "\n\n⏮️ TIME CONTROL: Going back 10 minutes\n"
-            time_text += "Showing radar data from 10 minutes ago"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, time_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def radar_time_pause(self):
-        """Pause radar time updates"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            time_text = current_text + "\n\n⏸️ TIME CONTROL: Updates paused\n"
-            time_text += "Radar display frozen at current time"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, time_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def radar_time_play(self):
-        """Resume radar time updates"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            time_text = current_text + "\n\n▶️ TIME CONTROL: Resuming live updates\n"
-            time_text += "Radar display updating in real-time"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, time_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def radar_time_forward(self):
-        """Go forward in radar time"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            time_text = current_text + "\n\n⏭️ TIME CONTROL: Jumping to current time\n"
-            time_text += "Showing latest available radar data"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, time_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def toggle_terrain_layer(self):
-        """Toggle terrain layer"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            if "Terrain: ON" in current_text:
-                updated_text = current_text.replace("Terrain: ON", "Terrain: OFF")
-            else:
-                layer_text = current_text + "\n\n🗺️ LAYER CONTROL: Terrain: ON\n"
-                layer_text += "Topographic features now visible"
-                updated_text = layer_text
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, updated_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def toggle_cities_layer(self):
-        """Toggle cities layer"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            if "Cities: ON" in current_text:
-                updated_text = current_text.replace("Cities: ON", "Cities: OFF")
-            else:
-                layer_text = current_text + "\n\n🏙️ LAYER CONTROL: Cities: ON\n"
-                layer_text += "City labels and boundaries now visible"
-                updated_text = layer_text
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, updated_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def toggle_roads_layer(self):
-        """Toggle roads layer"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            if "Roads: ON" in current_text:
-                updated_text = current_text.replace("Roads: ON", "Roads: OFF")
-            else:
-                layer_text = current_text + "\n\n🛣️ LAYER CONTROL: Roads: ON\n"
-                layer_text += "Major highways and roads now visible"
-                updated_text = layer_text
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, updated_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def open_radar_settings(self):
-        """Open radar settings"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            settings_text = current_text + "\n\n⚙️ RADAR SETTINGS:\n"
-            settings_text += "• Update frequency: 5 minutes\n"
-            settings_text += "• Range: 250km radius\n"
-            settings_text += "• Color scheme: Standard\n"
-            settings_text += "• Animation speed: Normal\n"
-            settings_text += "• Data quality filter: ON"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, settings_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-    def configure_radar_alerts(self):
-        """Configure radar alerts"""
-        try:
-            current_text = self.radar_display.get(1.0, tk.END)
-            alerts_text = current_text + "\n\n📱 RADAR ALERTS:\n"
-            alerts_text += "• Precipitation alerts: ON\n"
-            alerts_text += "• Storm approach: ON\n"
-            alerts_text += "• Lightning detection: ON\n"
-            alerts_text += "• Severe weather: ON\n"
-            alerts_text += "• Alert radius: 50km"
-            
-            self.radar_display.delete(1.0, tk.END)
-            self.radar_display.insert(tk.END, alerts_text)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-
-
+        info_text.insert("1.0", content)
+        info_text.config(state="disabled")

@@ -1,5 +1,10 @@
 """
 Reusable UI Components
+
+Style Guide:
+- For buttons, use styles with "_black" suffix (e.g. "primary_black", "info_black")
+  to ensure dark, legible text on light button backgrounds
+- Avoid non-black styles unless white text is specifically needed
 """
 import tkinter as tk
 from tkinter import ttk
@@ -31,55 +36,39 @@ class AnimatedLabel(tk.Label):
 
 
 class StyledButton(tk.Button):
-    """Styled button with consistent theming"""
+    """Styled button with consistent theming
+    
+    For better legibility, prefer using the styles with "_black" suffix which provide
+    dark text on light backgrounds (e.g. "primary_black", "info_black", etc.)
+    """
     
     def __init__(self, master, style_type="default", *args, **kwargs):
-        # Apply default styling based on type - ALL BUTTONS NOW USE DARK TEXT
+        # Apply default styling based on type
         if style_type == "accent":
             kwargs.setdefault("bg", COLOR_PALETTE["accent"])
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
             kwargs.setdefault("activebackground", "#FF8F00")  # Darker orange when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
         elif style_type == "primary":
             kwargs.setdefault("bg", COLOR_PALETTE["button_primary"])
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
             kwargs.setdefault("activebackground", "#45A049")  # Darker green when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "secondary":
-            kwargs.setdefault("bg", COLOR_PALETTE["button_secondary"])
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#1976D2")  # Darker blue when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "success":
-            kwargs.setdefault("bg", "#90EE90")  # Light green background for better contrast
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#7FDD7F")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "danger":
-            kwargs.setdefault("bg", "#FFB6C1")  # Light pink background for better contrast
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#FFA0B4")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "warning":
-            kwargs.setdefault("bg", "#FFE4B5")  # Light orange background for better contrast
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#FFDB9A")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "info":
-            kwargs.setdefault("bg", "#87CEEB")  # Light blue background for better contrast
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#70C1E8")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
         elif style_type == "cool":
             kwargs.setdefault("bg", COLOR_PALETTE["button_secondary"])
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
             kwargs.setdefault("activebackground", "#1976D2")  # Darker blue when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
         elif style_type == "heat":
-            kwargs.setdefault("bg", "#FFB6C1")  # Light pink background for better contrast
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#FFA0B4")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("bg", COLOR_PALETTE["button_warning"])
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
+            kwargs.setdefault("activebackground", "#D84315")  # Darker red when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
+        elif style_type == "info":
+            kwargs.setdefault("bg", COLOR_PALETTE["button_info"])
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
+            kwargs.setdefault("activebackground", "#0097A7")  # Darker teal when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
         elif style_type == "primary_black":
             kwargs.setdefault("bg", "#90EE90")  # Light green background
             kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
@@ -110,23 +99,18 @@ class StyledButton(tk.Button):
             kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
             kwargs.setdefault("activebackground", "#F0D098")  # Slightly darker when pressed
             kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
-        elif style_type == "danger_black":
-            kwargs.setdefault("bg", "#FFB6C1")  # Light pink background
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])
-            kwargs.setdefault("activebackground", "#FFA0B4")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
         else:
-            kwargs.setdefault("bg", "#F0F0F0")  # Light gray for better contrast with dark text
-            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button_black"])  # Dark text
-            kwargs.setdefault("activebackground", "#E0E0E0")  # Slightly darker when pressed
-            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button_black"])
+            kwargs.setdefault("bg", COLOR_PALETTE["neutral"])
+            kwargs.setdefault("fg", COLOR_PALETTE["text_on_button"])
+            kwargs.setdefault("activebackground", "#757575")  # Darker gray when pressed
+            kwargs.setdefault("activeforeground", COLOR_PALETTE["text_on_button"])
         
         # Add common button styling for better appearance
         kwargs.setdefault("relief", "flat")
         kwargs.setdefault("borderwidth", 1)
-        kwargs.setdefault("font", ("Arial", 9, "bold"))
-        kwargs.setdefault("width", 26)  # Further increased width for full wording
+        kwargs.setdefault("font", ("Arial", 10, "bold"))
         kwargs.setdefault("cursor", "hand2")
+        
         super().__init__(master, *args, **kwargs)
 
 

@@ -8,10 +8,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from ui.constants import COLOR_PALETTE, UI_CONFIG
 from ui.components import StyledButton
-from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab,
-                         JournalTab, ActivityTab, PoetryTab, HistoryTab, QuickActionsTab,
-                         SmartAlertsTab, CameraTab, SevereWeatherTab, AnalyticsTab, 
-                         HealthTab, LiveRadarTab, LiveWeatherTab)
+from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab, 
+                     ActivityTab, PoetryTab, HistoryTab, QuickActionsTab,
+                     LiveWeatherTab, SevereWeatherTab, AnalyticsTrendsTab, HealthWellnessTab)
 
 
 class MainWindow(tk.Tk):
@@ -20,8 +19,8 @@ class MainWindow(tk.Tk):
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
-        self._setup_window()
         self._setup_styles()
+        self._setup_window()
         self._create_layout()
         self._setup_graph()
 
@@ -29,7 +28,22 @@ class MainWindow(tk.Tk):
         """Configure the main window"""
         self.title(UI_CONFIG["window_title"])
         self.geometry(UI_CONFIG["window_geometry"])
+        
+        # Configure the main window background
         self.configure(bg=COLOR_PALETTE["background"])
+        
+        # Create top frame for the temperature toggle
+        self.top_frame = ttk.Frame(self)
+        self.top_frame.pack(fill='x', padx=5, pady=5)
+        self._create_unit_toggle()
+        
+        # Create a frame with black border for main content
+        self.border_frame = ttk.Frame(self, style='Border.TFrame')
+        self.border_frame.pack(fill='both', expand=True, padx=2, pady=(0, 2))
+        
+        # Configure the border style
+        border_style = ttk.Style()
+        border_style.configure('Border.TFrame', borderwidth=3, relief='solid')
 
     def _setup_styles(self):
         """Setup TTK styles"""
@@ -47,23 +61,15 @@ class MainWindow(tk.Tk):
 
     def _create_layout(self):
         """Create the main layout"""
-        self.content_frame = ttk.Frame(self)
-        self.content_frame.pack(fill="both", expand=True)
-        
-        # Temperature unit toggle button
-        self._create_unit_toggle()
-        
-        # Create notebook for tabs
-        self.notebook = ttk.Notebook(self.content_frame)
-        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Create all tabs
+        # Create notebook for tabs inside the border frame
+        self.notebook = ttk.Notebook(self.border_frame)
+        self.notebook.pack(fill='both', expand=True, padx=5, pady=5)
         self._create_tabs()
 
     def _create_unit_toggle(self):
         """Create the temperature unit toggle button"""
         self.toggle_btn = StyledButton(
-            self.content_frame,
+            self.top_frame,
             style_type="cool_black",
             text="Switch to °F",
             command=self._toggle_unit
@@ -72,50 +78,61 @@ class MainWindow(tk.Tk):
 
     def _create_tabs(self):
         """Create all dashboard tabs"""
-        # Analytics tab as the first prominent tab
-        self.analytics_tab = AnalyticsTab(self.notebook, self.controller)
-        
-        # Quick Actions tab 
+        # Quick Actions tab as the first tab
         self.quick_actions_tab = QuickActionsTab(self.notebook, self.controller)
         
-        # Main weather tab with live weather and analytics merged
+        # Main weather tab with graph
         self.weather_tab = WeatherTab(self.notebook, self.controller)
+        
+        # Live Weather tab with animations and radar
+        self.live_weather_tab = LiveWeatherTab(self.notebook, self.controller)
         
         # Forecast tabs
         self.forecast_tab = ForecastTab(self.notebook, self.controller)
         
-        # NEW IMPLEMENTED FEATURES - Health and Live Radar tabs
-        self.health_tab = HealthTab(self.notebook, self.controller)
-        self.live_radar_tab = LiveRadarTab(self.notebook, self.controller)
-        
-        # Live Weather tab  
-        self.live_weather_tab = LiveWeatherTab(self.notebook, self.controller)
-        
-        # Feature tabs positioned after forecast tab
-        self.smart_alerts_tab = SmartAlertsTab(self.notebook, self.controller)
-        self.camera_tab = CameraTab(self.notebook, self.controller)
+        # New tabs positioned after forecast tab
         self.severe_weather_tab = SevereWeatherTab(self.notebook, self.controller)
+        self.analytics_trends_tab = AnalyticsTrendsTab(self.notebook, self.controller)
+        self.health_wellness_tab = HealthWellnessTab(self.notebook, self.controller)
         
         # Remaining tabs
         self.five_day_tab = FiveDayForecastTab(self.notebook, self.controller)
         self.comparison_tab = ComparisonTab(self.notebook, self.controller)
-        self.journal_tab = JournalTab(self.notebook, self.controller)
         self.activity_tab = ActivityTab(self.notebook, self.controller)
         self.poetry_tab = PoetryTab(self.notebook, self.controller)
         self.history_tab = HistoryTab(self.notebook, self.controller)
 
     def _setup_graph(self):
         """Setup the graph components in the weather tab"""
-        # Create matplotlib figure and canvas
-        self.fig, self.ax = plt.subplots(figsize=(5, 2))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.weather_tab.frame)
-        self.canvas.get_tk_widget().pack()
-        
-        # Connect graph components to controller
-        self.controller.set_graph_components(self.fig, self.ax, self.canvas)
-        
-        # Initial graph update
-        self.controller.update_graph()
+        try:
+            # Create matplotlib figure and canvas with error handling
+            self.fig, self.ax = plt.subplots(figsize=(5, 2))
+            
+            # Set default data to prevent NoneType errors
+            self.ax.plot([], [], label='No data available')
+            self.ax.set_title('Weather Data')
+            self.ax.set_xlabel('Time')
+            self.ax.set_ylabel('Temperature')
+            
+            # Create canvas with error handling
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self.weather_tab.frame)
+            self.canvas.get_tk_widget().pack()
+            
+            # Connect graph components to controller
+            self.controller.set_graph_components(self.fig, self.ax, self.canvas)
+            
+            # Initial graph update with error handling
+            self.controller.update_graph()
+            
+        except Exception as e:
+            print(f"Error setting up graph: {e}")
+            # Create empty placeholder instead of failing
+            self.fig, self.ax = plt.subplots(figsize=(5, 2))
+            self.ax.text(0.5, 0.5, 'Chart Unavailable', 
+                        horizontalalignment='center',
+                        verticalalignment='center')
+            self.canvas = FigureCanvasTkAgg(self.fig, master=self.weather_tab.frame)
+            self.canvas.get_tk_widget().pack()
 
     def _toggle_unit(self):
         """Toggle temperature unit and update button text"""
@@ -245,6 +262,6 @@ class MainWindow(tk.Tk):
         text_widget.config(state="disabled")
         
         # Add close button
-        close_btn = StyledButton(popup, "primary", text="Close", 
+        close_btn = StyledButton(popup, "primary_black", text="Close", 
                                command=popup.destroy)
         close_btn.pack(pady=10)

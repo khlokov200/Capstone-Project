@@ -21,8 +21,7 @@ This project has been refactored to implement proper separation of concerns, mak
 │   ├── comparison_service.py   # City comparisons
 │   ├── journal_service.py      # Weather journaling
 │   ├── activity_service.py     # Activity suggestions
-│   ├── poetry_service.py       # Weather poetry generation
-│   └── json_data_service.py    # Local JSON weather data loader
+│   └── poetry_service.py       # Weather poetry generation
 ├── controllers/                # Coordination layer
 │   ├── __init__.py
 │   └── weather_controller.py   # Main application controller
@@ -56,8 +55,7 @@ This project has been refactored to implement proper separation of concerns, mak
   - `JournalService`: Weather journal management
   - `ActivityService`: Activity suggestions based on weather
   - `PoetryService`: Weather-based poetry generation
-  - `JSONDataService`: Loads weather/forecast data from local JSON files
-- **Responsibilities**: API calls, data processing, business rules, local data loading
+- **Responsibilities**: API calls, data processing, business rules
 
 ### 🎮 **Controllers Layer** (`controllers/`)
 - **Purpose**: Coordinate between UI and services
@@ -150,24 +148,3 @@ WEATHER_API_KEY=your_api_key_here
 - **Replaced**: New clean `main.py` as application entry point
 
 This refactored architecture provides a solid foundation for future development while maintaining all existing functionality.
-
-## Dual Data Source Architecture
-
-The application supports two modes for weather and forecast data retrieval:
-- **API Mode**: Uses live data from external weather APIs (default)
-- **JSON Mode**: Loads static weather/forecast data from local JSON files (see `services/json_data_service.py`)
-
-A toggle in the application (see `main.py` and `weather_controller.py`) allows switching between these modes. This enables development, testing, and demoing without API calls or network access.
-
-### Data Source Switching
-- The controller (`weather_controller.py`) delegates data loading to either `WeatherService`/`ForecastService` (API) or `JSONDataService` (local JSON), based on the selected mode.
-- The main entry point (`main.py`) configures the data source mode at startup.
-
-### Benefits
-- **Offline development**: Work with real data without API limits or connectivity
-- **Testing**: Deterministic, repeatable test scenarios
-- **Demo**: Showcase features without requiring API keys
-
-### Extending JSON Data Support
-- Add new methods to `JSONDataService` for additional data types as needed
-- Place new JSON files in the `data/` directory

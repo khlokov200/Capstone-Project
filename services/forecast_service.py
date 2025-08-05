@@ -39,12 +39,36 @@ class ForecastService:
                 if resp.status_code == 200:
                     data = resp.json()
                     forecasts = []
-                    for item in data.get("list", [])[:limit]:
-                        dt_txt = item["dt_txt"]
-                        desc = item["weather"][0]["description"].capitalize()
-                        temp = item["main"]["temp"]
-                        forecasts.append(f"{dt_txt}: {desc}, {temp}°")
-                    return "\n".join(forecasts)
+                    
+                    # Group forecasts by day
+                    day_forecasts = {}
+                    for item in data.get("list", []):
+                        date = item["dt_txt"].split()[0]
+                        if date not in day_forecasts:
+                            day_forecasts[date] = {
+                                'temps': [],
+                                'humidity': [],
+                                'conditions': []
+                            }
+                        day_forecasts[date]['temps'].append(item["main"]["temp"])
+                        day_forecasts[date]['humidity'].append(item["main"]["humidity"])
+                        day_forecasts[date]['conditions'].append(item["weather"][0]["description"])
+                    
+                    # Process daily data
+                    for date, day_data in list(day_forecasts.items())[:5]:  # Limit to 5 days
+                        avg_temp = sum(day_data['temps']) / len(day_data['temps'])
+                        avg_humidity = sum(day_data['humidity']) / len(day_data['humidity'])
+                        # Get most common condition
+                        common_condition = max(set(day_data['conditions']), key=day_data['conditions'].count)
+                        
+                        forecasts.append({
+                            'date': date,
+                            'temp': round(avg_temp, 1),
+                            'humidity': round(avg_humidity),
+                            'conditions': common_condition.capitalize()
+                        })
+                    
+                    return forecasts
                 else:
                     try:
                         message = resp.json().get("message", "Failed to fetch forecast")
