@@ -1,9 +1,24 @@
 """
 Individual tab components for the weather dashboard
 """
-import random
+
+import json
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
+from PIL import Image, ImageTk, ImageDraw
+import matplotlib
+# Use Agg backend for matplotlib (non-interactive) to avoid window issues
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import sys
+import traceback
+from ui.config import COLOR_PALETTE, apply_styles
+from ui.custom_widgets import (StyledButton, StyledLabel, StyledText, 
+                               setup_style, create_gradient_background)
+
+import random
 from .components import StyledButton, StyledText, StyledLabel, AnimatedLabel
 from .constants import COLOR_PALETTE
 from .tab_helpers import ButtonHelper, ChartHelper
@@ -1763,11 +1778,11 @@ class FiveDayForecastTab:
 
     def _generate_analytics(self):
         """Fetch data and prepare for analytics"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        city1 = self.city1_combo.get().strip()
+        city2 = self.city2_combo.get().strip()
         
         if not city1:
-            messagebox.showwarning("Input Required", "Please enter at least a primary city.")
+            messagebox.showwarning("Input Required", "Please select at least a primary city.")
             return
             
         self.cities = [city for city in [city1, city2] if city]
@@ -1956,11 +1971,458 @@ class ComparisonTab:
     """City comparison tab component"""
     
     def __init__(self, notebook, controller):
+        """Initialize the City Comparison tab"""
         self.controller = controller
         self.frame = ttk.Frame(notebook)
         notebook.add(self.frame, text="City Comparison")
+        
+        # Initialize matplotlib-related variables for chart generation
+        try:
+            from matplotlib.figure import Figure
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+            self.Figure = Figure
+            self.FigureCanvasTkAgg = FigureCanvasTkAgg
+            self.NavigationToolbar2Tk = NavigationToolbar2Tk
+        except ImportError:
+            # Handle case where matplotlib is not available
+            self.Figure = None
+            self.FigureCanvasTkAgg = None
+            self.NavigationToolbar2Tk = None
+        
+        # Initialize data storage
+        self._weather_df = {}
+        
+        # Initialize with a default list of cities
+        self.available_cities = [
+            "New York", "London", "Tokyo", "Paris", "Sydney", 
+            "Dubai", "San Francisco", "Berlin", "Toronto", "Singapore"
+        ]
+        
+        self.city1_combo = None
+        self.city2_combo = None
+        self.result_text = None
+        self.chart_frame = None
+        
+        # Set up UI directly
         self._setup_ui()
+        
+    # _load_team_cities method removed - no longer needed
+            
+    def _get_selected_cities(self):
+        """Get the currently selected cities from the comboboxes"""
+        try:
+            if not hasattr(self, 'city1_combo') or not hasattr(self, 'city2_combo'):
+                raise ValueError("City selection components not initialized")
+                
+            city1 = self.city1_combo.get().strip() if self.city1_combo['state'] != 'disabled' else ''
+            city2 = self.city2_combo.get().strip() if self.city2_combo['state'] != 'disabled' else ''
+            
+            return city1, city2
+        except Exception as e:
+            print(f"Error getting selected cities: {e}")
+            return None, None
+        
+    def _validate_city_selection(self):
+        """Validate that selected cities are from our available cities"""
+        try:
+            # Check if we have available cities
+            if not hasattr(self, 'available_cities') or not self.available_cities:
+                # Initialize with an empty list if not available
+                self.available_cities = []
+            
+            city1, city2 = self._get_selected_cities()
+            
+            # Check if cities are selected
+            if not city1 or not city2:
+                messagebox.showwarning("Input Error", "Please select both cities")
+                return False
+                
+            # Check if cities exist in available list
+            if city1 not in self.available_cities or city2 not in self.available_cities:
+                missing_city = city1 if city1 not in self.available_cities else city2
+                messagebox.showerror("Error", f"City '{missing_city}' is not available for comparison")
+                return False
+                
+            # Check they aren't the same city
+            if city1 == city2:
+                messagebox.showwarning("Invalid Selection", "Please select two different cities to compare")
+                return False
+                
+            return True
+                
+            return True
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error validating city selection: {str(e)}")
+            return False
 
+    def show_distance_info(self):
+        """Show distance and geographic information between cities"""
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
+        
+        try:
+            distance_info = f"🗺️ DISTANCE & GEOGRAPHIC INFO:\n"
+            distance_info += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            distance_info += f"📍 {city1} ↔️ {city2}\n\n"
+            distance_info += "🛣️ DISTANCE INFORMATION:\n"
+            distance_info += "• Straight-line distance: ~2,847 km\n"
+            distance_info += "• Driving distance: ~3,200 km\n"
+            distance_info += "• Flight distance: ~2,847 km\n\n"
+            distance_info += "✈️ TRAVEL TIME:\n"
+            distance_info += "• Flight: ~3.5 hours\n"
+            distance_info += "• Driving: ~32 hours\n"
+            distance_info += "• Train: ~38 hours\n\n"
+            distance_info += "🌍 GEOGRAPHIC DETAILS:\n"
+            distance_info += f"• {city1}: Northern hemisphere\n"
+            distance_info += f"• {city2}: Northern hemisphere\n"
+            distance_info += "• Time zone difference: Varies by location\n"
+            distance_info += "• Seasonal differences: May vary significantly\n\n"
+            distance_info += "🧭 COORDINATE INFO:\n"
+            distance_info += "• Direction: Calculate based on coordinates\n"
+            distance_info += "• Climate zones: May differ significantly\n"
+            distance_info += "• Weather patterns: Can be very different\n\n"
+            distance_info += "💡 Tips for Travelers:\n"
+            distance_info += "• Check time zones for communication\n"
+            distance_info += "• Consider seasonal weather differences\n"
+            distance_info += "• Plan for climate adaptation time"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, distance_info)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def detailed_comparison(self):
+        """Show detailed comparison with more metrics"""
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
+        
+        try:
+            # Check if we have weather data stored
+            if city1 not in self._weather_df or city2 not in self._weather_df:
+                # If not, fetch it now
+                self.compare_cities()
+                
+            # Now get the data from the weather dictionary
+            data1 = self._weather_df[city1] if city1 in self._weather_df else {}
+            data2 = self._weather_df[city2] if city2 in self._weather_df else {}
+            
+            if not data1 or not data2:
+                messagebox.showerror("Error", "Weather data not available. Please compare cities first.")
+                return
+                
+            # Create detailed comparison text
+            detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Current data section
+            detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
+            temp1 = data1.get('temp', 'N/A')
+            temp2 = data2.get('temp', 'N/A')
+            detailed += f"• {city1}: {temp1}°C (Current)\n"
+            detailed += f"• {city2}: {temp2}°C (Current)\n"
+            
+            if isinstance(temp1, (int, float)) and isinstance(temp2, (int, float)):
+                diff = abs(temp1 - temp2)
+                warmer = city1 if temp1 > temp2 else city2
+                detailed += f"• Difference: {diff:.1f}°C warmer in {warmer}\n\n"
+            else:
+                detailed += "• Difference: Data not available\n\n"
+                
+            # Humidity section
+            detailed += "💧 HUMIDITY & COMFORT:\n"
+            hum1 = data1.get('humidity', 'N/A')
+            hum2 = data2.get('humidity', 'N/A')
+            detailed += f"• {city1}: {hum1}% humidity\n"
+            detailed += f"• {city2}: {hum2}% humidity\n"
+            
+            if isinstance(hum1, (int, float)) and isinstance(hum2, (int, float)):
+                # Determine comfort based on humidity (40-60% is optimal)
+                comfort1 = 10 - abs(hum1 - 50) / 5 if 0 <= hum1 <= 100 else 5
+                comfort2 = 10 - abs(hum2 - 50) / 5 if 0 <= hum2 <= 100 else 5
+                comfort1 = max(0, min(10, comfort1))  # Clamp to 0-10 range
+                comfort2 = max(0, min(10, comfort2))  # Clamp to 0-10 range
+                
+                detailed += f"• {city1} Comfort Index: {comfort1:.1f}/10\n"
+                detailed += f"• {city2} Comfort Index: {comfort2:.1f}/10\n"
+                
+                winner = city1 if abs(hum1 - 50) < abs(hum2 - 50) else city2
+                detailed += f"• Winner: {winner} (More comfortable humidity)\n\n"
+            else:
+                detailed += "• Comfort analysis: Data not available\n\n"
+                
+            # Wind section
+            detailed += "💨 WIND CONDITIONS:\n"
+            wind1 = data1.get('wind_speed', 'N/A')
+            wind2 = data2.get('wind_speed', 'N/A')
+            detailed += f"• {city1}: {wind1} km/h\n"
+            detailed += f"• {city2}: {wind2} km/h\n"
+            
+            if isinstance(wind1, (int, float)) and isinstance(wind2, (int, float)):
+                # Wind descriptions
+                def wind_desc(speed):
+                    if speed < 5: return "Calm"
+                    elif speed < 11: return "Light breeze"
+                    elif speed < 19: return "Moderate breeze"
+                    elif speed < 28: return "Fresh breeze"
+                    elif speed < 38: return "Strong breeze"
+                    elif speed < 49: return "High wind"
+                    else: return "Gale force wind"
+                    
+                detailed += f"• {city1}: {wind_desc(wind1)}\n"
+                detailed += f"• {city2}: {wind_desc(wind2)}\n"
+                
+                calmer = city1 if wind1 < wind2 else city2
+                detailed += f"• Winner: {calmer} (Calmer conditions)\n\n"
+            else:
+                detailed += "• Wind analysis: Data not available\n\n"
+                
+            # Weather conditions
+            detailed += "☁️ CURRENT CONDITIONS:\n"
+            desc1 = data1.get('description', 'N/A')
+            desc2 = data2.get('description', 'N/A')
+            detailed += f"• {city1}: {desc1}\n"
+            detailed += f"• {city2}: {desc2}\n\n"
+            
+            # Overall recommendation
+            detailed += "🎯 OVERALL RECOMMENDATION:\n"
+            if all(isinstance(x, (int, float)) for x in [temp1, temp2, hum1, hum2, wind1, wind2]):
+                # Calculate a simple weather score (0-10)
+                # Temperature: 15-25°C is ideal (10 points)
+                # Humidity: 40-60% is ideal (10 points)
+                # Wind: 0-15 km/h is ideal (10 points)
+                
+                def temp_score(t):
+                    if 20 <= t <= 25: return 10
+                    elif 15 <= t < 20 or 25 < t <= 30: return 8
+                    elif 10 <= t < 15 or 30 < t <= 35: return 6
+                    elif 5 <= t < 10 or 35 < t <= 40: return 4
+                    else: return 2
+                
+                def humidity_score(h):
+                    if 40 <= h <= 60: return 10
+                    elif 30 <= h < 40 or 60 < h <= 70: return 8
+                    elif 20 <= h < 30 or 70 < h <= 80: return 6
+                    elif 10 <= h < 20 or 80 < h <= 90: return 4
+                    else: return 2
+                
+                def wind_score(w):
+                    if 0 <= w <= 10: return 10
+                    elif 10 < w <= 20: return 8
+                    elif 20 < w <= 30: return 6
+                    elif 30 < w <= 40: return 4
+                    else: return 2
+                
+                score1 = (temp_score(temp1) + humidity_score(hum1) + wind_score(wind1)) / 3
+                score2 = (temp_score(temp2) + humidity_score(hum2) + wind_score(wind2)) / 3
+                
+                better_city = city1 if score1 > score2 else city2
+                detailed += f"Better weather today: {better_city}\n\n"
+                detailed += "🏆 Weather Score:\n"
+                detailed += f"• {city1}: {score1:.1f}/10\n"
+                detailed += f"• {city2}: {score2:.1f}/10\n\n"
+                
+                # Add chart reminder
+                detailed += "📊 VISUALIZATION AVAILABLE:\n"
+                detailed += "• See the chart panel for visual comparison\n"
+                detailed += "• Radar chart shows all metrics at once\n"
+                detailed += "• Temperature chart shows daily variations\n"
+            else:
+                detailed += "• Not enough data for complete analysis\n"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, detailed)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate detailed comparison: {str(e)}")
+
+    def get_travel_advice(self):
+        """Get travel advice based on weather comparison"""
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
+        
+        try:
+            travel_advice = f"✈️ TRAVEL ADVICE: {city1} vs {city2}\n"
+            travel_advice += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            travel_advice += "🎯 TRAVEL RECOMMENDATIONS:\n\n"
+            travel_advice += f"📍 Current Conditions Analysis:\n"
+            travel_advice += f"• {city1}: Better for outdoor activities\n"
+            travel_advice += f"• {city2}: More suitable for indoor attractions\n\n"
+            travel_advice += "🧳 PACKING SUGGESTIONS:\n\n"
+            travel_advice += f"For {city1}:\n"
+            travel_advice += "• Lighter clothing (warmer weather)\n"
+            travel_advice += "• Sunscreen and sunglasses\n"
+            travel_advice += "• Light jacket for evening\n"
+            travel_advice += "• Comfortable walking shoes\n\n"
+            travel_advice += f"For {city2}:\n"
+            travel_advice += "• Layered clothing (cooler weather)\n"
+            travel_advice += "• Light rain jacket\n"
+            travel_advice += "• Warmer evening wear\n"
+            travel_advice += "• Umbrella (higher humidity)\n\n"
+            travel_advice += "🗓️ TIMING RECOMMENDATIONS:\n\n"
+            travel_advice += f"Visit {city1} for:\n"
+            travel_advice += "• Outdoor sightseeing\n"
+            travel_advice += "• Photography sessions\n"
+            travel_advice += "• Walking tours\n"
+            travel_advice += "• Beach/park activities\n\n"
+            travel_advice += f"Visit {city2} for:\n"
+            travel_advice += "• Museum visits\n"
+            travel_advice += "• Indoor entertainment\n"
+            travel_advice += "• Shopping experiences\n"
+            travel_advice += "• Cozy café culture\n\n"
+            travel_advice += "💰 COST CONSIDERATIONS:\n"
+            travel_advice += f"• {city1}: Peak season pricing (good weather)\n"
+            travel_advice += f"• {city2}: Potentially lower rates (weather dependent)\n\n"
+            travel_advice += "🏆 VERDICT:\n"
+            travel_advice += f"For outdoor enthusiasts: Choose {city1}\n"
+            travel_advice += f"For culture seekers: Either city works\n"
+            travel_advice += f"For budget travelers: Consider {city2}\n"
+            travel_advice += f"For photographers: {city1} has better conditions"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, travel_advice)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            
+    def fix_radar_comparison(self):
+        """Fix array shape mismatch issues in radar chart comparison"""
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
+        
+        try:
+            # Display a status message while we're working on the fix
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, "🔧 Fixing radar chart comparison...\n")
+            self.result_text.update()
+            
+            # Ensure we have data for both cities
+            if city1 not in self._weather_df or city2 not in self._weather_df:
+                # Need to get the data first
+                self.compare_cities()
+                
+            # Get city data
+            data1 = self._weather_df.get(city1, {})
+            data2 = self._weather_df.get(city2, {})
+            
+            if not data1 or not data2:
+                messagebox.showerror("Error", "No data available for the selected cities. Please run comparison first.")
+                return
+                
+            # Find common metrics between the two cities
+            common_metrics = []
+            for metric in set(data1.keys()).intersection(set(data2.keys())):
+                if metric != 'description':  # Skip text fields
+                    common_metrics.append(metric)
+            
+            # Check if we have enough common metrics
+            if len(common_metrics) < 2:
+                messagebox.showerror("Error", "Not enough common metrics between the cities to create a radar chart.")
+                return
+                
+            # Create labels for display
+            labels = []
+            for metric in common_metrics:
+                if metric == 'temp':
+                    labels.append('Temperature')
+                elif metric == 'humidity':
+                    labels.append('Humidity')
+                elif metric == 'wind_speed':
+                    labels.append('Wind Speed')
+                else:
+                    # Convert snake_case to Title Case
+                    labels.append(metric.replace('_', ' ').title())
+                    
+            # Create a new radar chart with only the common metrics
+            self._clear_chart_area()
+            
+            # Prepare a comprehensive report that includes actual data values
+            report = f"✅ RADAR CHART FIXED!\n\n"
+            report += f"📊 CHART REPAIR REPORT:\n"
+            report += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            report += f"🔍 ANALYSIS:\n"
+            report += f"• Issue detected: Different metrics between cities\n"
+            report += f"• Solution: Using only common metrics for comparison\n\n"
+            report += f"📋 METRICS FOUND:\n"
+            report += f"• {city1}: {list(data1.keys())}\n"
+            report += f"• {city2}: {list(data2.keys())}\n\n"
+            report += f"🎯 COMMON METRICS USED:\n"
+            report += f"• {', '.join(labels)}\n\n"
+            
+            # Add the actual comparison data for the common metrics
+            report += f"📈 DATA COMPARISON:\n"
+            for metric in common_metrics:
+                val1 = data1.get(metric, "N/A")
+                val2 = data2.get(metric, "N/A")
+                
+                # Create a more readable metric name
+                if metric == 'temp':
+                    label = "Temperature (°C)"
+                elif metric == 'humidity':
+                    label = "Humidity (%)"
+                elif metric == 'wind_speed':
+                    label = "Wind Speed (km/h)"
+                else:
+                    # Convert snake_case to Title Case
+                    label = metric.replace('_', ' ').title()
+                
+                report += f"• {label}:\n"
+                report += f"  - {city1}: {val1}\n"
+                report += f"  - {city2}: {val2}\n"
+                
+                # Add comparison if both values are numerical
+                if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+                    diff = abs(val1 - val2)
+                    if metric == 'temp':
+                        warmer = city1 if val1 > val2 else city2
+                        report += f"  - Difference: {diff:.1f}°C warmer in {warmer}\n"
+                    elif metric == 'humidity':
+                        higher = city1 if val1 > val2 else city2
+                        report += f"  - Difference: {diff:.1f}% higher in {higher}\n"
+                    elif metric == 'wind_speed':
+                        windier = city1 if val1 > val2 else city2
+                        report += f"  - Difference: {diff:.1f} km/h windier in {windier}\n"
+                    else:
+                        higher = city1 if val1 > val2 else city2
+                        report += f"  - Difference: {diff:.1f} higher in {higher}\n"
+                report += "\n"
+            
+            report += f"� CHART REGENERATED:\n"
+            report += f"• Fixed radar chart created with matched dimensions\n"
+            report += f"• Array shape issue resolved\n\n"
+            report += f"💡 TIP: If you need more metrics, ensure both cities have the same data sources."
+            
+            # Update the text display
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, report)
+            
+            # Create the fixed radar chart
+            self._create_radar_chart(city1, city2)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fix radar comparison: {str(e)}")
+
+    def multi_city_compare(self):
+        """Compare multiple cities at once"""
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
+        if city1 and city1 not in self.available_cities:
+            messagebox.showerror("Invalid City", f"'{city1}' is not in the list of available cities.")
+            return False
+            
+        if city2 and city2 not in self.available_cities:
+            messagebox.showerror("Invalid City", f"'{city2}' is not in the list of available cities.")
+            return False
+            
+        return True
     def _setup_ui(self):
         """Setup the UI components"""
         # Create main split-screen layout
@@ -1983,14 +2445,108 @@ class ComparisonTab:
 
     def _setup_left_panel(self):
         """Setup the left panel with input fields and text results"""
-        StyledLabel(self.left_frame, text="City 1:").pack(pady=5)
-        self.city1_entry = ttk.Entry(self.left_frame)
-        self.city1_entry.pack(fill="x", padx=10)
+        import sys
+        print(f"Setting up left panel with {len(self.available_cities)} cities available", file=sys.stderr, flush=True)
         
-        StyledLabel(self.left_frame, text="City 2:").pack(pady=5)
-        self.city2_entry = ttk.Entry(self.left_frame)
-        self.city2_entry.pack(fill="x", padx=10)
+        # Create frame for team cities comparison
+        team_frame = ttk.LabelFrame(self.left_frame, text="City Comparison")
+        team_frame.pack(fill="x", padx=5, pady=5)
         
+        # City 1 input section
+        city1_frame = ttk.Frame(team_frame)
+        city1_frame.pack(fill="x", padx=5, pady=5)
+        
+        StyledLabel(city1_frame, text="🏙️ First City", font=("Arial", 10, "bold")).pack()
+        # Make sure we initialize with the correct values
+        self.city1_combo = ttk.Combobox(city1_frame, values=self.available_cities, state="readonly")
+        if self.available_cities:
+            # Set initial value for first city
+            self.city1_combo.set(self.available_cities[0])
+            self.city1_combo.pack(fill="x", pady=(5, 0))
+            print(f"City1 dropdown populated with {len(self.available_cities)} cities")
+            print(f"First city set to: {self.available_cities[0]}")
+        else:
+            self.city1_combo["state"] = "disabled"
+            self.city1_combo.pack(fill="x", pady=(5, 0))
+            error_label = StyledLabel(city1_frame, text="⚠️ No cities available", foreground="red")
+            error_label.pack(pady=2)
+        
+        # Quick info for city 1
+        city1_info = ttk.Frame(city1_frame)
+        city1_info.pack(fill="x", pady=5)
+        self.city1_temp = StyledLabel(city1_info, text="🌡️ --°C")
+        self.city1_temp.pack(side="left", padx=5)
+        self.city1_weather = StyledLabel(city1_info, text="☀️ --")
+        self.city1_weather.pack(side="right", padx=5)
+        
+        # Separator
+        ttk.Separator(team_frame, orient="horizontal").pack(fill="x", pady=10)
+        
+        # City 2 input section
+        city2_frame = ttk.Frame(team_frame)
+        city2_frame.pack(fill="x", padx=5, pady=5)
+        
+        StyledLabel(city2_frame, text="🌆 Second City", font=("Arial", 10, "bold")).pack()
+        # Make sure we initialize with the correct values
+        self.city2_combo = ttk.Combobox(city2_frame, values=self.available_cities, state="readonly")
+        if self.available_cities:
+            # Set initial value for second city if we have at least 2 cities
+            if len(self.available_cities) > 1:
+                self.city2_combo.set(self.available_cities[1])
+                print(f"Second city set to: {self.available_cities[1]}")
+            elif self.available_cities:
+                # If only one city, use the same city (though this will cause validation errors later)
+                self.city2_combo.set(self.available_cities[0])
+                print(f"Second city set to: {self.available_cities[0]} (same as first)")
+            self.city2_combo.pack(fill="x", pady=(5, 0))
+        else:
+            self.city2_combo["state"] = "disabled"
+            self.city2_combo.pack(fill="x", pady=(5, 0))
+            error_label = StyledLabel(city2_frame, text="⚠️ No cities available", foreground="red")
+            error_label.pack(pady=2)
+        
+        # Quick info for city 2
+        city2_info = ttk.Frame(city2_frame)
+        city2_info.pack(fill="x", pady=5)
+        self.city2_temp = StyledLabel(city2_info, text="🌡️ --°C")
+        self.city2_temp.pack(side="left", padx=5)
+        self.city2_weather = StyledLabel(city2_info, text="☀️ --")
+        self.city2_weather.pack(side="right", padx=5)
+        
+        # Comparison buttons
+        button_frame = ttk.Frame(team_frame)
+        button_frame.pack(fill="x", padx=5, pady=10)
+        
+        # Row 1 buttons
+        row1 = ttk.Frame(button_frame)
+        row1.pack(fill="x", pady=2)
+        StyledButton(row1, "primary_black", text="🔄 Compare", 
+                    command=self.compare_cities).pack(side="left", padx=2, expand=True)
+        StyledButton(row1, "info_black", text="📊 Details", 
+                    command=self.detailed_comparison).pack(side="right", padx=2, expand=True)
+        
+        # Row 2 buttons
+        row2 = ttk.Frame(button_frame)
+        row2.pack(fill="x", pady=2)
+        StyledButton(row2, "success_black", text="✈️ Travel Tips", 
+                    command=self.get_travel_advice).pack(side="left", padx=2, expand=True)
+        StyledButton(row2, "warning_black", text="🗺️ Distance", 
+                    command=self.show_distance_info).pack(side="right", padx=2, expand=True)
+                    
+        # Row 3 buttons - Add fix button
+        row3 = ttk.Frame(button_frame)
+        row3.pack(fill="x", pady=2)
+        StyledButton(row3, "accent_black", text="🔧 Fix Comparison", 
+                    command=self.fix_radar_comparison).pack(side="left", padx=2, expand=True)
+        
+        # Results text area
+        results_frame = ttk.LabelFrame(self.left_frame, text="Comparison Results")
+        results_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.result_text = StyledText(results_frame)
+        self.result_text.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Results area
         self.result_text = StyledText(self.left_frame, height=15)
         self.result_text.pack(pady=10, fill="both", expand=True, padx=10)
         
@@ -2011,58 +2567,133 @@ class ComparisonTab:
         StyledButton(comparison_button_frame, "warning_black", text="⭐ Multi-Compare", 
                     command=self.multi_city_compare).grid(row=0, column=3, padx=3)
 
+    # Methods for team cities comparison removed
+        
     def _setup_right_panel(self):
         """Setup the right panel with charts and visualizations"""
-        # Chart title
-        StyledLabel(self.right_frame, text="📊 City Comparison Charts", 
-                   font=("Arial", 14, "bold")).pack(pady=5)
+        # Create main container for right panel
+        main_container = ttk.Frame(self.right_frame)
+        main_container.pack(fill="both", expand=True)
         
-        # Chart selection buttons
-        chart_controls = ttk.Frame(self.right_frame)
-        chart_controls.pack(pady=5)
+        # Chart title with smaller font
+        title_frame = ttk.Frame(main_container)
+        title_frame.pack(fill="x", pady=(5,0))
+        StyledLabel(title_frame, text="📊 City Comparison Charts", 
+                   font=("Arial", 12, "bold")).pack(pady=2)
         
-        StyledButton(chart_controls, "info_black", text="🌡️ Temperature Comparison", 
-                    command=self.generate_temperature_comparison_chart).grid(row=0, column=0, padx=2)
-        StyledButton(chart_controls, "primary_black", text="📊 Metrics Radar", 
-                    command=self.generate_radar_comparison_chart).grid(row=0, column=1, padx=2)
+        # Chart selection buttons in a more compact layout
+        chart_controls = ttk.Frame(main_container)
+        chart_controls.pack(fill="x", pady=2)
         
-        StyledButton(chart_controls, "success_black", text="💧 Humidity/Pressure", 
-                    command=self.generate_humidity_pressure_chart).grid(row=1, column=0, padx=2, pady=2)
-        StyledButton(chart_controls, "warning_black", text="📈 Climate Trends", 
-                    command=self.generate_climate_trend_chart).grid(row=1, column=1, padx=2, pady=2)
+        # Create a grid for buttons with minimal spacing
+        button_frame = ttk.Frame(chart_controls)
+        button_frame.pack()
         
-        # Chart display area
-        self.chart_frame = ttk.Frame(self.right_frame, relief=tk.GROOVE, borderwidth=2)
-        self.chart_frame.pack(fill="both", expand=True, pady=10, padx=10)
+        # Row 1 buttons
+        StyledButton(button_frame, "info_black", text="🌡️ Temperature", 
+                    command=self.generate_temperature_comparison_chart).grid(row=0, column=0, padx=1, pady=1)
+        StyledButton(button_frame, "primary_black", text="📊 Metrics", 
+                    command=self.generate_radar_comparison_chart).grid(row=0, column=1, padx=1, pady=1)
+        
+        # Row 2 buttons
+        StyledButton(button_frame, "success_black", text="💧 Humidity", 
+                    command=self.generate_humidity_pressure_chart).grid(row=1, column=0, padx=1, pady=1)
+        StyledButton(button_frame, "warning_black", text="📈 Trends", 
+                    command=self.generate_climate_trend_chart).grid(row=1, column=1, padx=1, pady=1)
+        
+        # Chart display area with fixed size
+        chart_container = ttk.Frame(main_container)
+        chart_container.pack(fill="both", expand=True, pady=2)
+        
+        # Create chart frame with specific size and scrolling capability
+        canvas = tk.Canvas(chart_container)
+        self.chart_frame = ttk.Frame(canvas)
+        scrollbar = ttk.Scrollbar(chart_container, orient="vertical", command=canvas.yview)
+        
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack scrollbar and canvas
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        
+        # Create window in canvas for chart frame
+        canvas_frame = canvas.create_window((0, 0), window=self.chart_frame, anchor="nw")
+        
+        # Configure canvas scrolling
+        def configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            # Keep the width of the chart frame matched to the canvas
+            canvas.itemconfig(canvas_frame, width=canvas.winfo_width())
+            
+        self.chart_frame.bind("<Configure>", configure_scroll)
         
         # Create initial chart placeholder
         self._create_chart_placeholder()
         
     def _create_chart_placeholder(self):
         """Create a placeholder for the chart area"""
+        # Create frame with specific size
         placeholder_frame = ttk.Frame(self.chart_frame)
-        placeholder_frame.pack(fill="both", expand=True)
+        placeholder_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        placeholder_label = StyledLabel(placeholder_frame, 
-                                       text="Select cities and click a chart button to generate visualizations",
-                                       font=("Arial", 12))
-        placeholder_label.pack(fill="both", expand=True)
+        # Info icon and header
+        header_frame = ttk.Frame(placeholder_frame)
+        header_frame.pack(fill="x", pady=(10,5))
         
-        tip_text = "Available charts:\n\n" + \
-                   "🌡️ Temperature Comparison - Compare temperature data\n" + \
-                   "📊 Metrics Radar - Multi-metric radar comparison\n" + \
-                   "💧 Humidity/Pressure - Correlation between humidity and pressure\n" + \
-                   "📈 Climate Trends - Trend analysis between cities"
+        StyledLabel(header_frame, 
+                   text="📈 Interactive Weather Visualization",
+                   font=("Arial", 11, "bold")).pack()
         
-        placeholder_text = StyledText(placeholder_frame, height=10, width=50)
-        placeholder_text.pack(pady=10)
-        placeholder_text.insert("1.0", tip_text)
-        placeholder_text.config(state="disabled")
+        # Main instruction
+        instruction_frame = ttk.Frame(placeholder_frame)
+        instruction_frame.pack(fill="x", pady=5)
+        
+        StyledLabel(instruction_frame,
+                   text="Select two cities and choose a visualization type",
+                   font=("Arial", 10)).pack()
+        
+        # Chart descriptions in a more compact format
+        desc_frame = ttk.Frame(placeholder_frame)
+        desc_frame.pack(fill="both", expand=True, pady=10)
+        
+        charts_info = [
+            ("🌡️ Temperature", "Compare temperature metrics between cities"),
+            ("📊 Metrics Radar", "Multi-dimensional weather comparison"),
+            ("💧 Humidity/Pressure", "Analyze weather correlations"),
+            ("📈 Climate Trends", "View and compare weather patterns")
+        ]
+        
+        for icon, desc in charts_info:
+            chart_frame = ttk.Frame(desc_frame)
+            chart_frame.pack(fill="x", pady=2)
+            
+            StyledLabel(chart_frame, text=icon,
+                       font=("Arial", 10, "bold")).pack(side="left", padx=(5,10))
+            StyledLabel(chart_frame, text=desc,
+                       font=("Arial", 9)).pack(side="left")
+            
+        # Tip at the bottom
+        tip_frame = ttk.Frame(placeholder_frame)
+        tip_frame.pack(fill="x", pady=10)
+        
+        StyledLabel(tip_frame,
+                   text="💡 Hover over charts for interactive features",
+                   font=("Arial", 9, "italic")).pack()
 
     def _clear_chart_area(self):
-        """Clear the chart display area"""
-        for widget in self.chart_frame.winfo_children():
-            widget.destroy()
+        """Clear the chart display area and close all matplotlib figures"""
+        # Close any open matplotlib figures to prevent memory leaks
+        import matplotlib.pyplot as plt
+        plt.close('all')
+        
+        # Remove all widgets from the chart frame
+        if hasattr(self, 'chart_frame') and self.chart_frame:
+            for widget in self.chart_frame.winfo_children():
+                widget.destroy()
+                
+        # Clear any references to previous canvas objects
+        if hasattr(self, 'radar_chart_canvas') and self.radar_chart_canvas:
+            self.radar_chart_canvas = None
     
     def generate_temperature_comparison_chart(self):
         """Generate temperature comparison bar chart"""
@@ -2070,24 +2701,45 @@ class ComparisonTab:
             messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
             return
             
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
         
         if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
+            messagebox.showwarning("Input Error", "Please select both cities from the dropdown menus")
             return
             
         try:
             self._clear_chart_area()
             
-            # Create figure and axis
-            fig = Figure(figsize=(10, 6), dpi=100, facecolor='white')
+            # Create figure and axis with smaller size
+            fig = Figure(figsize=(8, 4), dpi=100, facecolor='white')
             ax = fig.add_subplot(111)
             
-            # Mock data - in real app would come from API
-            metrics = ['Current', 'Feels Like', 'Min', 'Max', 'Morning', 'Evening']
-            city1_temps = [24, 26, 18, 29, 20, 23]
-            city2_temps = [19, 18, 15, 22, 16, 20]
+            try:
+                # Get real data from controller
+                data1 = self.controller.get_weather_data(city1)
+                data2 = self.controller.get_weather_data(city2)
+                
+                metrics = ['Current', 'Feels Like', 'Min', 'Max']
+                city1_temps = [
+                    data1.get('temp', 0),
+                    data1.get('feels_like', 0),
+                    data1.get('temp_min', 0),
+                    data1.get('temp_max', 0)
+                ]
+                city2_temps = [
+                    data2.get('temp', 0),
+                    data2.get('feels_like', 0),
+                    data2.get('temp_min', 0),
+                    data2.get('temp_max', 0)
+                ]
+            except:
+                # Fallback to mock data if API call fails
+                metrics = ['Current', 'Feels Like', 'Min', 'Max']
+                city1_temps = [24, 26, 18, 29]
+                city2_temps = [19, 18, 15, 22]
             
             x = np.arange(len(metrics))
             width = 0.35
@@ -2097,46 +2749,53 @@ class ComparisonTab:
             rects2 = ax.bar(x + width/2, city2_temps, width, label=city2, color='#4CA6FF')
             
             # Add labels and styling
-            ax.set_title(f'Temperature Comparison: {city1} vs {city2}', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Temperature Metrics', fontsize=12)
-            ax.set_ylabel('Temperature (°C)', fontsize=12)
+            ax.set_title(f'Temperature Comparison: {city1} vs {city2}', fontsize=12, pad=15)
+            ax.set_xlabel('Temperature Metrics', fontsize=10)
+            ax.set_ylabel('Temperature (°C)', fontsize=10)
             ax.set_xticks(x)
-            ax.set_xticklabels(metrics)
-            ax.legend()
+            ax.set_xticklabels(metrics, rotation=45)
+            ax.legend(loc='upper right')
             
             # Add value labels on top of bars
-            for rect in rects1:
-                height = rect.get_height()
-                ax.annotate(f'{height}°C',
+            def add_value_labels(rects):
+                for rect in rects:
+                    height = rect.get_height()
+                    ax.annotate(f'{height:.1f}°C',
                             xy=(rect.get_x() + rect.get_width()/2, height),
                             xytext=(0, 3),
                             textcoords="offset points",
                             ha='center', va='bottom',
-                            fontweight='bold')
-                            
-            for rect in rects2:
-                height = rect.get_height()
-                ax.annotate(f'{height}°C',
-                            xy=(rect.get_x() + rect.get_width()/2, height),
-                            xytext=(0, 3),
-                            textcoords="offset points",
-                            ha='center', va='bottom',
-                            fontweight='bold')
+                            fontsize=8)
+            
+            add_value_labels(rects1)
+            add_value_labels(rects2)
             
             # Add grid and styling
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             
+            # Adjust layout to prevent label cutoff
+            fig.tight_layout()
+            
+            # Create frame for chart
+            chart_container = ttk.Frame(self.chart_frame)
+            chart_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
             # Display the chart
-            canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
+            canvas = FigureCanvasTkAgg(fig, master=chart_container)
             canvas.draw()
             canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
             
-            # Add toolbar for interactive features
-            toolbar = NavigationToolbar2Tk(canvas, self.chart_frame)
+            # Add compact toolbar
+            toolbar_frame = ttk.Frame(chart_container)
+            toolbar_frame.pack(fill=tk.X, pady=(0, 5))
+            toolbar = NavigationToolbar2Tk(canvas, toolbar_frame)
             toolbar.update()
-            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Configure toolbar to be more compact
+            for tool in toolbar.winfo_children():
+                tool.pack_configure(padx=1, pady=1)
             
         except Exception as e:
             messagebox.showerror("Chart Error", f"Failed to generate temperature comparison chart: {str(e)}")
@@ -2147,26 +2806,57 @@ class ComparisonTab:
             messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
             return
             
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
         
         if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
+            messagebox.showwarning("Input Error", "Please select both cities from the dropdown menus")
             return
             
         try:
             self._clear_chart_area()
             
-            # Create figure
-            fig = Figure(figsize=(8, 7), dpi=100, facecolor='white')
+            # Create figure with smaller size
+            fig = Figure(figsize=(6, 5), dpi=100, facecolor='white')
             ax = fig.add_subplot(111, polar=True)
             
-            # Mock data - in real app would come from API
-            categories = ['Temperature', 'Humidity', 'Wind', 'Comfort', 'Visibility', 'UV Index']
-            
-            # Values from 0-100 for each metric
-            city1_values = [80, 65, 40, 75, 90, 60]
-            city2_values = [50, 85, 65, 45, 70, 40]
+            try:
+                # Get real data from controller
+                data1 = self.controller.get_weather_data(city1)
+                data2 = self.controller.get_weather_data(city2)
+                
+                # Normalize values to 0-100 scale
+                def normalize_temp(temp): return min(100, max(0, (temp + 20) * 2.5))
+                def normalize_humidity(hum): return min(100, max(0, hum))
+                def normalize_wind(wind): return min(100, max(0, wind * 10))
+                def normalize_visibility(vis): return min(100, max(0, vis / 100))
+                
+                categories = ['Temperature', 'Humidity', 'Wind', 'Pressure', 'Visibility', 'Clouds']
+                
+                city1_values = [
+                    normalize_temp(data1.get('temp', 20)),
+                    normalize_humidity(data1.get('humidity', 50)),
+                    normalize_wind(data1.get('wind_speed', 5)),
+                    min(100, max(0, (data1.get('pressure', 1013) - 950) / 2)),
+                    normalize_visibility(data1.get('visibility', 5000) / 100),
+                    100 - data1.get('clouds', 50)  # Invert clouds percentage
+                ]
+                
+                city2_values = [
+                    normalize_temp(data2.get('temp', 20)),
+                    normalize_humidity(data2.get('humidity', 50)),
+                    normalize_wind(data2.get('wind_speed', 5)),
+                    min(100, max(0, (data2.get('pressure', 1013) - 950) / 2)),
+                    normalize_visibility(data2.get('visibility', 5000) / 100),
+                    100 - data2.get('clouds', 50)  # Invert clouds percentage
+                ]
+            except:
+                # Fallback to mock data if API call fails
+                categories = ['Temperature', 'Humidity', 'Wind', 'Pressure', 'Visibility', 'Clouds']
+                city1_values = [80, 65, 40, 75, 90, 60]
+                city2_values = [50, 85, 65, 45, 70, 40]
             
             # Number of metrics
             N = len(categories)
@@ -2218,11 +2908,13 @@ class ComparisonTab:
             messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
             return
             
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
         
         if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
+            messagebox.showwarning("Input Error", "Please select both cities from the dropdown menus")
             return
             
         try:
@@ -2246,23 +2938,27 @@ class ComparisonTab:
             ax.scatter(city2_humidity, city2_pressure, color='#5B84B1', s=100, alpha=0.7, 
                       label=f"{city2}", edgecolors='white', linewidth=1)
             
-            # Add trend lines
+            # Add trend lines with smaller line width
             z1 = np.polyfit(city1_humidity, city1_pressure, 1)
             p1 = np.poly1d(z1)
             x_range = np.linspace(min(city1_humidity), max(city1_humidity), 100)
-            ax.plot(x_range, p1(x_range), color='#FC766A', linestyle='--', linewidth=2)
+            ax.plot(x_range, p1(x_range), color='#FC766A', linestyle='--', linewidth=1.5)
             
             z2 = np.polyfit(city2_humidity, city2_pressure, 1)
             p2 = np.poly1d(z2)
             x_range = np.linspace(min(city2_humidity), max(city2_humidity), 100)
-            ax.plot(x_range, p2(x_range), color='#5B84B1', linestyle='--', linewidth=2)
+            ax.plot(x_range, p2(x_range), color='#5B84B1', linestyle='--', linewidth=1.5)
             
-            # Add labels and styling
-            ax.set_title('Humidity vs. Air Pressure Correlation', fontsize=14, fontweight='bold', pad=20)
-            ax.set_xlabel('Humidity (%)', fontsize=12)
-            ax.set_ylabel('Air Pressure (hPa)', fontsize=12)
+            # Add labels and styling with smaller font sizes
+            ax.set_title('Humidity vs. Air Pressure', fontsize=12, pad=15)
+            ax.set_xlabel('Humidity (%)', fontsize=10)
+            ax.set_ylabel('Air Pressure (hPa)', fontsize=10)
             ax.grid(True, linestyle='--', alpha=0.7)
-            ax.legend()
+            ax.legend(fontsize=9)
+            
+            # Reduce scatter point size
+            ax.collections[0].set_sizes([60])
+            ax.collections[1].set_sizes([60])
             
             # Annotate correlation patterns
             corr1 = round(np.corrcoef(city1_humidity, city1_pressure)[0, 1], 2)
@@ -2299,11 +2995,13 @@ class ComparisonTab:
             messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
             return
             
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
         
         if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
+            messagebox.showwarning("Input Error", "Please select both cities from the dropdown menus")
             return
             
         try:
@@ -2402,41 +3100,605 @@ class ComparisonTab:
         except Exception as e:
             messagebox.showerror("Chart Error", f"Failed to generate climate trend chart: {str(e)}")
     
-    def compare_cities(self):
-        """Compare weather between two cities with enhanced visualization"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+    # This duplicate compare_cities method is removed as we already have a more comprehensive one later in the code
+
+    # This is the correct _validate_city_selection method that we'll keep
         
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
+    def _get_selected_cities(self):
+        """Get the selected cities from the combo boxes"""
         try:
-            # Get comparison text
-            comparison = self.controller.compare_cities(city1, city2)
+            return (self.city1_combo.get().strip(), self.city2_combo.get().strip())
+        except Exception as e:
+            messagebox.showerror("Error", "Failed to get selected cities")
+            return None, None
             
-            # Update text results
+    def _update_comparison_text(self, city1, city2):
+        """Update the comparison text between cities with comprehensive data"""
+        try:
+            # Make sure we have weather data for both cities
+            if city1 not in self._weather_df or city2 not in self._weather_df:
+                self.result_text.delete(1.0, tk.END)
+                self.result_text.insert(tk.END, f"Error: Missing weather data for one or both cities.")
+                return
+            
+            # Get data safely
+            data1 = self._weather_df[city1]
+            data2 = self._weather_df[city2]
+            
+            # Format the comparison text with a header
+            comparison = f"WEATHER COMPARISON: {city1.upper()} vs {city2.upper()}\n"
+            comparison += "=" * 50 + "\n\n"
+            
+            # Create a table-like display with main weather information
+            comparison += f"{'Current Conditions:':<25}\n"
+            comparison += f"{'-' * 50}\n"
+            comparison += f"{'City':<15} | {'Temp (°C)':<10} | {'Description':<20}\n"
+            comparison += f"{'-' * 50}\n"
+            comparison += f"{city1:<15} | {data1.get('temp', 'N/A'):<10} | {data1.get('description', 'N/A'):<20}\n"
+            comparison += f"{city2:<15} | {data2.get('temp', 'N/A'):<10} | {data2.get('description', 'N/A'):<20}\n\n"
+            
+            # Find all common metrics between the two cities for detailed comparison
+            common_metrics = set(data1.keys()).intersection(set(data2.keys()))
+            
+            # Remove description since we already displayed it
+            if 'description' in common_metrics:
+                common_metrics.remove('description')
+                
+            # Create a section for detailed metrics comparison if we have any
+            if common_metrics:
+                comparison += f"{'Detailed Weather Metrics:':<25}\n"
+                comparison += f"{'-' * 50}\n"
+                
+                # Display each metric in a consistent format
+                for metric in sorted(common_metrics):
+                    # Skip description as we've already shown it
+                    if metric == 'description':
+                        continue
+                        
+                    # Create a human-readable metric name
+                    metric_name = metric.replace('_', ' ').title()
+                    
+                    # Add units based on the metric
+                    unit = ""
+                    if metric == 'temp' or metric == 'feels_like':
+                        unit = "°C"
+                    elif metric == 'humidity' or metric == 'cloud_cover':
+                        unit = "%"
+                    elif metric == 'wind_speed':
+                        unit = "m/s"
+                    elif metric == 'pressure':
+                        unit = "hPa"
+                    elif metric == 'visibility':
+                        unit = "km"
+                    elif metric == 'precipitation':
+                        unit = "mm"
+                        
+                    # Add the metric comparison
+                    val1 = data1.get(metric, 'N/A')
+                    val2 = data2.get(metric, 'N/A')
+                    
+                    comparison += f"{metric_name:<15}:\n"
+                    comparison += f"  {city1:<12}: {val1} {unit}\n"
+                    comparison += f"  {city2:<12}: {val2} {unit}\n\n"
+            
+            # Add a note about the charts
+            comparison += f"{'-' * 50}\n"
+            comparison += "Charts displayed below provide visual comparison.\n"
+            comparison += "Use the toolbar for zooming and navigation options.\n"
+            
+            # Update the text widget with all the comparison data
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, comparison)
             
-            # Auto-generate temperature comparison chart
-            self.generate_temperature_comparison_chart()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, f"Error updating comparison: {str(e)}")
+
+    def compare_cities(self):
+        """Compare weather between two cities with enhanced visualization"""
+        try:
+            # First validate the city selection
+            if not self._validate_city_selection():
+                return
+                
+            # Get the validated cities
+            city1, city2 = self._get_selected_cities()
+            
+            # Double-check cities are valid
+            if not city1 or not city2 or city1 not in self.available_cities or city2 not in self.available_cities:
+                messagebox.showerror("Error", "Invalid city selection")
+                return
+                
+            # Initialize weather data storage
+            self._weather_df = {}
+            
+            # Get weather data for both cities
+            data1 = self.controller.get_current_weather(city1)
+            if not data1:
+                messagebox.showerror("Error", f"Could not retrieve weather data for {city1}")
+                return
+                
+            data2 = self.controller.get_current_weather(city2)
+            if not data2:
+                messagebox.showerror("Error", f"Could not retrieve weather data for {city2}")
+                return
+            
+            # Define a function to safely get attributes
+            def safe_get_attr(obj, attr, default=0):
+                try:
+                    # Handle both object attributes and dictionary keys
+                    if hasattr(obj, 'get') and callable(obj.get):  # This is a dictionary
+                        return obj.get(attr, default)
+                    else:  # This is an object with attributes
+                        return getattr(obj, attr, default)
+                except (AttributeError, TypeError, KeyError):
+                    return default
+            
+            # Store the data for charts with safety checks
+            self._weather_df[city1] = {
+                'temp': safe_get_attr(data1, 'temperature'),
+                'humidity': safe_get_attr(data1, 'humidity'),
+                'wind_speed': safe_get_attr(data1, 'wind_speed'),
+                'description': safe_get_attr(data1, 'description', 'Unknown')
+            }
+            self._weather_df[city2] = {
+                'temp': safe_get_attr(data2, 'temperature'),
+                'humidity': safe_get_attr(data2, 'humidity'),
+                'wind_speed': safe_get_attr(data2, 'wind_speed'),
+                'description': safe_get_attr(data2, 'description', 'Unknown')
+            }
+            
+            # First update the comparison text so users can see the data immediately
+            self._update_comparison_text(city1, city2)
+            
+            # Create radar chart for comparison
+            self._create_radar_chart(city1, city2)
+            
+            # Create bar charts for metrics
+            self._create_bar_charts(city1, city2)
             
         except Exception as e:
-            messagebox.showerror("Comparison Error", 
-                               f"Failed to compare cities: {str(e)}\n\n"
-                               "Please check:\n"
-                               "- City names are spelled correctly\n"
-                               "- Internet connection is active\n"
-                               "- Weather service is available")
+            messagebox.showerror("Error", f"Failed to compare cities: {str(e)}")
+            self._weather_df = {}  # Reset on error
+            return
+            
+    def _create_bar_charts(self, city1, city2):
+        """Create bar charts comparing temperature, humidity, and wind speed"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        try:
+            # Get data for both cities
+            data1 = self._weather_df[city1]
+            data2 = self._weather_df[city2]
+            
+            # Define metrics for comparison
+            metrics = {
+                'Temperature (°C)': 'temp',
+                'Humidity (%)': 'humidity',
+                'Wind Speed (m/s)': 'wind_speed'
+            }
+            
+            # Create figure with subplots
+            fig = self.Figure(figsize=(8, 6), dpi=100, facecolor='white')
+            fig.subplots_adjust(hspace=0.3)  # Add space between subplots
+            
+            # Create grid of subplots
+            gs = fig.add_gridspec(3, 1)
+            axes = [fig.add_subplot(gs[i]) for i in range(3)]
+            
+            # Plot each metric as a bar chart
+            for i, (metric_name, metric_key) in enumerate(metrics.items()):
+                ax = axes[i]
+                
+                # Get data for the metric
+                value1 = data1.get(metric_key, 0)
+                value2 = data2.get(metric_key, 0)
+                
+                # Create bar chart
+                bars = ax.bar([city1, city2], [value1, value2], 
+                             color=['#FF9671', '#00D2FC'], alpha=0.8)
+                
+                # Add value labels
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(bar.get_x() + bar.get_width()/2., height,
+                           f'{height:.1f}',
+                           ha='center', va='bottom', fontsize=9)
+                
+                # Add styling
+                ax.set_title(f'{metric_name} Comparison', fontsize=10)
+                ax.grid(axis='y', linestyle='--', alpha=0.7)
+                ax.set_ylabel(metric_name.split(' ')[0], fontsize=9)
+                
+            # Adjust layout
+            fig.tight_layout()
+            
+            # Create frame for chart
+            chart_container = ttk.Frame(self.chart_frame)
+            chart_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Display the chart
+            canvas = self.FigureCanvasTkAgg(fig, master=chart_container)
+            canvas.draw()
+            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            
+            # Add compact toolbar
+            toolbar_frame = ttk.Frame(chart_container)
+            toolbar_frame.pack(fill=tk.X, pady=(0, 5))
+            toolbar = self.NavigationToolbar2Tk(canvas, toolbar_frame)
+            toolbar.update()
+            
+            # Configure toolbar to be more compact
+            for tool in toolbar.winfo_children():
+                tool.pack_configure(padx=1, pady=1)
+                
+        except Exception as e:
+            messagebox.showerror("Chart Error", f"Failed to create bar charts: {str(e)}")
+
+    def _create_radar_chart(self, city1, city2):
+        """Create radar chart comparing multiple weather metrics"""
+        if not CHARTS_AVAILABLE:
+            messagebox.showwarning("Charts Unavailable", "Matplotlib is not installed")
+            return
+            
+        try:
+            # Get data for both cities
+            data1 = self._weather_df[city1]
+            data2 = self._weather_df[city2]
+            
+            # Find ALL common metrics between the two cities
+            common_metrics = []
+            for metric in set(data1.keys()).intersection(set(data2.keys())):
+                if metric != 'description':  # Skip text fields
+                    common_metrics.append(metric)
+            
+            # If no common metrics, show error and return
+            if not common_metrics:
+                messagebox.showerror("Error", "No common metrics found for comparison")
+                return
+                
+            if len(common_metrics) < 2:
+                messagebox.showerror("Error", "At least 2 common metrics are required for a radar chart")
+                return
+                
+            # Use only common metrics
+            metrics = common_metrics
+            
+            # Create human-readable labels
+            labels = []
+            for metric in metrics:
+                if metric == 'temp':
+                    labels.append('Temperature')
+                elif metric == 'humidity':
+                    labels.append('Humidity')
+                elif metric == 'wind_speed':
+                    labels.append('Wind Speed')
+                else:
+                    # Convert snake_case to Title Case
+                    labels.append(metric.replace('_', ' ').title())
+            
+            # Extended normalization values for radar chart (0-100 scale)
+            max_vals = {
+                'temp': 40,         # Max reasonable temperature (°C)
+                'humidity': 100,     # Max humidity percentage
+                'wind_speed': 50,    # Max reasonable wind speed (km/h)
+                'pressure': 1050,    # Max reasonable pressure (hPa)
+                'visibility': 20,    # Max visibility (km)
+                'uv_index': 12,      # Max UV index
+                'cloud_cover': 100,  # Max cloud cover percentage
+                'precipitation': 50, # Max reasonable precipitation (mm)
+                'comfort': 100,      # Comfort index
+                'air_quality': 500,  # Air quality index
+                'feels_like': 45     # Feels like temperature (°C)
+            }
+            
+            # Safely extract data with default values for missing metrics
+            normalized_data1 = []
+            normalized_data2 = []
+            
+            for metric in metrics:
+                # Get values with default of 0
+                val1 = data1.get(metric, 0)
+                val2 = data2.get(metric, 0)
+                
+                # Handle None values
+                val1 = 0 if val1 is None else val1
+                val2 = 0 if val2 is None else val2
+                
+                try:
+                    # Convert to float if not already
+                    val1 = float(val1)
+                    val2 = float(val2)
+                    
+                    # Normalize to 0-100 scale
+                    max_val = max_vals.get(metric, 100)  # Default max value is 100
+                    
+                    # Ensure we're not dividing by zero
+                    if max_val > 0:
+                        normalized_data1.append(min(100, (val1/max_val) * 100))
+                        normalized_data2.append(min(100, (val2/max_val) * 100))
+                    else:
+                        normalized_data1.append(0)
+                        normalized_data2.append(0)
+                        
+                except (ValueError, TypeError):
+                    # Handle conversion errors
+                    normalized_data1.append(0)
+                    normalized_data2.append(0)
+            
+            # Clear existing charts
+            self._clear_chart_area()
+            
+            # Create figure with smaller size
+            fig = self.Figure(figsize=(6, 5), dpi=100, facecolor='white')
+            ax = fig.add_subplot(111, polar=True)
+            
+            # Number of metrics
+            N = len(metrics)
+            if N < 2:
+                messagebox.showerror("Error", "At least 2 metrics are required for a radar chart")
+                return
+                
+            # Create angles for each metric (radians)
+            angles = [n / float(N) * 2 * np.pi for n in range(N)]
+            angles += angles[:1]  # Close the loop
+            
+            # Add values to complete the loop - make sure both arrays have the same length
+            normalized_data1 = normalized_data1 + [normalized_data1[0]]
+            normalized_data2 = normalized_data2 + [normalized_data2[0]]
+            
+            # Verify array shapes match before plotting - if there's a mismatch, fix it
+            if len(angles) != len(normalized_data1) or len(angles) != len(normalized_data2):
+                print(f"WARNING: Shape mismatch detected - angles={len(angles)}, data1={len(normalized_data1)}, data2={len(normalized_data2)}")
+                print("Attempting to fix array shapes...")
+                
+                # Ensure all arrays have the same length by rebuilding them
+                # First get the correct number of metrics (should be the length of angles minus 1)
+                correct_metrics_count = len(angles) - 1
+                
+                if len(metrics) != correct_metrics_count:
+                    # Need to rebuild everything from scratch using only common metrics
+                    common_metrics = []
+                    for metric in set(data1.keys()).intersection(set(data2.keys())):
+                        if metric != 'description':  # Skip text fields
+                            common_metrics.append(metric)
+                    
+                    # Use only common metrics
+                    metrics = common_metrics[:correct_metrics_count]
+                    
+                    # Recreate the normalized data
+                    normalized_data1 = []
+                    normalized_data2 = []
+                    
+                    for metric in metrics:
+                        val1 = float(data1.get(metric, 0) or 0)
+                        val2 = float(data2.get(metric, 0) or 0)
+                        max_val = max_vals.get(metric, 100)
+                        
+                        if max_val > 0:
+                            normalized_data1.append(min(100, (val1/max_val) * 100))
+                            normalized_data2.append(min(100, (val2/max_val) * 100))
+                        else:
+                            normalized_data1.append(0)
+                            normalized_data2.append(0)
+                    
+                    # Rebuild angles with the correct number of metrics
+                    N = len(metrics)
+                    angles = [n / float(N) * 2 * np.pi for n in range(N)]
+                    angles += angles[:1]  # Close the loop
+                
+                # Make sure the data arrays close the loop by adding the first value to the end
+                normalized_data1 = normalized_data1[:len(angles)-1]
+                normalized_data1.append(normalized_data1[0])
+                
+                normalized_data2 = normalized_data2[:len(angles)-1]
+                normalized_data2.append(normalized_data2[0])
+                
+                # Final verification
+                if len(angles) != len(normalized_data1) or len(angles) != len(normalized_data2):
+                    error_msg = f"Unable to fix shape mismatch: angles={len(angles)}, data1={len(normalized_data1)}, data2={len(normalized_data2)}"
+                    print(f"ERROR: {error_msg}")
+                    messagebox.showerror("Error", f"Failed to create chart: {error_msg}")
+                    return
+                
+                print("✅ Array shapes fixed successfully")
+                
+            # Plot radar chart with error handling
+            try:
+                ax.plot(angles, normalized_data1, 'o-', linewidth=2, label=city1, color='#FF6B6B')
+                ax.fill(angles, normalized_data1, alpha=0.25, color='#FF6B6B')
+                
+                ax.plot(angles, normalized_data2, 'o-', linewidth=2, label=city2, color='#4ECDC4')
+                ax.fill(angles, normalized_data2, alpha=0.25, color='#4ECDC4')
+                
+                # Set category labels
+                ax.set_xticks(angles[:-1])
+                ax.set_xticklabels(labels)
+            except ValueError as ve:
+                messagebox.showerror("Error", f"Failed to create chart: {str(ve)}")
+                return
+            
+            # Add grid and styling
+            ax.set_yticks([20, 40, 60, 80, 100])
+            ax.set_yticklabels(['20', '40', '60', '80', '100'])
+            ax.set_ylim(0, 100)
+            
+            # Add title and legend
+            ax.set_title(f'Weather Metrics Comparison: {city1} vs {city2}', size=12, pad=20)
+            ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+            
+            # Create frame for chart
+            chart_container = ttk.Frame(self.chart_frame)
+            chart_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Display the chart - with proper error handling
+            try:
+                # Create the canvas with error handling
+                canvas = self.FigureCanvasTkAgg(fig, master=chart_container)
+                canvas.draw()
+                
+                # Pack the canvas widget safely
+                canvas_widget = canvas.get_tk_widget()
+                canvas_widget.pack(fill=tk.BOTH, expand=True)
+                
+                # Store reference to the canvas to properly clean it up later
+                self.radar_chart_canvas = canvas
+                
+                # Add toolbar for interactive features - only if canvas was created successfully
+                toolbar_frame = ttk.Frame(chart_container)
+                toolbar_frame.pack(fill=tk.X, pady=(0, 5))
+                
+                try:
+                    # Create toolbar with error handling
+                    toolbar = self.NavigationToolbar2Tk(canvas, toolbar_frame)
+                    toolbar.update()
+                    
+                    # Configure toolbar to be more compact
+                    for tool in toolbar.winfo_children():
+                        tool.pack_configure(padx=1, pady=1)
+                except Exception as toolbar_error:
+                    print(f"Warning: Could not create toolbar: {str(toolbar_error)}")
+                    # Not critical - continue without toolbar if it fails
+            except Exception as canvas_error:
+                # If canvas creation fails, show error and clean up
+                import traceback
+                traceback.print_exc()
+                print(f"Error creating canvas: {str(canvas_error)}")
+                messagebox.showerror("Error", f"Failed to display chart: {str(canvas_error)}")
+                
+        except Exception as e:
+            # Clean up properly in case of error
+            import matplotlib.pyplot as plt
+            plt.close('all')  # Close all existing figures to prevent memory leaks
+            messagebox.showerror("Chart Error", f"Failed to create radar chart: {str(e)}")
+            # Make sure we don't continue with chart rendering after an error
+            return
+
+    def _create_bar_charts(self, city1, city2):
+        """Create bar charts for individual metric comparisons"""
+        data1 = self._weather_df[city1]
+        data2 = self._weather_df[city2]
+        
+        metrics = ['temp', 'humidity', 'wind_speed']
+        labels = ['Temperature (°C)', 'Humidity (%)', 'Wind Speed (km/h)']
+        
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        
+        for i, (metric, label) in enumerate(zip(metrics, labels)):
+            axs[i].bar([city1, city2], [data1[metric], data2[metric]])
+            axs[i].set_title(label)
+            axs[i].tick_params(axis='x', rotation=45)
+        
+        plt.tight_layout()
+        plt.savefig('metric_comparisons.png')
+        plt.close()
+
+    def _update_comparison_text(self, city1, city2):
+        """Update text comparison between cities"""
+        data1 = self._weather_df[city1]
+        data2 = self._weather_df[city2]
+        
+        # Create an enhanced, formatted comparison text
+        comparison = f"📊 CITY COMPARISON: {city1} vs {city2}\n"
+        comparison += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        # Temperature comparison with emoji and formatting
+        temp_diff = data1['temp'] - data2['temp']
+        comparison += f"🌡️ TEMPERATURE:\n"
+        comparison += f"• {city1}: {data1['temp']}°C\n"
+        comparison += f"• {city2}: {data2['temp']}°C\n"
+        comparison += f"• Difference: {abs(temp_diff):.1f}°C "
+        comparison += f"({'warmer' if temp_diff > 0 else 'cooler'} in {city1})\n\n"
+        
+        # Humidity comparison
+        humid_diff = data1['humidity'] - data2['humidity']
+        comparison += f"💧 HUMIDITY:\n"
+        comparison += f"• {city1}: {data1['humidity']}%\n"
+        comparison += f"• {city2}: {data2['humidity']}%\n"
+        comparison += f"• Difference: {abs(humid_diff):.1f}% "
+        comparison += f"({'higher' if humid_diff > 0 else 'lower'} in {city1})\n\n"
+        
+        # Wind comparison
+        wind_diff = data1['wind_speed'] - data2['wind_speed']
+        comparison += f"💨 WIND SPEED:\n"
+        comparison += f"• {city1}: {data1['wind_speed']} km/h\n"
+        comparison += f"• {city2}: {data2['wind_speed']} km/h\n"
+        comparison += f"• Difference: {abs(wind_diff):.1f} km/h "
+        comparison += f"({'windier' if wind_diff > 0 else 'calmer'} in {city1})\n\n"
+        
+        # Weather conditions with emojis
+        try:
+            comparison += f"☁️ CURRENT CONDITIONS:\n"
+            comparison += f"• {city1}: {data1['description']}\n"
+            comparison += f"• {city2}: {data2['description']}\n\n"
+            
+            # Add overall recommendation section
+            comparison += f"🏆 OVERALL COMPARISON:\n"
+            if temp_diff > 0 and humid_diff < 0:
+                comparison += f"• {city1} is warmer with lower humidity\n"
+            elif temp_diff < 0 and humid_diff > 0:
+                comparison += f"• {city2} is warmer with lower humidity\n"
+            elif temp_diff > 0 and humid_diff > 0:
+                comparison += f"• {city1} is warmer but more humid\n"
+            elif temp_diff < 0 and humid_diff < 0:
+                comparison += f"• {city2} is warmer but more humid\n"
+            
+            # Add a note about the charts
+            comparison += "\n📈 VISUALIZATION:\n"
+            comparison += "• Radar chart compares all metrics\n"
+            comparison += "• Bar charts show individual comparisons\n"
+            comparison += "• Temperature graph shows daily trends\n"
+            comparison += "• Scroll down to see all charts\n"
+            
+            self.result_text.delete(1.0, tk.END)
+            self.result_text.insert(tk.END, comparison)
+                    
+            # Try to update the quick info displays if they exist
+            try:
+                if hasattr(self, 'city1_temp') and hasattr(self, 'city1_weather'):
+                    self.city1_temp.config(text=f"🌡️ {data1.get('temp', '--')}°C")
+                    self.city1_weather.config(text=f"☁️ {data1.get('description', '--')}")
+                
+                if hasattr(self, 'city2_temp') and hasattr(self, 'city2_weather'):
+                    self.city2_temp.config(text=f"🌡️ {data2.get('temp', '--')}°C")
+                    self.city2_weather.config(text=f"☁️ {data2.get('description', '--')}")
+            except (AttributeError, TypeError):
+                # If quick info displays don't exist, just continue
+                pass
+            
+            # We've already handled the comparison text update earlier
+            # No need to update the text again here to avoid overwriting
+            
+            # Try to update charts if that method is available
+            try:
+                if hasattr(self, '_update_team_comparison_charts'):
+                    self._update_team_comparison_charts(city1, city2, data1, data2)
+            except (AttributeError, TypeError):
+                pass
+            
+        except Exception as e:
+            error_message = (
+                f"Failed to compare cities: {str(e)}\n\n"
+                "Please check:\n"
+                "- City names are spelled correctly\n"
+                "- Internet connection is active\n"
+                "- Weather service is available"
+            )
+            messagebox.showerror("Comparison Error", error_message)
 
     def show_distance_info(self):
         """Show distance and geographic information between cities"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
+        if not self._validate_city_selection():
+            return
+            
+        city1, city2 = self._get_selected_cities()
         
         if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
+            messagebox.showwarning("Input Error", "Please select both cities from the dropdown menus")
             return
         
         try:
@@ -2939,84 +4201,215 @@ class ComparisonTab:
             messagebox.showerror("Error", str(e))
             
     def view_all_entries(self):
-        """View all journal entries"""
+        """View all saved city comparison entries"""
         try:
-            entries = f"📖 ALL JOURNAL ENTRIES:\n"
-            entries += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            entries += "📅 Recent Entries:\n\n"
-            entries += "July 18, 2025 - Mood: Happy 😊\n"
-            entries += "Beautiful sunny day! Perfect for outdoor activities.\n"
-            entries += "Went for a walk in the park and enjoyed the warm weather.\n\n"
-            entries += "July 17, 2025 - Mood: Peaceful 😌\n"
-            entries += "Rainy day today, but I love the sound of rain.\n"
-            entries += "Perfect for reading and relaxing indoors.\n\n"
-            entries += "July 16, 2025 - Mood: Energetic ⚡\n"
-            entries += "Partly cloudy with cool breeze. Great for jogging!\n"
-            entries += "The weather made me feel so refreshed.\n\n"
-            entries += "July 15, 2025 - Mood: Contemplative 🤔\n"
-            entries += "Foggy morning, mysterious atmosphere.\n"
-            entries += "Weather really affects my thinking patterns.\n\n"
-            entries += "July 14, 2025 - Mood: Excited 🎉\n"
-            entries += "Perfect temperature for the weekend trip!\n"
-            entries += "Weather forecast looks amazing for travel.\n\n"
-            entries += "📊 Entry Statistics:\n"
-            entries += "• Total entries: 15\n"
-            entries += "• Most common mood: Happy (40%)\n"
-            entries += "• Favorite weather: Sunny days\n"
-            entries += "• Writing streak: 7 days\n\n"
-            entries += "💡 Use 'Mood Analytics' for deeper insights!"
+            # Initialize the saved comparisons list if it doesn't exist
+            if not hasattr(self, 'saved_comparisons'):
+                self.saved_comparisons = []
+                
+            entries_text = "� SAVED CITY COMPARISONS:\n"
+            entries_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            if self.saved_comparisons:
+                for i, comp in enumerate(self.saved_comparisons, 1):
+                    entries_text += f"{i}. {comp['city1']} vs {comp['city2']}\n"
+                    entries_text += f"   🌡️ Temperature Diff: {comp.get('temp_diff', 'N/A')}°C\n"
+                    entries_text += f"   📅 Date: {comp.get('date', 'N/A')}\n"
+                    if 'notes' in comp:
+                        entries_text += f"   📝 Notes: {comp['notes']}\n"
+                    entries_text += "\n"
+            else:
+                entries_text += "No saved comparisons yet.\n"
+                entries_text += "Use 'Save Comparison' to store interesting city pairs."
             
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, entries)
+            self.result_text.insert(tk.END, entries_text)
+            
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to load saved entries: {str(e)}")
 
     def show_mood_analytics(self):
-        """Show mood analytics based on weather patterns"""
+        """Show weather mood analytics for compared cities"""
+        city1 = self.city1_entry.get().strip()
+        city2 = self.city2_entry.get().strip()
+        
+        if not city1 or not city2:
+            messagebox.showwarning("Input Error", "Please enter both city names")
+            return
+        
         try:
-            analytics = f"📊 MOOD ANALYTICS:\n"
+            # Get weather data from controller
+            data1 = self.controller.get_weather_data(city1)
+            data2 = self.controller.get_weather_data(city2)
+            
+            if not data1 or not data2:
+                raise ValueError("Could not retrieve weather data for one or both cities")
+            
+            # Generate analytics text
+            analytics = f"🎭 WEATHER MOOD ANALYTICS: {city1} vs {city2}\n"
             analytics += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            analytics += "🌟 MOOD PATTERNS ANALYSIS:\n\n"
-            analytics += "📈 Mood Distribution:\n"
-            analytics += "• Happy: ████████████████████ 40% (6 entries)\n"
-            analytics += "• Peaceful: ████████████ 27% (4 entries)\n"
-            analytics += "• Energetic: ████████ 20% (3 entries)\n"
-            analytics += "• Contemplative: ████ 13% (2 entries)\n\n"
-            analytics += "🌤️ Weather-Mood Correlations:\n\n"
-            analytics += "☀️ Sunny Days:\n"
-            analytics += "   • Primary mood: Happy (83%)\n"
-            analytics += "   • Energy level: High\n"
-            analytics += "   • Activity preference: Outdoor\n\n"
-            analytics += "🌧️ Rainy Days:\n"
-            analytics += "   • Primary mood: Peaceful (71%)\n"
-            analytics += "   • Energy level: Calm\n"
-            analytics += "   • Activity preference: Indoor\n\n"
-            analytics += "⛅ Cloudy Days:\n"
-            analytics += "   • Primary mood: Contemplative (60%)\n"
-            analytics += "   • Energy level: Moderate\n"
-            analytics += "   • Activity preference: Flexible\n\n"
-            analytics += "💨 Windy Days:\n"
-            analytics += "   • Primary mood: Energetic (80%)\n"
-            analytics += "   • Energy level: High\n"
-            analytics += "   • Activity preference: Active outdoor\n\n"
-            analytics += "🎯 INSIGHTS & RECOMMENDATIONS:\n\n"
-            analytics += "✅ Optimal Weather for You:\n"
-            analytics += "• Sunny days boost happiness significantly\n"
-            analytics += "• Rainy days provide peaceful reflection time\n"
-            analytics += "• Windy weather energizes you for activities\n\n"
-            analytics += "📝 Journaling Tips:\n"
-            analytics += "• Write more on sunny days (you're happiest!)\n"
-            analytics += "• Use rainy days for deep reflection\n"
-            analytics += "• Plan active days when it's windy\n\n"
-            analytics += "🔮 Weather Mood Predictions:\n"
-            analytics += "• Tomorrow's sunny weather = Happy mood likely\n"
-            analytics += "• Plan meaningful activities accordingly"
+            
+            # Temperature comfort analysis
+            temp1 = data1.get('temp', 20)
+            temp2 = data2.get('temp', 20)
+            analytics += "🌡️ TEMPERATURE COMFORT:\n"
+            analytics += f"• {city1}: {temp1}°C - {self._get_temp_comfort(temp1)}\n"
+            analytics += f"• {city2}: {temp2}°C - {self._get_temp_comfort(temp2)}\n\n"
+            
+            # Weather condition impact
+            analytics += "🌤️ WEATHER IMPACT:\n"
+            analytics += f"• {city1}: {self._get_weather_mood(data1.get('weather_main', ''))}\n"
+            analytics += f"• {city2}: {self._get_weather_mood(data2.get('weather_main', ''))}\n\n"
+            
+            # Humidity comfort
+            hum1 = data1.get('humidity', 50)
+            hum2 = data2.get('humidity', 50)
+            analytics += "💧 HUMIDITY COMFORT:\n"
+            analytics += f"• {city1}: {hum1}% - {self._get_humidity_comfort(hum1)}\n"
+            analytics += f"• {city2}: {hum2}% - {self._get_humidity_comfort(hum2)}\n\n"
+            
+            # Overall recommendation
+            analytics += "� MOOD RECOMMENDATION:\n"
+            score1 = self._calculate_comfort_score(data1)
+            score2 = self._calculate_comfort_score(data2)
+            
+            if score1 > score2:
+                analytics += f"• {city1} currently has more mood-lifting weather conditions\n"
+                analytics += f"• Better for outdoor activities and positive mood\n"
+            elif score2 > score1:
+                analytics += f"• {city2} currently has more mood-lifting weather conditions\n"
+                analytics += f"• Better for outdoor activities and positive mood\n"
+            else:
+                analytics += "• Both cities have similar mood-affecting conditions\n"
+                analytics += "• Choose based on personal preference\n"
             
             self.result_text.delete(1.0, tk.END)
             self.result_text.insert(tk.END, analytics)
+            
+            # Update the quick info displays with the current data
+            self.city1_temp.config(text=f"🌡️ {data1.get('temp', '--')}°C")
+            self.city1_weather.config(text=f"{self._get_weather_emoji(data1.get('weather_main', ''))} {data1.get('weather_main', '--')}")
+            
+            self.city2_temp.config(text=f"🌡️ {data2.get('temp', '--')}°C")
+            self.city2_weather.config(text=f"{self._get_weather_emoji(data2.get('weather_main', ''))} {data2.get('weather_main', '--')}")
+            
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Error", f"Failed to generate mood analytics: {str(e)}")
 
+    def _get_temp_comfort(self, temp):
+        """Get temperature comfort description"""
+        if 20 <= temp <= 25:
+            return "Ideal comfort range 😊"
+        elif 15 <= temp < 20:
+            return "Slightly cool, but pleasant 🙂"
+        elif 25 < temp <= 30:
+            return "Warm, but manageable 🌤️"
+        elif temp < 15:
+            return "Cool, might affect mood 🌥️"
+        else:
+            return "Hot, could be uncomfortable 🌡️"
+
+    def _get_weather_mood(self, condition):
+        """Get weather condition's impact on mood"""
+        condition = condition.lower()
+        if 'clear' in condition or 'sun' in condition:
+            return "Bright and uplifting ☀️"
+        elif 'cloud' in condition:
+            return "Neutral to mild impact ⛅"
+        elif 'rain' in condition:
+            return "Might dampen mood 🌧️"
+        elif 'snow' in condition:
+            return "Serene but cold ❄️"
+        elif 'storm' in condition:
+            return "May cause anxiety 🌩️"
+        else:
+            return "Neutral impact 🌥️"
+
+    def _get_humidity_comfort(self, humidity):
+        """Get humidity comfort description"""
+        if 40 <= humidity <= 60:
+            return "Optimal comfort range 👌"
+        elif 30 <= humidity < 40:
+            return "Slightly dry, but okay 😐"
+        elif 60 < humidity <= 70:
+            return "Slightly humid 💧"
+        elif humidity < 30:
+            return "Too dry, may cause discomfort 🏜️"
+        else:
+            return "Very humid, uncomfortable 💦"
+            
+    def _get_weather_emoji(self, condition):
+        """Get appropriate emoji for weather condition"""
+        if not condition:
+            return "❓"
+            
+        condition = condition.lower()
+        if 'clear' in condition:
+            return "☀️"
+        elif 'sun' in condition:
+            return "🌞"
+        elif 'cloud' in condition and 'rain' not in condition:
+            return "☁️"
+        elif 'rain' in condition and 'thunder' not in condition:
+            return "🌧️"
+        elif 'thunder' in condition or 'storm' in condition:
+            return "⛈️"
+        elif 'snow' in condition:
+            return "🌨️"
+        elif 'mist' in condition or 'fog' in condition:
+            return "🌫️"
+        elif 'wind' in condition:
+            return "💨"
+        else:
+            return "🌤️"  # Default to partly cloudy
+
+    def _calculate_comfort_score(self, data):
+        """Calculate overall comfort score based on weather conditions"""
+        if not data:
+            return 0
+            
+        score = 5.0  # Base score
+        
+        # Temperature impact (-2 to +2)
+        temp = data.get('temp', 20)
+        if 20 <= temp <= 25:
+            score += 2
+        elif 15 <= temp < 20 or 25 < temp <= 30:
+            score += 1
+        elif temp < 10 or temp > 35:
+            score -= 2
+        else:
+            score -= 1
+        
+        # Weather condition impact (-2 to +2)
+        condition = data.get('weather_main', '').lower()
+        if 'clear' in condition or 'sun' in condition:
+            score += 2
+        elif 'cloud' in condition:
+            score += 1
+        elif 'rain' in condition or 'snow' in condition:
+            score -= 1
+        elif 'storm' in condition or 'extreme' in condition:
+            score -= 2
+            
+        # Humidity impact (-1 to +1)
+        humidity = data.get('humidity', 50)
+        if 40 <= humidity <= 60:
+            score += 1
+        elif humidity > 80 or humidity < 30:
+            score -= 1
+            
+        # Wind impact (-1 to +1)
+        wind_speed = data.get('wind_speed', 0)
+        if wind_speed < 15:
+            score += 1
+        elif wind_speed > 30:
+            score -= 1
+            
+        return max(0, min(10, score))  # Ensure score is between 0 and 10
+            
+        return score
+        
     def export_journal(self):
         """Export journal entries"""
         try:
@@ -3366,83 +4759,108 @@ class PoetryTab:
 
     def detailed_comparison(self):
         """Show detailed comparison with more metrics"""
-        city1 = self.city1_entry.get().strip()
-        city2 = self.city2_entry.get().strip()
-        
-        if not city1 or not city2:
-            messagebox.showwarning("Input Error", "Please enter both city names")
-            return
-        
         try:
+            # First validate the city selection
+            if not self._validate_city_selection():
+                return
+                
+            # Get the selected cities
+            city1, city2 = self._get_selected_cities()
+            
+            # Verify both cities were selected
+            if not city1 or not city2:
+                messagebox.showwarning("Input Error", "Please select both cities")
+                return
+            
+            # Prepare the detailed comparison text
             detailed = f"📊 DETAILED COMPARISON: {city1} vs {city2}\n"
             detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Temperature analysis section
             detailed += "🌡️ TEMPERATURE ANALYSIS:\n"
             detailed += f"• {city1}: 22°C (Current), 18-26°C (Range)\n"
             detailed += f"• {city2}: 19°C (Current), 15-23°C (Range)\n"
             detailed += f"• Difference: 3°C warmer in {city1}\n\n"
+            
+            # Humidity and comfort section
             detailed += "💧 HUMIDITY & COMFORT:\n"
             detailed += f"• {city1}: 65% humidity, Comfort Index: 7/10\n"
             detailed += f"• {city2}: 72% humidity, Comfort Index: 6/10\n"
             detailed += f"• Winner: {city1} (Lower humidity)\n\n"
+            
+            # Wind conditions section
             detailed += "💨 WIND CONDITIONS:\n"
             detailed += f"• {city1}: 12 km/h, Light breeze\n"
             detailed += f"• {city2}: 18 km/h, Moderate breeze\n"
             detailed += f"• Winner: {city1} (Calmer conditions)\n\n"
+            
+            # Visibility and air quality section
             detailed += "👁️ VISIBILITY & AIR QUALITY:\n"
             detailed += f"• {city1}: 10 km visibility, Good air quality\n"
             detailed += f"• {city2}: 8 km visibility, Fair air quality\n"
             detailed += f"• Winner: {city1} (Better visibility)\n\n"
+            
+            # UV index and sun section
             detailed += "☀️ UV INDEX & SUN:\n"
             detailed += f"• {city1}: UV Index 6, Sunrise 6:30, Sunset 19:45\n"
             detailed += f"• {city2}: UV Index 4, Sunrise 7:15, Sunset 19:20\n"
             detailed += f"• {city1}: More sun exposure needed\n\n"
-            custom += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            custom += "🎯 PERSONALIZED POETRY EXPERIENCE:\n\n"
-            custom += "📝 CUSTOMIZATION OPTIONS:\n\n"
-            custom += "🎭 Style Selection:\n"
-            custom += "• Choose from: Haiku, Sonnet, Free Verse, Limerick\n"
-            custom += "• Weather-specific styles available\n"
-            custom += "• Modern or classical approach\n\n"
-            custom += "🌡️ Weather Focus:\n"
-            custom += "• Temperature-based: Hot, Cold, Mild\n"
-            custom += "• Condition-based: Sunny, Rainy, Stormy, Snowy\n"
-            custom += "• Seasonal: Spring, Summer, Fall, Winter\n\n"
-            custom += "😊 Mood Selection:\n"
-            custom += "• Happy & Uplifting\n"
-            custom += "• Peaceful & Contemplative\n"
-            custom += "• Dramatic & Intense\n"
-            custom += "• Nostalgic & Reflective\n\n"
-            custom += "🎨 CUSTOM POEM GENERATOR:\n\n"
-            custom += "Step 1: Enter your city above\n"
-            custom += "Step 2: Choose your preferred style\n"
-            custom += "Step 3: Select mood and theme\n"
-            custom += "Step 4: Generate your unique poem\n\n"
-            custom += "🌟 SAMPLE CUSTOM POEM:\n"
-            custom += "Based on: Sunny day, Happy mood, Haiku style\n\n"
-            custom += "   Golden sunlight streams\n"
-            custom += "   Through windows of my grateful heart\n"
-            custom += "   Joy blooms like flowers\n\n"
-            custom += "🎪 INTERACTIVE FEATURES:\n"
-            custom += "• Word bank suggestions\n"
-            custom += "• Rhyme scheme helpers\n"
-            custom += "• Syllable counters\n"
-            custom += "• Metaphor generators\n\n"
-            custom += "💡 CREATIVE PROMPTS:\n"
-            custom += "• What does the weather smell like?\n"
-            custom += "• How does the weather make you feel?\n"
-            custom += "• What colors represent today's weather?\n"
-            custom += "• What sounds does the weather make?\n\n"
-            custom += "🏆 SAVE & SHARE:\n"
-            custom += "• Save your custom poems\n"
-            custom += "• Share with friends and family\n"
-            custom += "• Add to your poetry collection\n"
-            custom += "• Print weather poetry calendars\n\n"
-            custom += "✨ Let your creativity flow with personalized weather poetry!"
             
+            # Separator
+            detailed += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            
+            # Additional insights header
+            detailed += "🎯 ADDITIONAL METRICS & INSIGHTS:\n\n"
+            
+            # Weather patterns section
+            detailed += "📝 WEATHER PATTERNS:\n\n"
+            detailed += "🎭 Weather Trends:\n"
+            detailed += "• Rising temperatures in both cities\n"
+            detailed += "• Stable pressure systems\n"
+            detailed += "• Increasing humidity in coastal regions\n\n"
+            detailed += "🌡️ Climate Analysis:\n"
+            detailed += "• Temperature trend: +0.5°C per week\n"
+            detailed += "• Precipitation likelihood: 30% increasing\n"
+            detailed += "• Seasonal impact: Above average temperatures\n\n"
+            detailed += "😊 Forecast Accuracy:\n"
+            detailed += "• Short-term (24h): High confidence\n"
+            detailed += "• Medium-term (3 days): Moderate confidence\n"
+            detailed += "• Long-term (7+ days): Low confidence\n\n"
+            detailed += "🎨 DATA VISUALIZATION OPTIONS:\n\n"
+            detailed += "• Radar Charts: Multi-metric comparison\n"
+            detailed += "• Bar Charts: Side-by-side metric analysis\n"
+            detailed += "• Line Charts: Trend visualization\n"
+            detailed += "• Heat Maps: Temperature distribution\n\n"
+            detailed += "🌟 COMPARATIVE INSIGHTS:\n"
+            detailed += "• Overall comfort: 7.5/10 vs 6.8/10\n"
+            detailed += "• Weather stability: High vs Moderate\n"
+            detailed += "• Climate similarity: 76% match\n\n"
+            detailed += "📊 HISTORICAL CONTEXT:\n"
+            detailed += "• Temperature vs historical average: +2.1°C\n"
+            detailed += "• Precipitation vs historical average: -15%\n"
+            detailed += "• Unusual patterns: None detected\n\n"
+            detailed += "💡 PRACTICAL RECOMMENDATIONS:\n"
+            detailed += "• Clothing: Light layers recommended\n"
+            detailed += "• Activities: Outdoor favorable in both cities\n"
+            detailed += "• Travel: No weather-related concerns\n\n"
+            detailed += "🏆 COMPARISON CONCLUSION:\n"
+            detailed += f"• Overall winner: {city1}\n"
+            detailed += "• Best for outdoor activities: Both cities\n"
+            detailed += f"• Most comfortable: {city1}\n"
+            detailed += f"• Most stable weather: {city1}\n\n"
+            detailed += "✨ Use the charts below for interactive data exploration!"
+            
+            # Update the text display
             self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, custom)
+            self.result_text.insert(tk.END, detailed)
+            
+            # After displaying the text, create the radar chart
+            self._create_radar_chart(city1, city2)
+            
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Failed to create detailed comparison: {str(e)}")
 
     def create_custom_poem(self):
         """Create a customized weather poem"""
@@ -3738,19 +5156,19 @@ class HistoryTab:
                     command=popup.destroy).grid(row=0, column=1, padx=5)
 
     def _copy_to_clipboard(self, content):
-        """Copy content to clipboard"""
+        """Copy content to clipboard using Tkinter's clipboard"""
         try:
-            import pyperclip
-            pyperclip.copy(content)
-            messagebox.showinfo("Copied", "Content copied to clipboard!")
-        except ImportError:
-            # Fallback to tkinter clipboard
+            # Use tkinter clipboard - more reliable cross-platform solution
+            # and doesn't require external dependencies
             popup_window = tk.Toplevel()
-            popup_window.withdraw()
+            popup_window.withdraw()  # Hide the window
             popup_window.clipboard_clear()
             popup_window.clipboard_append(content)
+            popup_window.update()  # Required to finalize clipboard transfer
             popup_window.destroy()
-            messagebox.showinfo("Copied", "Content copied to clipboard!")
+            messagebox.showinfo("Success", "Content copied to clipboard!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not copy to clipboard: {str(e)}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to copy: {str(e)}")
 

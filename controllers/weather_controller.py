@@ -48,6 +48,24 @@ class WeatherController:
         
         # Graph components (will be set by main window)
         self.fig = None
+        
+    def get_weather_data(self, city):
+        """Get current weather data for a city"""
+        try:
+            # Use the weather service to get data
+            weather_data = self.weather_service.get_current_weather(city)
+            if weather_data:
+                return {
+                    'temp': weather_data.temperature,
+                    'humidity': weather_data.humidity,
+                    'wind_speed': weather_data.wind_speed,
+                    'weather_main': weather_data.condition,
+                    'weather_description': weather_data.description
+                }
+            return None
+        except Exception as e:
+            print(f"Error getting weather data for {city}: {str(e)}")
+            return None
         self.ax = None
         self.canvas = None
         

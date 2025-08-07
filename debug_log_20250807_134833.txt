@@ -1,0 +1,18 @@
+=== Weather App Debug Log ===
+Date/Time: 2025-08-07 13:48:33
+Python: 3.12.10 (main, Jul 14 2025, 15:49:07) [Clang 17.0.0 (clang-1700.0.13.5)]
+Working Dir: /Users/Tobi_Prod/Documents/JTC/Capstone-Project
+==================================================
+
+Importing main module...
+Starting application...
+🚀 Starting Weather Dashboard with Live Radar...
+🌦️ All features available including:
+   🎬 Live Weather Animations
+   🌩️ Doppler Weather Radar
+   🌪️ Severe Weather Tracking
+   📊 Comprehensive Charts & Analytics
+/Users/Tobi_Prod/Documents/JTC/Capstone-Project/services/live_weather_service.py:592: UserWarning: Glyph 127744 (\N{CYCLONE}) missing from font(s) DejaVu Sans.
+  self.canvas.draw()
+/Users/Tobi_Prod/.pyenv/versions/3.12.10/lib/python3.12/tkinter/__init__.py:1505: UserWarning: Glyph 127744 (\N{CYCLONE}) missing from font(s) DejaVu Sans.
+  self.tk.mainloop(n)

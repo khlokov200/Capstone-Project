@@ -42,11 +42,28 @@ class WeatherAPI:
         Returns:
             Dictionary with weather data or None if error
         """
+        if not city:
+            raise ValueError("City name cannot be empty")
+            
         params = {
-            'q': city,
+            'q': city.strip(),  # Ensure clean city name
             'appid': self.api_key,
             'units': unit
         }
+        
+        try:
+            response = self.session.get(
+                self.base_url,
+                params=params,
+                timeout=self.timeout,
+                verify=False  # For development only
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            if response.status_code == 404:
+                raise ValueError(f"City '{city}' not found")
+            raise Exception(f"Weather API error: {str(e)}")
         
         # Try multiple methods to handle SSL issues
         methods = [

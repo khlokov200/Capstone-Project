@@ -270,8 +270,8 @@ MIT License - See LICENSE file for details
 **Capstone Project** - Advanced Weather Dashboard  
 *Demonstrating comprehensive software development skills and modern application architecture*
 
-**Contact**: [Your Contact Information]  
-**Project Repository**: [Repository Link]
+**Contact**: [Reserved Rights of Tobi Odika INC.]  
+**Project Repository**: [[https://github.com/khlokov200/Capstone-Project]
 
 ---
 

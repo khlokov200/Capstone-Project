@@ -8,11 +8,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from ui.constants import COLOR_PALETTE, UI_CONFIG
 from ui.components import StyledButton
-from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab, ComparisonTab, 
-                     ActivityTab, PoetryTab, HistoryTab, QuickActionsTab,
-                     LiveWeatherTab, SevereWeatherTab, AnalyticsTrendsTab, HealthWellnessTab)
-
-
+from ui.tabs import (WeatherTab, ForecastTab, FiveDayForecastTab,
+                         ActivityTab, PoetryTab, HistoryTab, QuickActionsTab,
+                         LiveWeatherTab, SevereWeatherTab, AnalyticsTrendsTab, HealthWellnessTab,
+                         ComparisonTab)
+# Using the enhanced ComparisonTab from ui.tabs instead of the simpler version
+# from ui.comparison_tab import ComparisonTab
 class MainWindow(tk.Tk):
     """Main application window with clean separation of concerns"""
     

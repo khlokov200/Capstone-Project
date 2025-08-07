@@ -23,54 +23,55 @@ class WeatherService:
 
     def get_current_weather(self, city, unit="metric"):
         """Get current weather for a city"""
-        data = self.api.fetch_weather(city, unit)
-        if not data:
-            raise Exception("Failed to fetch weather")
-        
-        # Extract basic weather data
-        desc = data["weather"][0]["description"].capitalize()
-        temp = float(data["main"]["temp"])  # Ensure temperature is float
-        humidity = data["main"]["humidity"]
-        wind_speed = data["wind"]["speed"]
-        
-        # Extract additional weather elements
-        visibility = data.get("visibility")
-        cloudiness = data.get("clouds", {}).get("all")
-        pressure = data.get("main", {}).get("pressure")
-        feels_like = data.get("main", {}).get("feels_like")
-        wind_direction = data.get("wind", {}).get("deg")
-        
-        # Extract sunrise/sunset
-        sunrise = data.get("sys", {}).get("sunrise")
-        sunset = data.get("sys", {}).get("sunset")
-        
-        # Extract precipitation data
-        rain_1h = data.get("rain", {}).get("1h")
-        rain_3h = data.get("rain", {}).get("3h")
-        snow_1h = data.get("snow", {}).get("1h")
-        snow_3h = data.get("snow", {}).get("3h")
-        
-        # Create and return WeatherData object
-        return WeatherData(
-            temperature=temp,
-            description=desc,
-            humidity=humidity,
-            wind_speed=wind_speed,
-            unit=unit,
-            city=city,
-            visibility=visibility,
-            cloudiness=cloudiness,
-            pressure=pressure,
-            feels_like=feels_like,
-            wind_direction=wind_direction,
-            sunrise=sunrise,
-            sunset=sunset,
-            rain_1h=rain_1h,
-            rain_3h=rain_3h,
-            snow_1h=snow_1h,
-            snow_3h=snow_3h
-        )
-        
+        if not city:
+            raise ValueError("City name cannot be empty")
+            
+        try:
+            data = self.api.fetch_weather(city, unit)
+            if not data:
+                raise Exception(f"No weather data received for '{city}'")
+
+            # Extract basic weather data
+            desc = data["weather"][0]["description"].capitalize()
+            temp = float(data["main"]["temp"])
+            humidity = data["main"]["humidity"]
+            wind_speed = data["wind"]["speed"]
+            
+            # Extract additional fields with safe defaults
+            visibility = data.get("visibility", 10000)
+            cloudiness = data.get("clouds", {}).get("all", 0)
+            pressure = data.get("main", {}).get("pressure", 1013)
+            feels_like = data.get("main", {}).get("feels_like", temp)
+            wind_direction = data.get("wind", {}).get("deg", 0)
+            sunrise = data.get("sys", {}).get("sunrise", 0)
+            sunset = data.get("sys", {}).get("sunset", 0)
+            rain_1h = data.get("rain", {}).get("1h", 0)
+            rain_3h = data.get("rain", {}).get("3h", 0)
+            snow_1h = data.get("snow", {}).get("1h", 0)
+            snow_3h = data.get("snow", {}).get("3h", 0)
+            
+            return WeatherData(
+                temperature=temp,
+                description=desc,
+                humidity=humidity,
+                wind_speed=wind_speed,
+                unit=unit,
+                city=city,
+                visibility=visibility,
+                cloudiness=cloudiness,
+                pressure=pressure,
+                feels_like=feels_like,
+                wind_direction=wind_direction,
+                sunrise=sunrise,
+                sunset=sunset,
+                rain_1h=rain_1h,
+                rain_3h=rain_3h,
+                snow_1h=snow_1h,
+                snow_3h=snow_3h
+            )
+        except Exception as e:
+            raise Exception(f"Failed to get weather data for '{city}': {str(e)}")
+            
     def get_historical_data(self, city, time_range):
         """Get historical weather data for analytics
         
