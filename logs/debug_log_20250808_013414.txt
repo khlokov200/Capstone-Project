@@ -1,0 +1,27 @@
+=== Weather App Debug Log ===
+Date/Time: 2025-08-08 01:34:14
+Python: 3.13.5 (main, Jun 11 2025, 15:36:57) [Clang 17.0.0 (clang-1700.0.13.3)]
+Working Dir: /Users/Tobi_Prod/Documents/JTC/Capstone-Project
+==================================================
+
+Importing main module...
+Starting application...
+🚀 Starting Weather Dashboard with Live Radar...
+🌦️ All features available including:
+   🎬 Live Weather Animations
+   🌩️ Doppler Weather Radar
+   🌪️ Severe Weather Tracking
+   📊 Comprehensive Charts & Analytics
+/Users/Tobi_Prod/Documents/JTC/Capstone-Project/services/live_weather_service.py:592: UserWarning: Glyph 127744 (\N{CYCLONE}) missing from font(s) DejaVu Sans.
+  self.canvas.draw()
+/Users/Tobi_Prod/Documents/JTC/Capstone-Project/services/live_weather_service.py:592: UserWarning: Glyph 127786 (\N{CLOUD WITH TORNADO}) missing from font(s) DejaVu Sans.
+  self.canvas.draw()
+Loaded 9 cities from team_cities.json
+Setting up left panel with 9 cities available
+City1 dropdown populated with 9 cities
+First city set to: New York
+Second city set to: Chicago
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tkinter/__init__.py:862: UserWarning: Glyph 127744 (\N{CYCLONE}) missing from font(s) DejaVu Sans.
+  func(*args)
+/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/tkinter/__init__.py:862: UserWarning: Glyph 127786 (\N{CLOUD WITH TORNADO}) missing from font(s) DejaVu Sans.
+  func(*args)

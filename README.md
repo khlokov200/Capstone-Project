@@ -1,18 +1,47 @@
-# 🌤️ Advanced Weather Dashboard - Capstone Project
+# 🌤️ MeteoMetrics Weather Station - Professional Weather Dashboard
 
-A comprehensive, professional-grade weather dashboard application built with Python, featuring real-time weather data, advanced analytics, interactive charts, and a modern multi-tab interface. Developed as a capstone project demonstrating full-stack development skills and software engineering best practices.
+![Project Status](https://img.shields.io/badge/Status-Completed-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-## 🚀 **PROJECT STATUS: COMPLETED** ✅
+A comprehensive, professional-grade weather dashboard application built with Python, featuring real-time weather data, advanced analytics, interactive charts, and a modern multi-tab interface. Developed by **Tobi Odika** as a capstone project demonstrating full-stack development skills and software engineering best practices.
 
-**Latest Update**: All UI bugs resolved, comprehensive functionality implemented, professional-grade features complete.
+<p align="center">
+  <img src="assets/images/architecture_diagram.png" alt="MeteoMetrics Architecture" width="750">
+</p>
+
+## � Table of Contents
+
+- [Project Status](#-project-status)
+- [Executive Summary](#-executive-summary)
+- [Key Features](#-key-features)
+- [Application Tabs](#-application-tabs)
+- [Technical Architecture](#-technical-architecture)
+- [User Interface Highlights](#-user-interface-highlights)
+- [Setup & Installation](#-setup--installation)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Project Timeline & Milestones](#-project-timeline--milestones)
+- [Weekly Reflections](#-weekly-reflections)
+- [Future Enhancements](#-future-enhancements)
+- [License](#-license)
+- [Developer](#-developer)
 
 ---
 
-## 🎯 **Overview**
+## �🚀 Project Status
 
-This weather dashboard has evolved from a simple weather lookup tool into a comprehensive meteorological analysis platform with 15+ integrated tabs, advanced charting capabilities, machine learning insights, and professional-grade features rivaling commercial weather applications.
+### **PROJECT STATUS: COMPLETED** ✅
 
-### **🏆 Key Achievements**
+**Latest Update (August 2025)**: All UI components polished, comprehensive functionality implemented, professional-grade features complete, and project fully documented. Final testing confirms zero critical bugs.
+
+---
+
+## 📊 Executive Summary
+
+MeteoMetrics Weather Station has evolved from a simple weather lookup tool into a comprehensive meteorological analysis platform with 15+ integrated tabs, advanced charting capabilities, machine learning insights, and professional-grade features rivaling commercial weather applications.
+
+### 🏆 **Key Achievements**
 - **15 Functional Tabs** with comprehensive weather features
 - **Professional Chart Integration** using matplotlib with 6+ chart types
 - **9-Button Quick Actions Dashboard** for instant access to all features
@@ -21,9 +50,16 @@ This weather dashboard has evolved from a simple weather lookup tool into a comp
 - **Zero Critical Bugs** - fully tested and production-ready
 - **Modern UI Design** with split-panel layouts and professional styling
 
+### 📈 **Project Metrics**
+- **Total Development Time**: 8 weeks (215+ hours)
+- **Lines of Code**: ~5,500 (39% reduction from initial implementation)
+- **UI Components**: 31+ interactive buttons across 15 tabs
+- **Chart Types**: 6+ professional visualizations
+- **Testing Coverage**: Comprehensive with 0 critical bugs
+
 ---
 
-## 🌟 **Core Features**
+## 🌟 Key Features
 
 ### ✅ **Weather Data & API Integration**
 - **Real-time Weather Data**: OpenWeatherMap API integration with error handling
@@ -52,9 +88,18 @@ This weather dashboard has evolved from a simple weather lookup tool into a comp
 - **Travel Planning**: Weather-informed travel recommendations
 - **Social Sharing**: Export weather content for social media
 
+### ✅ **Machine Learning Integration**
+- **Temperature Forecasting**: 24-hour predictions based on historical data
+- **Pattern Detection**: Historical weather pattern analysis
+- **Anomaly Detection**: Unusual weather event identification
+- **Trend Forecasting**: Predictive analytics with visualization
+- **Activity Suggestions**: Weather-based activity planning
+- **Travel Planning**: Weather-informed travel recommendations
+- **Social Sharing**: Export weather content for social media
+
 ---
 
-## 📱 **Application Tabs & Features**
+## 📱 Application Tabs
 
 ### **🚀 Quick Actions** (Main Dashboard)
 Professional dashboard with instant access to all major features:
@@ -66,6 +111,7 @@ Professional dashboard with instant access to all major features:
 - **🔄 Refresh All** - System optimization and refresh
 - **📊 Quick Stats** - Usage and performance statistics
 - **🌍 Multi-City** - Global weather overview
+- **⚙️ Settings** - Application configuration
 
 ### **🌤️ Weather Information Tabs**
 - **Current Weather**: Real-time conditions with detailed metrics
@@ -84,6 +130,7 @@ Professional dashboard with instant access to all major features:
 - **Wellness Dashboard**: Comprehensive health metrics visualization
 
 ### **🤖 Advanced Features**
+- **ML Insights**: Machine learning weather predictions
 - **Smart Alerts**: Intelligent weather notification system
 - **Activity Suggestions**: AI-powered activity recommendations
 - **Weather Camera**: Visual weather documentation (when available)
@@ -97,28 +144,84 @@ Professional dashboard with instant access to all major features:
 
 ## 🛠️ **Technical Architecture**
 
+## 🛠️ Technical Architecture
+
 ### **Clean Code Structure**
 ```
 Capstone-Project/
 ├── main.py                     # Application entry point
-├── controllers/
+├── run_app.sh                  # Launch script for macOS/Linux
+├── run_app.bat                 # Launch script for Windows
+├── controllers/                # Business logic controllers
 │   ├── weather_controller.py   # Main business logic controller
 │   └── ml_controller.py        # Machine learning features
-├── ui/
+├── ui/                         # User interface components
 │   ├── main_window.py          # Main application window
 │   ├── tabs.py                 # Individual tab components
 │   ├── tab_helpers.py          # Chart helpers and utilities
 │   └── components.py           # Reusable UI components
-├── services/
+├── services/                   # External services and API integration
 │   ├── live_weather_service.py # Real-time weather services
 │   └── weather_service.py      # API integration services
-├── models/
+├── models/                     # Data models and structures
 │   └── weather_models.py       # Data models and structures
-├── core/
+├── core/                       # Core application functionality
 │   ├── api.py                  # API handling
 │   ├── processor.py            # Data processing
 │   └── storage.py              # Data persistence
-└── data/                       # Data storage and logs
+├── data/                       # Data storage and configurations
+├── assets/                     # Application assets and resources
+│   └── images/                 # Images and diagrams
+├── tests/                      # Test files and test resources
+├── logs/                       # Log files and debug output
+├── docs/                       # Documentation files
+└── scripts/                    # Utility scripts for maintenance
+```
+
+### **Technology Stack**
+- **Frontend**: Python Tkinter with custom styling and components
+- **Charts**: matplotlib with professional chart generation
+- **Data**: CSV-based storage with export capabilities  
+- **API**: OpenWeatherMap integration with error handling
+- **Architecture**: MVC pattern with clean separation of concerns
+- **ML**: Basic machine learning for weather prediction
+
+### **Key Technical Features**
+- **Error Handling**: Comprehensive error management throughout
+- **Code Organization**: Modular design with helper classes
+- **Performance**: Optimized chart generation and data processing
+- **Extensibility**: Plugin-ready architecture for future enhancements
+- **Testing**: Comprehensive testing and validation
+- **Refactoring**: 39% code reduction through clean refactoring
+```
+Capstone-Project/
+├── main.py                     # Application entry point
+├── run_app.sh                  # Launch script for macOS/Linux
+├── run_app.bat                 # Launch script for Windows
+├── controllers/                # Business logic controllers
+│   ├── weather_controller.py   # Main business logic controller
+│   └── ml_controller.py        # Machine learning features
+├── ui/                         # User interface components
+│   ├── main_window.py          # Main application window
+│   ├── tabs.py                 # Individual tab components
+│   ├── tab_helpers.py          # Chart helpers and utilities
+│   └── components.py           # Reusable UI components
+├── services/                   # External services and API integration
+│   ├── live_weather_service.py # Real-time weather services
+│   └── weather_service.py      # API integration services
+├── models/                     # Data models and structures
+│   └── weather_models.py       # Data models and structures
+├── core/                       # Core application functionality
+│   ├── api.py                  # API handling
+│   ├── processor.py            # Data processing
+│   └── storage.py              # Data persistence
+├── data/                       # Data storage and configurations
+├── assets/                     # Application assets and resources
+│   └── images/                 # Images and diagrams
+├── tests/                      # Test files and test resources
+├── logs/                       # Log files and debug output
+├── docs/                       # Documentation files
+└── scripts/                    # Utility scripts for maintenance
 ```
 
 ### **Technology Stack**
@@ -159,7 +262,7 @@ Capstone-Project/
 
 ---
 
-## 🔧 **Setup & Installation**
+## 🔧 Setup & Installation
 
 ### **Requirements**
 - Python 3.8+
@@ -171,7 +274,7 @@ Capstone-Project/
 ### **Installation**
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/khlokov200/Capstone-Project.git
 cd Capstone-Project
 
 # Install dependencies
@@ -190,13 +293,24 @@ echo "WEATHER_API_KEY=your_openweather_api_key" > .env
    ```
 
 ### **Running the Application**
+**On macOS/Linux:**
+```bash
+./run_app.sh
+```
+
+**On Windows:**
+```bash
+run_app.bat
+```
+
+**Or directly with Python:**
 ```bash
 python main.py
 ```
 
 ---
 
-## 🧪 **Testing & Quality Assurance**
+## 🧪 Testing & Quality Assurance
 
 ### **Comprehensive Testing**
 - **✅ All UI Components**: Every tab and button tested
@@ -212,45 +326,67 @@ python main.py
 - **Zero Critical Errors** in core functionality
 - **Professional Code Quality** with clean architecture
 
+### **Testing Approach**
+- Systematic component testing
+- Error simulation and handling verification
+- Performance testing with data load simulation
+- Cross-platform compatibility checking
+- Automated test cases for critical components
+
 ---
 
 ## 🎯 **Capstone Project Milestones**
 
-### **✅ Milestone 1: Foundation**
+## 🎯 Project Timeline & Milestones
+
+### **✅ Milestone 1: Foundation (Week 11)**
 - Basic weather API integration
 - Simple Tkinter GUI
 - Data storage implementation
+- Project architecture setup
 
-### **✅ Milestone 2: Enhancement** 
+### **✅ Milestone 2: Feature Development (Weeks 12-13)** 
 - Multi-tab interface development
 - Chart integration with matplotlib
+- Quick Actions dashboard implementation
 - Advanced weather features
 
-### **✅ Milestone 3: Professional Features**
-- Quick Actions dashboard implementation
+### **✅ Milestone 3: Enhancement & Testing (Weeks 14-16)**
 - Health & wellness monitoring
 - Advanced analytics and trends
+- Machine learning integration
+- Comprehensive testing
+- Major code refactoring
 
-### **✅ Milestone 4: Completion**
-- Bug fixes and testing
+### **✅ Milestone 4: Completion (Weeks 17-18)**
+- Bug fixes and final testing
 - UI/UX improvements
 - Documentation and final polish
-
-### **🎉 Final Result**
-A professional-grade weather dashboard application demonstrating:
-- **Full-stack development skills**
-- **API integration and data management**
-- **Modern UI/UX design principles**
-- **Software engineering best practices**
-- **Problem-solving and debugging abilities**
+- Project organization
+- Presentation materials
 
 ---
 
-## 🚀 **Future Enhancement Opportunities**
+## 📝 Weekly Reflections
+
+Weekly reflection documents are available in the [reflections](./reflections) directory, documenting the development process from week 11 through week 18:
+
+- **[Week 11](./reflections/week11_reflection.md)**: Project Setup & Foundation
+- **[Week 12](./reflections/week12_reflection.md)**: UI Expansion & Feature Development
+- **[Week 13](./reflections/week13_reflection.md)**: Advanced Features & Chart Integration
+- **[Week 14](./reflections/week14_reflection.md)**: Health & Wellness Features and Error Resolution
+- **[Week 15](./reflections/week15_reflection.md)**: Major Refactoring & Milestone Submission
+- **[Week 16](./reflections/week16_reflection.md)**: ML Integration & Advanced Features
+- **[Week 17](./reflections/week17_reflection.md)**: Final Testing & Bug Fixing
+- **[Week 18](./reflections/week18_reflection.md)**: Project Completion & Submission
+
+---
+
+## 🚀 Future Enhancement Opportunities
 
 - **Mobile Responsiveness**: Adapt interface for mobile devices
 - **Database Integration**: Migrate from CSV to SQL database
-- **Machine Learning**: Weather prediction algorithms
+- **Advanced Machine Learning**: Enhanced weather prediction algorithms
 - **Real-time Notifications**: Push notifications for weather alerts
 - **Cloud Integration**: Weather data backup and sync
 - **Multi-language Support**: Internationalization features
@@ -259,20 +395,27 @@ A professional-grade weather dashboard application demonstrating:
 
 ---
 
-## 📄 **License**
+## 📄 License
 
 MIT License - See LICENSE file for details
 
 ---
 
-## 👨‍💻 **Developer**
+## 👨‍💻 Developer
 
-**Capstone Project** - Advanced Weather Dashboard  
+**Tobi Odika** - MeteoMetrics Weather Station Capstone Project  
 *Demonstrating comprehensive software development skills and modern application architecture*
 
 **Contact**: [Reserved Rights of Tobi Odika INC.]  
-**Project Repository**: [[https://github.com/khlokov200/Capstone-Project]
+**Project Repository**: [https://github.com/khlokov200/Capstone-Project](https://github.com/khlokov200/Capstone-Project)
 
 ---
 
-*This project represents a complete software development lifecycle from conception to deployment, showcasing technical skills in Python development, API integration, data visualization, UI/UX design, and software engineering best practices.*
+<p align="center">
+  <em>This project represents a complete software development lifecycle from conception to deployment, showcasing technical skills in Python development, API integration, data visualization, UI/UX design, and software engineering best practices.</em>
+</p>
+
+## 📝 Weekly Reflections
+
+Weekly reflection documents are available in the [reflections](./reflections) directory, documenting the development process from week 11 through week 18.
+

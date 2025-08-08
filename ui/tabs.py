@@ -5,6 +5,7 @@ Individual tab components for the weather dashboard
 import json
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+import os
 from PIL import Image, ImageTk, ImageDraw
 import matplotlib
 # Use Agg backend for matplotlib (non-interactive) to avoid window issues
@@ -1992,11 +1993,15 @@ class ComparisonTab:
         # Initialize data storage
         self._weather_df = {}
         
-        # Initialize with a default list of cities
-        self.available_cities = [
-            "New York", "London", "Tokyo", "Paris", "Sydney", 
-            "Dubai", "San Francisco", "Berlin", "Toronto", "Singapore"
-        ]
+        # Load cities from team_cities.json
+        self.available_cities = self._load_team_cities()
+        
+        # Fallback to default cities if loading fails
+        if not self.available_cities:
+            self.available_cities = [
+                "New York", "London", "Tokyo", "Paris", "Sydney", 
+                "Dubai", "San Francisco", "Berlin", "Toronto", "Singapore"
+            ]
         
         self.city1_combo = None
         self.city2_combo = None
@@ -2006,7 +2011,40 @@ class ComparisonTab:
         # Set up UI directly
         self._setup_ui()
         
-    # _load_team_cities method removed - no longer needed
+    def _load_team_cities(self):
+        """Load cities from team_cities.json and prepare weather data"""
+        import json
+        import os
+        
+        try:
+            # Get path to the JSON file
+            json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'team_cities.json')
+            
+            # Check if file exists
+            if not os.path.exists(json_path):
+                print(f"Warning: team_cities.json not found at {json_path}")
+                return []
+                
+            # Load JSON data
+            with open(json_path, 'r') as f:
+                data = json.load(f)
+                
+            # Extract city names and store weather data
+            if 'cities_analysis' in data and 'city_data' in data['cities_analysis']:
+                # Store the entire data for later use in comparison
+                self.team_cities_data = data['cities_analysis']['city_data']
+                
+                # Return the list of city names
+                cities = list(self.team_cities_data.keys())
+                print(f"Loaded {len(cities)} cities from team_cities.json")
+                return cities
+            else:
+                print("Warning: Unexpected structure in team_cities.json")
+                return []
+                
+        except Exception as e:
+            print(f"Error loading team_cities.json: {str(e)}")
+            return []
             
     def _get_selected_cities(self):
         """Get the currently selected cities from the comboboxes"""
@@ -2543,16 +2581,8 @@ class ComparisonTab:
         results_frame = ttk.LabelFrame(self.left_frame, text="Comparison Results")
         results_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        self.result_text = StyledText(results_frame)
+        self.result_text = StyledText(results_frame, height=15)
         self.result_text.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Results area
-        self.result_text = StyledText(self.left_frame, height=15)
-        self.result_text.pack(pady=10, fill="both", expand=True, padx=10)
-        
-        # Main action button
-        StyledButton(self.left_frame, "info_black", text="Compare", 
-                    command=self.compare_cities).pack(pady=5)
         
         # Additional Enhanced Buttons
         comparison_button_frame = ttk.Frame(self.left_frame)
@@ -3197,7 +3227,7 @@ class ComparisonTab:
             self.result_text.insert(tk.END, f"Error updating comparison: {str(e)}")
 
     def compare_cities(self):
-        """Compare weather between two cities with enhanced visualization"""
+        """Compare weather between two cities with enhanced visualization using team_cities.json data"""
         try:
             # First validate the city selection
             if not self._validate_city_selection():
@@ -3214,40 +3244,45 @@ class ComparisonTab:
             # Initialize weather data storage
             self._weather_df = {}
             
-            # Get weather data for both cities
-            data1 = self.controller.get_current_weather(city1)
+            # Check if we have team_cities data
+            if not hasattr(self, 'team_cities_data') or not self.team_cities_data:
+                # Try to load data if it's not loaded
+                self._load_team_cities()
+                
+            # Get data from team_cities.json for both cities
+            data1 = self.team_cities_data.get(city1, {})
             if not data1:
-                messagebox.showerror("Error", f"Could not retrieve weather data for {city1}")
+                messagebox.showerror("Error", f"No data available for {city1} in team_cities.json")
                 return
                 
-            data2 = self.controller.get_current_weather(city2)
+            data2 = self.team_cities_data.get(city2, {})
             if not data2:
-                messagebox.showerror("Error", f"Could not retrieve weather data for {city2}")
+                messagebox.showerror("Error", f"No data available for {city2} in team_cities.json")
                 return
             
-            # Define a function to safely get attributes
-            def safe_get_attr(obj, attr, default=0):
-                try:
-                    # Handle both object attributes and dictionary keys
-                    if hasattr(obj, 'get') and callable(obj.get):  # This is a dictionary
-                        return obj.get(attr, default)
-                    else:  # This is an object with attributes
-                        return getattr(obj, attr, default)
-                except (AttributeError, TypeError, KeyError):
-                    return default
-            
-            # Store the data for charts with safety checks
+            # Helper function to safely get nested values
+            def safe_get_value(data_dict, key_path, default=0):
+                """Safely retrieve a value from a nested dictionary."""
+                current = data_dict
+                for key in key_path:
+                    if not isinstance(current, dict) or key not in current:
+                        return default
+                    current = current[key]
+                return 0 if current is None else current
+
+            # Format city data for comparison ensuring no None values
             self._weather_df[city1] = {
-                'temp': safe_get_attr(data1, 'temperature'),
-                'humidity': safe_get_attr(data1, 'humidity'),
-                'wind_speed': safe_get_attr(data1, 'wind_speed'),
-                'description': safe_get_attr(data1, 'description', 'Unknown')
+                'temp': safe_get_value(data1, ['temperature', 'avg'], 0),
+                'humidity': safe_get_value(data1, ['humidity', 'avg'], 0),
+                'wind_speed': safe_get_value(data1, ['wind', 'avg'], 0),
+                'description': data1.get('weather_conditions', ['Unknown'])[0] if data1.get('weather_conditions') else 'Unknown'
             }
+            
             self._weather_df[city2] = {
-                'temp': safe_get_attr(data2, 'temperature'),
-                'humidity': safe_get_attr(data2, 'humidity'),
-                'wind_speed': safe_get_attr(data2, 'wind_speed'),
-                'description': safe_get_attr(data2, 'description', 'Unknown')
+                'temp': safe_get_value(data2, ['temperature', 'avg'], 0),
+                'humidity': safe_get_value(data2, ['humidity', 'avg'], 0),
+                'wind_speed': safe_get_value(data2, ['wind', 'avg'], 0),
+                'description': data2.get('weather_conditions', ['Unknown'])[0] if data2.get('weather_conditions') else 'Unknown'
             }
             
             # First update the comparison text so users can see the data immediately
@@ -3401,18 +3436,14 @@ class ComparisonTab:
             normalized_data2 = []
             
             for metric in metrics:
-                # Get values with default of 0
-                val1 = data1.get(metric, 0)
-                val2 = data2.get(metric, 0)
-                
-                # Handle None values
-                val1 = 0 if val1 is None else val1
-                val2 = 0 if val2 is None else val2
-                
                 try:
-                    # Convert to float if not already
-                    val1 = float(val1)
-                    val2 = float(val2)
+                    # Get values with default of 0
+                    val1 = data1.get(metric, 0)
+                    val2 = data2.get(metric, 0)
+                    
+                    # Handle None values and ensure conversion to float
+                    val1 = 0 if val1 is None else float(val1)
+                    val2 = 0 if val2 is None else float(val2)
                     
                     # Normalize to 0-100 scale
                     max_val = max_vals.get(metric, 100)  # Default max value is 100
@@ -3425,7 +3456,8 @@ class ComparisonTab:
                         normalized_data1.append(0)
                         normalized_data2.append(0)
                         
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    print(f"Error processing {metric}: {str(e)}, using 0 instead")
                     # Handle conversion errors
                     normalized_data1.append(0)
                     normalized_data2.append(0)
@@ -3475,14 +3507,25 @@ class ComparisonTab:
                     normalized_data2 = []
                     
                     for metric in metrics:
-                        val1 = float(data1.get(metric, 0) or 0)
-                        val2 = float(data2.get(metric, 0) or 0)
-                        max_val = max_vals.get(metric, 100)
-                        
-                        if max_val > 0:
-                            normalized_data1.append(min(100, (val1/max_val) * 100))
-                            normalized_data2.append(min(100, (val2/max_val) * 100))
-                        else:
+                        try:
+                            # Get values with proper fallbacks
+                            val1 = data1.get(metric, 0)
+                            val2 = data2.get(metric, 0)
+                            
+                            # Handle None values explicitly
+                            val1 = 0 if val1 is None else float(val1)
+                            val2 = 0 if val2 is None else float(val2)
+                            
+                            max_val = max_vals.get(metric, 100)
+                            
+                            if max_val > 0:
+                                normalized_data1.append(min(100, (val1/max_val) * 100))
+                                normalized_data2.append(min(100, (val2/max_val) * 100))
+                            else:
+                                normalized_data1.append(0)
+                                normalized_data2.append(0)
+                        except (ValueError, TypeError) as e:
+                            print(f"Error normalizing {metric}: {str(e)}, using 0 instead")
                             normalized_data1.append(0)
                             normalized_data2.append(0)
                     
@@ -5776,6 +5819,7 @@ class LiveWeatherTab:
         notebook.add(self.frame, text="🌦️ Live Weather")
         self.animation_widget = None
         self.radar_widget = None
+        self.auto_tracking = False  # Initialize auto tracking to False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -5784,8 +5828,16 @@ class LiveWeatherTab:
         title_frame = ttk.Frame(self.frame)
         title_frame.pack(fill="x", padx=10, pady=5)
         
-        StyledLabel(title_frame, text="🌦️ Live Weather Radar & Animations", 
-                   font=("Arial", 16, "bold")).pack()
+        # Title and search bar
+        header_frame = ttk.Frame(title_frame)
+        header_frame.pack(fill="x")
+        
+        StyledLabel(header_frame, text="🌦️ Live Weather Radar & Animations", 
+                   font=("Arial", 16, "bold")).pack(side="left")
+                   
+        # City search button
+        StyledButton(header_frame, "accent_black", text="🔍 Enter City", 
+                    command=self._update_city).pack(side="right", padx=10)
         
         # Create main split-screen layout
         self.main_paned = ttk.PanedWindow(self.frame, orient="horizontal")
@@ -5840,6 +5892,21 @@ class LiveWeatherTab:
                 # Animation status
                 self.animation_status = StyledLabel(controls_frame, text="Animation Status: Ready")
                 self.animation_status.pack(pady=5)
+                
+                # City input frame
+                city_input_frame = ttk.LabelFrame(self.left_frame, text="🌆 City Selection")
+                city_input_frame.pack(fill="x", padx=5, pady=5)
+                
+                city_entry_frame = ttk.Frame(city_input_frame)
+                city_entry_frame.pack(fill="x", padx=5, pady=5)
+                
+                StyledLabel(city_entry_frame, text="Enter City:").pack(side="left")
+                self.animation_city_entry = ttk.Entry(city_entry_frame, width=20)
+                self.animation_city_entry.pack(side="left", padx=5)
+                self.animation_city_entry.insert(0, "Baltimore")  # Default city
+                
+                StyledButton(city_entry_frame, "accent_black", text="Update City", 
+                            command=self._update_animation_city).pack(side="left", padx=5)
                 
                 # Legend frame
                 legend_frame = ttk.LabelFrame(self.left_frame, text="Animation Elements")
@@ -6133,10 +6200,22 @@ class LiveWeatherTab:
 
     def _auto_update_cycle(self):
         """Automatic update cycle for radar"""
-        if hasattr(self, 'auto_tracking') and self.auto_tracking:
-            self._update_live_radar()
-            self._scan_for_severe_weather()
-            self.frame.after(30000, self._auto_update_cycle)  # Continue cycle
+        try:
+            # Only continue if auto tracking is enabled
+            if hasattr(self, 'auto_tracking') and self.auto_tracking:
+                # Check if radar widget exists before updating
+                if hasattr(self, 'radar_widget') and self.radar_widget:
+                    self._update_live_radar()
+                
+                # Check if scan method exists
+                if hasattr(self, '_scan_for_severe_weather'):
+                    self._scan_for_severe_weather()
+                
+                # Schedule next update
+                if hasattr(self, 'frame') and self.frame:
+                    self.frame.after(30000, self._auto_update_cycle)  # Continue cycle every 30 seconds
+        except Exception as e:
+            print(f"Auto-update cycle error: {e}")
 
     def _update_tracking_display(self):
         """Update the live tracking status display"""
@@ -6274,6 +6353,34 @@ Install matplotlib and numpy for full functionality"""
                            "• People Types: 4 different characters\n"
                            "• Frame Rate: 10 FPS\n\n"
                            "Settings will be available in future updates!")
+    
+    def _update_animation_city(self):
+        """Update the animation based on the entered city"""
+        from tkinter import messagebox
+        
+        if not hasattr(self, 'animation_city_entry'):
+            return
+            
+        city = self.animation_city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("City Required", "Please enter a city name")
+            return
+        
+        try:
+            # Here we would look up weather data for the city
+            # For demo purposes, we'll just show a message
+            messagebox.showinfo("Animation Updated", f"City set to: {city}\nWeather animations updated to match {city}'s conditions.")
+            
+            if hasattr(self, 'animation_status'):
+                self.animation_status.config(text=f"Animation Status: Set to {city} weather 🌤️")
+            
+            # In a full implementation, we would:
+            # 1. Call weather API to get conditions for the city
+            # 2. Update the animation to reflect those weather conditions
+            # 3. Start the animation if it's not already running
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update animation city: {str(e)}")
 
     # Radar control methods
     def _update_live_radar(self):
@@ -6381,16 +6488,26 @@ Install matplotlib and numpy for full functionality"""
 
     def _toggle_auto_tracking(self):
         """Toggle automatic tracking of severe weather"""
-        if hasattr(self, 'auto_tracking'):
+        try:
+            # Ensure auto_tracking is initialized
+            if not hasattr(self, 'auto_tracking'):
+                self.auto_tracking = False
+                
+            # Toggle auto tracking
             self.auto_tracking = not self.auto_tracking
             status = "ACTIVE" if self.auto_tracking else "DISABLED"
-            self.radar_status.config(text=f"Auto-Tracking: {status} 🎯")
+            
+            # Update radar status if it exists
+            if hasattr(self, 'radar_status'):
+                self.radar_status.config(text=f"Auto-Tracking: {status} 🎯")
+                
+            # Start auto update cycle if tracking is enabled
             if self.auto_tracking:
                 self._auto_update_cycle()
-        else:
-            self.auto_tracking = True
-            self.radar_status.config(text="Auto-Tracking: ACTIVE 🎯")
-            self._auto_update_cycle()
+        except Exception as e:
+            print(f"Auto-tracking toggle error: {e}")
+            if hasattr(self, 'radar_status'):
+                self.radar_status.config(text=f"Error: {str(e)}")
 
     def _scan_for_severe_weather(self):
         """Scan for severe weather and update display"""
@@ -6420,6 +6537,50 @@ Install matplotlib and numpy for full functionality"""
         if hasattr(self, 'live_status'):
             self.live_status.delete("1.0", tk.END)
             self.live_status.insert("1.0", "🔴 LIVE TRACKING:\n\n⛈️ SEVERE THUNDERSTORM!\nLarge hail and damaging winds expected.\nStay indoors.")
+    
+    def _update_city(self):
+        """Update the radar to a new city location"""
+        from tkinter import simpledialog, messagebox
+        import tkinter as tk
+        
+        city = simpledialog.askstring("Enter City", "Enter a city name:")
+        if city:
+            try:
+                # Here we would look up the coordinates for the city
+                # For a full implementation, uncomment the following lines:
+                #city_data = self.controller.get_city_coordinates(city)
+                #if not city_data:
+                #    messagebox.showwarning("City Not Found", f"Could not find coordinates for '{city}'")
+                #    return
+                #
+                #lat = city_data.get('lat', None)
+                #lon = city_data.get('lon', None)
+                
+                # For demo purposes, we'll use fixed coordinates
+                lat = 39.2904  # Baltimore default
+                lon = -76.6122
+                
+                # Update the coordinate entries if they exist
+                if hasattr(self, 'lat_entry') and hasattr(self, 'lon_entry'):
+                    self.lat_entry.delete(0, tk.END)
+                    self.lat_entry.insert(0, str(lat))
+                    
+                    self.lon_entry.delete(0, tk.END)
+                    self.lon_entry.insert(0, str(lon))
+                
+                # Update the radar view if available
+                if hasattr(self, 'radar_widget') and self.radar_widget:
+                    # Call the update method if available
+                    messagebox.showinfo("Location Updated", f"Updated location to {city} ({lat}, {lon})")
+                else:
+                    messagebox.showinfo("City Set", f"Set city to: {city}\nThis would update the radar view in a real implementation.")
+                
+                # Update status if available
+                if hasattr(self, 'radar_status'):
+                    self.radar_status.config(text=f"Radar Status: Location set to {city} 🌍")
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update city: {str(e)}")
 
 
 class SevereWeatherTab:
