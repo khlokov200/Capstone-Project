@@ -142,11 +142,10 @@ Professional dashboard with instant access to all major features:
 
 ---
 
-## 🛠️ **Technical Architecture**
-
 ## 🛠️ Technical Architecture
 
 ### **Clean Code Structure**
+### **Project Structure**
 ```
 Capstone-Project/
 ├── main.py                     # Application entry point
@@ -193,43 +192,6 @@ Capstone-Project/
 - **Extensibility**: Plugin-ready architecture for future enhancements
 - **Testing**: Comprehensive testing and validation
 - **Refactoring**: 39% code reduction through clean refactoring
-```
-Capstone-Project/
-├── main.py                     # Application entry point
-├── run_app.sh                  # Launch script for macOS/Linux
-├── run_app.bat                 # Launch script for Windows
-├── controllers/                # Business logic controllers
-│   ├── weather_controller.py   # Main business logic controller
-│   └── ml_controller.py        # Machine learning features
-├── ui/                         # User interface components
-│   ├── main_window.py          # Main application window
-│   ├── tabs.py                 # Individual tab components
-│   ├── tab_helpers.py          # Chart helpers and utilities
-│   └── components.py           # Reusable UI components
-├── services/                   # External services and API integration
-│   ├── live_weather_service.py # Real-time weather services
-│   └── weather_service.py      # API integration services
-├── models/                     # Data models and structures
-│   └── weather_models.py       # Data models and structures
-├── core/                       # Core application functionality
-│   ├── api.py                  # API handling
-│   ├── processor.py            # Data processing
-│   └── storage.py              # Data persistence
-├── data/                       # Data storage and configurations
-├── assets/                     # Application assets and resources
-│   └── images/                 # Images and diagrams
-├── tests/                      # Test files and test resources
-├── logs/                       # Log files and debug output
-├── docs/                       # Documentation files
-└── scripts/                    # Utility scripts for maintenance
-```
-
-### **Technology Stack**
-- **Frontend**: Python Tkinter with custom styling and components
-- **Charts**: matplotlib with professional chart generation
-- **Data**: CSV-based storage with export capabilities  
-- **API**: OpenWeatherMap integration with error handling
-- **Architecture**: MVC pattern with clean separation of concerns
 
 ### **Key Technical Features**
 - **Error Handling**: Comprehensive error management throughout
